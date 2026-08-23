@@ -1,0 +1,1 @@
+- [ ] Attribution for Google Earth tile data in public/school.glb (credit line or own capture) before going live on convent.lol

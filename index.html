@@ -3,45 +3,154 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#07080c" />
+<meta name="theme-color" content="#0a0d12" />
 <title>The School — 29 Nassau Avenue</title>
 <meta name="description" content="The School. 29 Nassau Avenue, Williamsburg, Brooklyn." />
 <style>
-  :root { --fg:#f2f2f4; --dim:#9a9da4; --line:#2a2d33; --bg:#07080c; }
+  :root {
+    --slate:#0a0d12; --chalk:#ece6da; --chalk-2:#9a948a;
+    --brass-hi:214,178,110;           /* the only accent */
+    --verd:18,61,56; --ox:66,23,28; --brass:107,84,41;   /* door tints, lifted from the ink shader */
+    --pad:18px; --ease:cubic-bezier(.2,.8,.2,1);
+    --kx:50%; --kb:0;                 /* key-light x (viewport %) and backlit scalar, set per frame */
+  }
   * { box-sizing:border-box; }
-  html,body { margin:0; height:100%; background:var(--bg); overflow:hidden; overscroll-behavior:none;
-    font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace; color:var(--fg);
+  html,body { margin:0; height:100%; background:var(--slate); overflow:hidden;
+    font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace; color:var(--chalk);
     -webkit-font-smoothing:antialiased; }
-  canvas { position:fixed; inset:0; display:block; touch-action:none; }
-  #bg { z-index:0; }
-  #c  { z-index:1; }
-  #brand { position:fixed; z-index:5; pointer-events:none;
-    top:calc(18px + env(safe-area-inset-top)); left:calc(18px + env(safe-area-inset-left));
-    text-shadow:0 2px 24px rgba(0,0,0,.85); }
-  #brand .kick { font-size:10px; letter-spacing:.34em; color:var(--dim); text-transform:uppercase; }
-  #brand .h { font-size:26px; letter-spacing:-.01em; margin-top:6px; line-height:1.1; }
-  #brand .sub { font-size:12px; color:var(--dim); margin-top:6px; }
-  #hint { position:fixed; z-index:5; pointer-events:none; color:#5f636b; font-size:10px; letter-spacing:.12em; text-transform:uppercase;
-    left:calc(18px + env(safe-area-inset-left)); bottom:calc(18px + env(safe-area-inset-bottom));
-    transition:opacity .8s; }
-  #hint.off { opacity:0; }
-  @media (min-width:720px) {
-    #brand { top:26px; left:30px; }
+
+  /* one full-bleed canvas: ink field + building + grade, one image */
+  #c { position:fixed; inset:0; width:100%; height:100%; z-index:0; display:block; pointer-events:none; }
+
+  /* one-screen layout: header / stage (layout rect only) / text / doors */
+  #page { position:relative; z-index:1; height:100dvh; height:var(--vh, 100dvh); display:grid;
+    grid-template-rows:auto minmax(0,1fr) auto auto;
+    padding:calc(var(--pad) + env(safe-area-inset-top)) calc(var(--pad) + env(safe-area-inset-right))
+            calc(var(--pad) + env(safe-area-inset-bottom)) calc(var(--pad) + env(safe-area-inset-left)); }
+
+  #brand { position:relative; padding-bottom:12px; text-shadow:0 1px 0 rgba(0,0,0,.6), 0 2px 24px rgba(0,0,0,.85); }
+  #brand .kick { font-size:10px; letter-spacing:.38em; color:var(--chalk-2); text-transform:uppercase; }
+  #brand .h { font-size:26px; letter-spacing:.02em; margin-top:6px; line-height:1.1; }
+  #brand .sub { display:flex; gap:0 16px; align-items:baseline; font-size:12px; color:var(--chalk-2); margin-top:6px; }
+  #brand .sub .addr { color:rgba(var(--brass-hi),.85); }
+  #brand .sub .time { margin-left:auto; font-variant-numeric:tabular-nums; font-size:11px; letter-spacing:.12em; color:var(--chalk-2); }
+  #brand::after { content:""; position:absolute; left:0; right:0; bottom:0; height:1px;
+    background:linear-gradient(90deg, rgba(var(--brass-hi),.55), rgba(var(--brass-hi),.12) 60%, transparent); }
+
+  #stage { position:relative; min-height:0; }
+
+  #copy { max-width:560px; padding:10px 0 2px; }
+  #copy p { margin:0; font-size:13.5px; line-height:1.65; letter-spacing:.005em; color:#c4c0b6;
+    text-wrap:pretty; text-shadow:0 1px 12px rgba(0,0,0,.6); }
+  #copy p::first-line { color:var(--chalk); }
+
+  /* ---- the four doors ---------------------------------------------------------- */
+  #links { display:grid; gap:8px; grid-template-columns:1fr; margin-top:12px; }
+  .door { position:relative; display:grid; grid-template-columns:20px 1fr auto; align-items:center; gap:14px;
+    min-height:52px; padding:13px 16px 13px 15px; color:var(--chalk); text-decoration:none;
+    border-radius:10px; overflow:hidden; isolation:isolate; -webkit-tap-highlight-color:transparent;
+    background:linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.04)),
+               linear-gradient(180deg, rgba(var(--tint),.22), rgba(var(--tint),.08));
+    -webkit-backdrop-filter:blur(16px) saturate(150%); backdrop-filter:blur(16px) saturate(150%);
+    box-shadow:0 14px 34px -10px rgba(0,0,0,.6), 0 1px 0 rgba(255,255,255,.05);
+    transition:transform .4s var(--ease), box-shadow .4s var(--ease), border-color .4s; }
+  /* rim: 1px white, top-lit, with the key light's specular travelling along the crown */
+  .door::before { content:""; position:absolute; inset:0; border-radius:inherit; padding:1px; pointer-events:none;
+    background:
+      radial-gradient(220px 3px at var(--kx) 0, rgba(255,246,228,calc(.45 + .5*var(--kb))), transparent 70%),
+      linear-gradient(180deg, rgba(255,255,255,.26), rgba(255,255,255,.07) 45%, rgba(255,255,255,.12));
+    -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+            mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor; mask-composite:exclude; }
+  /* sill: the one warm line */
+  .door::after { content:""; position:absolute; left:10px; right:10px; bottom:0; height:1px; pointer-events:none;
+    background:linear-gradient(90deg, transparent, rgba(var(--brass-hi), var(--sill,.45)), transparent); }
+  .door.space { --tint:var(--verd); }
+  .door.tech  { --tint:var(--brass); }
+  .door.art   { --tint:var(--ox); }
+  .door.join  { --tint:255,255,255; --sill:.85;
+    background:linear-gradient(180deg, rgba(255,255,255,.18), rgba(255,255,255,.08));
+    box-shadow:0 14px 34px -10px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.06), 0 1px 0 rgba(255,255,255,.08); }
+  .door .mark { width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:1; stroke-linecap:square;
+    color:rgba(var(--brass-hi),.85); filter:drop-shadow(0 1px 0 rgba(0,0,0,.6)); }
+  .door.join .mark { color:var(--chalk); stroke-width:1.25; }
+  .door .label { font-size:15px; letter-spacing:-.005em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    text-shadow:0 1px 0 rgba(0,0,0,.5), 0 -1px 0 rgba(255,255,255,.04); }
+  .door.join .label { font-weight:600; letter-spacing:0; }
+  .door .cue { font-size:14px; color:var(--chalk-2); opacity:.55; transform:translateX(-4px);
+    transition:transform .4s var(--ease), opacity .4s, color .4s; }
+  .door.join .cue { color:rgba(var(--brass-hi),.9); opacity:.8; transform:none; font-size:16px; }
+  @media (hover:hover) {
+    .door:hover { transform:translateY(-1px); box-shadow:0 18px 40px -12px rgba(0,0,0,.65), 0 1px 0 rgba(255,255,255,.07); }
+    .door:hover::before { filter:brightness(1.5); }
+    .door:hover .cue { transform:none; opacity:1; color:var(--chalk); }
+    .door:hover .mark { color:rgba(var(--brass-hi),1); }
+    .door.join:hover { --sill:1; }
+  }
+  .door:active { transform:translateY(0) scale(.995); transition-duration:.08s; }
+  .door:focus-visible { outline:none;
+    box-shadow:0 0 0 2px var(--slate), 0 0 0 3px rgba(var(--brass-hi),.9), 0 14px 34px -10px rgba(0,0,0,.6); }
+
+  /* load choreography */
+  .in { opacity:0; transform:translateY(6px); transition:opacity .6s var(--ease), transform .6s var(--ease); }
+  .in.on { opacity:1; transform:none; }
+
+  @media (min-width:640px) {
+    :root { --pad:30px; }
     #brand .kick { font-size:11px; }
     #brand .h { font-size:28px; }
-    #hint { left:30px; bottom:22px; }
+    #copy p { font-size:14.5px; max-width:58ch; }
+    #links { grid-template-columns:1fr 1fr; gap:10px; max-width:900px; }
+    .door { min-height:60px; padding:17px 20px 17px 18px; }
+    .door .label { font-size:16px; }
+  }
+  @media (max-height:520px) {
+    #brand .h { font-size:20px; }
+    #copy { display:none; }
+    .door { min-height:42px; padding:9px 14px; }
+  }
+  @media (prefers-reduced-motion:reduce) {
+    .door, .door::before, .door .cue, .door .mark, .in { transition:none; }
+    .door:hover { transform:none; }
   }
 </style>
 </head>
 <body>
-<canvas id="bg"></canvas>
 <canvas id="c"></canvas>
-<div id="brand">
-  <div class="kick">Williamsburg · Brooklyn</div>
-  <div class="h">THE SCHOOL</div>
-  <div class="sub">29 Nassau Avenue</div>
+<div id="page">
+  <header id="brand" class="in">
+    <div class="kick">Williamsburg · Brooklyn</div>
+    <div class="h">THE SCHOOL</div>
+    <div class="sub"><span class="addr">29 Nassau Avenue</span><span class="time" id="clock" aria-label="Local time in Brooklyn"></span></div>
+  </header>
+
+  <div id="stage"></div>
+
+  <section id="copy" class="in">
+    <!-- PLACEHOLDER: Dan's copy goes here -->
+    <p>Text coming.</p>
+  </section>
+
+  <nav id="links" aria-label="Sections">
+    <!-- hrefs are placeholders -->
+    <a class="door space in" href="#">
+      <svg class="mark" viewBox="0 0 20 20" aria-hidden="true"><rect x="3.5" y="3.5" width="13" height="13"/><path d="M16.5 8 H13 V12 H16.5"/></svg>
+      <span class="label">The Space</span><span class="cue" aria-hidden="true">→</span>
+    </a>
+    <a class="door tech in" href="#">
+      <svg class="mark" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="8.5" r="5.5"/><path d="M4.5 8.5 H15.5"/><circle cx="10" cy="16.5" r="1" fill="currentColor" stroke="none"/></svg>
+      <span class="label">Technology Philanthropy</span><span class="cue" aria-hidden="true">→</span>
+    </a>
+    <a class="door art in" href="#">
+      <svg class="mark" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="5.5"/><path d="M3 17 L17 3"/></svg>
+      <span class="label">Art Philanthropy</span><span class="cue" aria-hidden="true">→</span>
+    </a>
+    <a class="door join in" href="#">
+      <svg class="mark" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4 V16 M4 10 H16"/></svg>
+      <span class="label">Join The Neighborhood</span><span class="cue" aria-hidden="true">+</span>
+    </a>
+  </nav>
 </div>
-<div id="hint">drag to look around</div>
 
 <script type="importmap">
 { "imports": {
@@ -51,25 +160,56 @@
 </script>
 <script type="module">
 import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { GLTFLoader }      from 'three/addons/loaders/GLTFLoader.js';
+import { EffectComposer }  from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass }      from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
+import { OutputPass }      from 'three/addons/postprocessing/OutputPass.js';
+import { HorizontalBlurShader } from 'three/addons/shaders/HorizontalBlurShader.js';
+import { VerticalBlurShader }   from 'three/addons/shaders/VerticalBlurShader.js';
 
-const isMobile = matchMedia('(max-width: 719px), (pointer: coarse)').matches;
-const DPR = Math.min(devicePixelRatio, isMobile ? 1.5 : 2);
+// size the page from the real viewport height: 100dvh drifts under browser zoom / devtools emulation
+const setVH = () => document.documentElement.style.setProperty('--vh', innerHeight + 'px');
+setVH(); addEventListener('resize', setVH); visualViewport?.addEventListener('resize', setVH);
 
-// ---------- background: slow ink field ----------------------------------------------
-const bgCanvas = document.getElementById('bg');
-const bgRenderer = new THREE.WebGLRenderer({ canvas: bgCanvas, antialias: false, alpha: false });
-bgRenderer.setPixelRatio(Math.min(DPR, 1));
-bgRenderer.setSize(innerWidth, innerHeight);
-const bgScene = new THREE.Scene();
-const bgCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
-const bgMat = new THREE.ShaderMaterial({
-  uniforms: { uTime: { value: 0 }, uRes: { value: new THREE.Vector2(innerWidth, innerHeight) } },
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const COARSE  = matchMedia('(pointer: coarse)').matches;
+const LOW     = COARSE || devicePixelRatio < 1.5 || (navigator.hardwareConcurrency || 8) <= 4;
+const DPR     = Math.min(devicePixelRatio, LOW ? 1.5 : 2);
+const ease    = (t) => 1 - Math.pow(1 - Math.min(1, Math.max(0, t)), 3);
+
+// ---- clock (Brooklyn local) ---------------------------------------------------------
+{
+  const el = document.getElementById('clock');
+  const fmt = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hour12: false, timeZoneName: 'short' });
+  (function tick() { el.textContent = fmt.format(new Date()).replace(',', ''); setTimeout(tick, 1000 * (61 - new Date().getSeconds())); })();
+}
+
+// ---- renderer, one image ------------------------------------------------------------
+const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('c'), antialias: !LOW, powerPreference: 'high-performance' });
+renderer.setPixelRatio(DPR);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+const EXPOSURE = 0.9;
+let exposureNow = REDUCED ? EXPOSURE : 0.45;
+renderer.toneMappingExposure = exposureNow;
+
+// the one light: world direction TO the light (high, upper-left, a little in front)
+const KEY = new THREE.Vector3(-0.55, 0.72, 0.42).normalize();
+const light = { key: REDUCED ? 1 : 0, bl: 0 };
+
+// ---- ink field -> half-res render target -> scene background ----------------------
+const INK_SCALE = LOW ? 0.35 : 0.5;
+const inkRT  = new THREE.WebGLRenderTarget(2, 2, { depthBuffer: false, type: THREE.HalfFloatType });
+const inkCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+const inkScene = new THREE.Scene();
+const inkMat = new THREE.ShaderMaterial({
+  uniforms: { uTime: { value: 0 }, uRes: { value: new THREE.Vector2(2, 2) }, uLight: { value: new THREE.Vector2(-0.45, 0.35) }, uBack: { value: 0 }, uGain: { value: 0.47 } },
   vertexShader: `void main(){ gl_Position = vec4(position, 1.0); }`,
   fragmentShader: `
     precision highp float;
-    uniform float uTime; uniform vec2 uRes;
+    uniform float uTime, uBack, uGain; uniform vec2 uRes, uLight;
     vec3 hash3(vec2 p){ vec3 q = vec3(dot(p,vec2(127.1,311.7)), dot(p,vec2(269.5,183.3)), dot(p,vec2(419.2,371.9))); return fract(sin(q)*43758.5453); }
     float noise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f);
       float a = hash3(i).x, b = hash3(i+vec2(1,0)).x, c = hash3(i+vec2(0,1)).x, d = hash3(i+vec2(1,1)).x;
@@ -77,99 +217,243 @@ const bgMat = new THREE.ShaderMaterial({
     float fbm(vec2 p){ float v = 0.0, a = 0.5; mat2 m = mat2(0.8,0.6,-0.6,0.8);
       for (int i = 0; i < 5; i++){ v += a*noise(p); p = m*p*2.0 + 10.0; a *= 0.5; } return v; }
     void main(){
-      vec2 uv = gl_FragCoord.xy / uRes.xy;
       vec2 p = (gl_FragCoord.xy - 0.5*uRes.xy) / min(uRes.x, uRes.y);
-      float t = uTime * 0.035;
-      // domain-warped ink
+      float t = uTime * 0.022;
+      vec2 toL = p - uLight;
+      float lobe = exp(-2.2 * length(toL));
+      float core = exp(-9.0 * length(toL));
       vec2 q = vec2(fbm(p*1.6 + t), fbm(p*1.6 - t*0.7 + 4.1));
       vec2 r = vec2(fbm(p*1.6 + 2.4*q + vec2(1.7,9.2) + t*0.5), fbm(p*1.6 + 2.4*q + vec2(8.3,2.8) - t*0.3));
+      r -= 0.28 * lobe * normalize(toL + 1e-4);            // ink streams toward the key
       float f = fbm(p*1.6 + 2.0*r);
-      // palette: deep ink -> oxblood -> verdigris, all kept dark
-      vec3 ink   = vec3(0.027,0.031,0.047);
-      vec3 ox    = vec3(0.26,0.09,0.11);
-      vec3 verd  = vec3(0.07,0.24,0.22);
-      vec3 brass = vec3(0.42,0.33,0.16);
-      vec3 col = mix(ink, ox, smoothstep(0.35,0.75,f));
-      col = mix(col, verd, smoothstep(0.3,0.8,length(q)));
-      col = mix(col, brass, smoothstep(0.55,0.95,r.x*r.y) * 0.55);
-      col *= 0.75 + 0.7*f;
-      // vignette toward the edges, keep the centre open for the model
-      float vig = smoothstep(1.35, 0.35, length(p*vec2(1.0,1.25)));
-      col *= mix(0.45, 1.0, vig);
-      // grain
-      float g = fract(sin(dot(gl_FragCoord.xy + uTime*60.0, vec2(12.9898,78.233))) * 43758.5453);
-      col += (g - 0.5) * 0.035;
-      gl_FragColor = vec4(col, 1.0);
+      vec3 ink   = vec3(0.039,0.051,0.071);
+      vec3 ox    = vec3(0.24,0.08,0.10);
+      vec3 verd  = vec3(0.09,0.28,0.25);
+      vec3 brass = vec3(0.55,0.42,0.20);
+      vec3 col = mix(ink, ox,  smoothstep(0.50,0.85,f) * 0.75);
+      col = mix(col, verd,     smoothstep(0.40,0.85,length(q)) * 0.7);
+      col = mix(col, brass,    pow(smoothstep(0.60,0.96, r.x*r.y), 1.6) * 0.7);
+      col *= 0.6 + 0.9*f;
+      vec3 keyCol = vec3(0.62, 0.50, 0.30);
+      col += keyCol * lobe * (0.22 + 0.30 * uBack) * (0.6 + 0.8 * f);
+      col += keyCol * core * (0.35 + 1.40 * uBack);          // HDR at the peak: bloom catches it behind the silhouette
+      col *= mix(0.78, 1.04, smoothstep(-0.55, 0.45, p.y));  // horizon: darker below
+      gl_FragColor = vec4(col * uGain, 1.0);
     }`
 });
-bgScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), bgMat));
-
-// ---------- model ---------------------------------------------------------------------
-const canvas = document.getElementById('c');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-renderer.setPixelRatio(DPR);
-renderer.setSize(innerWidth, innerHeight);
-renderer.setClearColor(0x000000, 0);
+inkScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), inkMat));
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 5000);
+scene.background = inkRT.texture;
+const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 5000);
 
-const controls = new OrbitControls(camera, canvas);
-controls.enableDamping = true; controls.dampingFactor = 0.08;
-controls.autoRotate = true; controls.autoRotateSpeed = 0.5;
-controls.enablePan = false; controls.zoomToCursor = false; controls.zoomSpeed = 0.8;
-controls.maxPolarAngle = Math.PI * 0.48; // never below the ground plane
+// ---- post: bloom -> tonemap -> grade (vignette + grain), once for the whole frame ----
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.22, 0.55, 0.90);
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
+const grade = new ShaderPass({
+  uniforms: { tDiffuse: { value: null }, uTime: { value: 0 }, uCA: { value: LOW ? 0.0 : 0.0012 } },
+  vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+  fragmentShader: `
+    uniform sampler2D tDiffuse; uniform float uTime, uCA; varying vec2 vUv;
+    float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453); }
+    void main(){
+      vec2 d = vUv - 0.5; float r2 = dot(d,d);
+      vec3 c = vec3( texture2D(tDiffuse, vUv + d*uCA*r2*4.0).r, texture2D(tDiffuse, vUv).g, texture2D(tDiffuse, vUv - d*uCA*r2*4.0).b );
+      float vig = smoothstep(0.95, 0.25, length(d * vec2(1.0, 1.25)));
+      c *= mix(0.42, 1.0, vig);
+      float g = hash(gl_FragCoord.xy + fract(uTime*7.0)*97.0) - 0.5;
+      float lum = dot(c, vec3(0.2126, 0.7152, 0.0722));
+      c += g * mix(0.045, 0.012, smoothstep(0.0, 0.6, lum));
+      gl_FragColor = vec4(c, 1.0);
+    }`
+});
+composer.addPass(grade);
 
-const hint = document.getElementById('hint');
-['pointerdown', 'wheel', 'touchstart'].forEach(ev => canvas.addEventListener(ev, () => { controls.autoRotate = false; hint.classList.add('off'); }, { passive: true }));
-// resume the slow spin after the user lets go for a while
-let idle; ['pointerup', 'touchend'].forEach(ev => canvas.addEventListener(ev, () => { clearTimeout(idle); idle = setTimeout(() => { controls.autoRotate = true; }, 6000); }, { passive: true }));
+// ---- lit material for baked photogrammetry: keep the scan, modulate it with the key ---
+const litMaterials = [];
+const bakedLit = (map) => {
+  const m = new THREE.ShaderMaterial({
+    side: THREE.DoubleSide,
+    uniforms: { map: { value: map }, uKeyV: { value: new THREE.Vector3() }, uKey: { value: 0 }, uRim: { value: 0 },
+                uCenter: { value: new THREE.Vector3() }, uRadius: { value: 1e6 }, uFloor: { value: -1e6 } },
+    vertexShader: `
+      varying vec2 vUv; varying vec3 vN, vV, vW;
+      void main(){ vUv = uv; vN = normalize(normalMatrix * normal);
+        vW = (modelMatrix * vec4(position,1.0)).xyz;
+        vec4 mv = modelViewMatrix * vec4(position,1.0); vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }`,
+    fragmentShader: `
+      uniform sampler2D map; uniform vec3 uKeyV, uCenter; uniform float uKey, uRim, uRadius, uFloor;
+      varying vec2 vUv; varying vec3 vN, vV, vW;
+      void main(){
+        // island: keep only what sits inside the disc and above the street
+        if (distance(vW.xz, uCenter.xz) > uRadius || vW.y < uFloor) discard;
+        vec3 base = texture2D(map, vUv).rgb;                       // sRGB texture decoded to linear by the GPU
+        vec3 N = normalize(gl_FrontFacing ? vN : -vN);
+        float wrap = dot(N, uKeyV) * 0.5 + 0.5;                    // wrapped lambert: never a black side
+        float key = mix(0.82, mix(0.70, 1.25, wrap), uKey);
+        float fres = pow(1.0 - max(dot(N, vV), 0.0), 3.0);
+        vec3 rim = vec3(1.0, 0.92, 0.78) * fres * uRim;            // brass-white, crosses the bloom threshold at the peak
+        gl_FragColor = vec4(base * key + rim, 1.0);
+      }`
+  });
+  litMaterials.push(m); return m;
+};
 
-const HOME = { pos: new THREE.Vector3(), tgt: new THREE.Vector3() };
-let radius = 60;
-function frame() {
-  // distance that fits the bounding sphere in the narrower viewport dimension
+// ---- stage framing: the stage rect is the fitted frame; the canvas is the wider plate --
+const stage = document.getElementById('stage');
+const orbit = { angle: Math.PI / 4, elev: 0.62, dist: 100, speed: REDUCED ? 0 : 0.09 };
+const TARGET = new THREE.Vector3();
+const ext = { h: 40, v: 10 };
+const ISLAND_R = 23;   // world units; the school is ~30 long
+let radius = 60, loaded = false, shadowPlane = null;
+
+function placeCamera() {
+  camera.position.set(TARGET.x + Math.cos(orbit.angle) * orbit.dist, TARGET.y + orbit.elev * orbit.dist, TARGET.z + Math.sin(orbit.angle) * orbit.dist);
+  camera.lookAt(TARGET);
+}
+function fit() {
+  const W = innerWidth, H = innerHeight, r = stage.getBoundingClientRect();
+  const sw = Math.max(1, r.width), sh = Math.max(1, r.height);
+  renderer.setSize(W, H, false); composer.setSize(W, H);
+  inkRT.setSize(Math.max(2, Math.round(W * INK_SCALE)), Math.max(2, Math.round(H * INK_SCALE)));
+  inkMat.uniforms.uRes.value.set(inkRT.width, inkRT.height);
+  bloom.setSize(W / (LOW ? 4 : 2), H / (LOW ? 4 : 2));
+  camera.aspect = sw / sh;
   const vfov = THREE.MathUtils.degToRad(camera.fov);
   const hfov = 2 * Math.atan(Math.tan(vfov / 2) * camera.aspect);
-  const fit = Math.min(vfov, hfov);
-  const dist = (radius * (isMobile ? 0.55 : 0.85)) / Math.sin(fit / 2);
-  const dir = new THREE.Vector3(1, 0.55, 1).normalize();
-  HOME.pos.copy(HOME.tgt).addScaledVector(dir, dist);
-  camera.position.copy(HOME.pos);
-  controls.target.copy(HOME.tgt);
-  controls.minDistance = dist * 0.45; controls.maxDistance = dist * 2.2;
+  const tilt = Math.atan(orbit.elev);
+  const needH = ext.h * 0.93;
+  const needV = (ext.v * Math.cos(tilt) + ext.h * Math.sin(tilt)) * 1.14;
+  orbit.dist = Math.max(needH / Math.tan(hfov / 2), needV / Math.tan(vfov / 2)) + ext.h * 0.12;
   camera.near = Math.max(0.5, radius * 0.02); camera.far = radius * 60;
-  camera.updateProjectionMatrix(); controls.update();
+  camera.setViewOffset(sw, sh, -r.left, -r.top, W, H);
+  camera.updateProjectionMatrix();
+  placeCamera();
+}
+
+// contact shadow: the building never moves, so render its depth from below once and blur it
+function bakeContactShadow(model, box) {
+  const size = ext.h * 2.1, res = LOW ? 256 : 512;
+  const rtA = new THREE.WebGLRenderTarget(res, res), rtB = new THREE.WebGLRenderTarget(res, res);
+  const cam = new THREE.OrthographicCamera(-size / 2, size / 2, size / 2, -size / 2, 0, ext.v * 2.2);
+  cam.rotation.x = Math.PI / 2; cam.position.set(TARGET.x, box.min.y, TARGET.z);
+  const depthMat = new THREE.MeshDepthMaterial({ depthTest: false, depthWrite: false });
+  depthMat.onBeforeCompile = (s) => {
+    s.fragmentShader = s.fragmentShader.replace('gl_FragColor = vec4( vec3( 1.0 - fragCoordZ ), opacity );', 'gl_FragColor = vec4( vec3( 0.0 ), ( 1.0 - fragCoordZ ) );');
+  };
+  const prevBg = scene.background; scene.background = null; scene.overrideMaterial = depthMat;
+  renderer.setClearColor(0x000000, 0);
+  renderer.setRenderTarget(rtA); renderer.clear(); renderer.render(scene, cam);
+  scene.overrideMaterial = null; scene.background = prevBg;
+  const blurScene = new THREE.Scene(), blurCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  const hb = new THREE.ShaderMaterial(HorizontalBlurShader), vb = new THREE.ShaderMaterial(VerticalBlurShader);
+  const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), hb); blurScene.add(quad);
+  for (const amt of [3.5, 1.2]) {
+    hb.uniforms.tDiffuse.value = rtA.texture; hb.uniforms.h.value = amt / res; quad.material = hb;
+    renderer.setRenderTarget(rtB); renderer.render(blurScene, blurCam);
+    vb.uniforms.tDiffuse.value = rtB.texture; vb.uniforms.v.value = amt / res; quad.material = vb;
+    renderer.setRenderTarget(rtA); renderer.render(blurScene, blurCam);
+  }
+  renderer.setRenderTarget(null);
+  // disc, not square: clipped-away geometry still renders into the depth pass, so confine the shadow to the plinth
+  const disc = new THREE.CircleGeometry(ext.h * 0.985, 96);
+  const uv = disc.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, 0.5 + (uv.getX(i) - 0.5) * (ext.h * 1.97 / size), 0.5 + (uv.getY(i) - 0.5) * (ext.h * 1.97 / size));
+  const plane = new THREE.Mesh(disc, new THREE.MeshBasicMaterial({ map: rtA.texture, transparent: true, opacity: 0, depthWrite: false }));
+  plane.rotation.x = -Math.PI / 2;
+  plane.position.set(TARGET.x, box.min.y + 0.02, TARGET.z);
+  scene.add(plane); return plane;
 }
 
 new GLTFLoader().load('public/school.glb', (gltf) => {
   const model = gltf.scene;
-  model.traverse((o) => { if (o.isMesh) { o.material.side = THREE.DoubleSide; o.frustumCulled = false; } });
+  model.traverse((o) => { if (o.isMesh) { o.frustumCulled = false; if (!o.geometry.attributes.normal) o.geometry.computeVertexNormals(); o.material = bakedLit(o.material.map); } });
   scene.add(model);
   const box = new THREE.Box3().setFromObject(model);
-  const sphere = box.getBoundingSphere(new THREE.Sphere());
-  radius = sphere.radius;
-  HOME.tgt.copy(sphere.center);
-  HOME.tgt.y = box.min.y + (box.max.y - box.min.y) * 0.5;
-  frame();
-  window.__loaded = true;
+  const size = box.getSize(new THREE.Vector3());
+  // street level = the most common low height; the island centre = centroid of everything well above it
+  const FLOOR = box.min.y + size.y * 0.04;
+  const c = new THREE.Vector3(); let n = 0; const v = new THREE.Vector3();
+  model.traverse((o) => { if (!o.isMesh) return; const p = o.geometry.attributes.position;
+    for (let i = 0; i < p.count; i += 3) { v.fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld); if (v.y > FLOOR + size.y * 0.6) { c.add(v); n++; } } });
+  if (n) c.divideScalar(n); else box.getCenter(c);
+  const R = ISLAND_R;
+  TARGET.set(c.x, FLOOR + (box.max.y - FLOOR) * 0.42, c.z);
+  radius = Math.hypot(R, box.max.y - FLOOR);
+  ext.h = R; ext.v = (box.max.y - FLOOR) / 2;
+  for (const m of litMaterials) { m.uniforms.uCenter.value.copy(TARGET); m.uniforms.uRadius.value = R; m.uniforms.uFloor.value = FLOOR - 0.3; }
+  // plinth: a slate disc the island sits on, darker toward the rim
+  const plinth = new THREE.Mesh(new THREE.CircleGeometry(R * 1.02, 96), new THREE.ShaderMaterial({
+    uniforms: { uKeyV: { value: new THREE.Vector3() } }, transparent: true, depthWrite: false,
+    vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+    fragmentShader: `varying vec2 vUv; void main(){ float d = length(vUv - 0.5) * 2.0;
+      vec3 col = mix(vec3(0.17,0.185,0.21), vec3(0.085,0.095,0.115), smoothstep(0.15, 1.0, d));
+      float rim = smoothstep(0.995, 0.975, d);                            // crisp edge
+      gl_FragColor = vec4(col, rim); }` }));
+  plinth.rotation.x = -Math.PI / 2; plinth.position.set(c.x, FLOOR - 0.35, c.z);
+  scene.add(plinth);
+  fit();
+  box.min.y = FLOOR;
+  shadowPlane = bakeContactShadow(model, box);
+  loaded = true; window.__loaded = true;
+  choreograph();
 }, undefined, (e) => { console.error('load error', e); window.__error = String(e); });
 
-addEventListener('resize', () => {
-  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
-  renderer.setSize(innerWidth, innerHeight);
-  bgRenderer.setSize(innerWidth, innerHeight);
-  bgMat.uniforms.uRes.value.set(innerWidth, innerHeight);
-  if (window.__loaded) frame();
-});
+new ResizeObserver(() => { if (loaded) fit(); }).observe(stage);
+addEventListener('resize', () => { if (loaded) fit(); });
 
+// ---- one light, read by everything, every frame ------------------------------------
+const keyV = new THREE.Vector3(), proj = new THREE.Vector3();
+const root = document.documentElement;
+function updateLight() {
+  keyV.copy(KEY).transformDirection(camera.matrixWorldInverse);
+  const bl = THREE.MathUtils.smoothstep(-keyV.z, 0.15, 0.95);       // 1 when the light is behind the building
+  light.bl = bl;
+  const rim = (0.30 + 1.15 * bl * bl) * light.key;
+  for (const m of litMaterials) { m.uniforms.uKeyV.value.copy(keyV); m.uniforms.uKey.value = light.key; m.uniforms.uRim.value = rim; }
+  bloom.strength = 0.22 + 0.18 * bl * bl;
+  renderer.toneMappingExposure = exposureNow * (1.0 + 0.08 * bl * bl * bl);
+  proj.copy(TARGET).addScaledVector(KEY, 1e4).project(camera);
+  const W = innerWidth, H = innerHeight, m = Math.min(W, H);
+  inkMat.uniforms.uLight.value.set(proj.x * W / m * 0.5, proj.y * H / m * 0.5);
+  inkMat.uniforms.uBack.value = bl * light.key;
+  root.style.setProperty('--kx', ((proj.x * 0.5 + 0.5) * 100).toFixed(1) + '%');
+  root.style.setProperty('--kb', (bl * light.key).toFixed(3));
+  if (shadowPlane) shadowPlane.material.opacity = 0.5 * light.key;
+}
+
+// ---- load choreography --------------------------------------------------------------
+const tweens = [];
+const tween = (ms, fn, delay = 0) => tweens.push({ t0: performance.now() + delay, ms, fn });
+function runTweens(now) {
+  for (let i = tweens.length - 1; i >= 0; i--) {
+    const tw = tweens[i]; if (now < tw.t0) continue;
+    const k = ease((now - tw.t0) / tw.ms); tw.fn(k); if (k >= 1) tweens.splice(i, 1);
+  }
+}
+const show = (sel, delay) => setTimeout(() => document.querySelectorAll(sel).forEach(el => el.classList.add('on')), delay);
+show('#brand', 0);
+function choreograph() {
+  if (REDUCED) { exposureNow = EXPOSURE; light.key = 1; show('.in', 0); return; }
+  tween(1200, k => { exposureNow = 0.45 + (EXPOSURE - 0.45) * k; light.key = k; }, 200);
+  show('#copy', 600);
+  ['space', 'tech', 'art', 'join'].forEach((c, i) => show(`.door.${c}`, 750 + i * 80));
+}
+// if the model is slow, don't hold the text hostage
+setTimeout(() => { if (!loaded) show('#copy, .door', 0); }, 2200);
+
+// ---- loop ---------------------------------------------------------------------------
 const clock = new THREE.Clock();
 (function loop() {
   requestAnimationFrame(loop);
-  bgMat.uniforms.uTime.value = clock.getElapsedTime();
-  bgRenderer.render(bgScene, bgCam);
-  controls.update();
-  renderer.render(scene, camera);
+  const dt = Math.min(clock.getDelta(), 0.1), t = clock.elapsedTime;
+  runTweens(performance.now());
+  inkMat.uniforms.uTime.value = REDUCED ? 10 : t; grade.uniforms.uTime.value = t;
+  if (loaded) { orbit.angle += orbit.speed * dt; placeCamera(); camera.updateMatrixWorld(); updateLight(); }
+  renderer.setRenderTarget(inkRT); renderer.render(inkScene, inkCam); renderer.setRenderTarget(null);
+  composer.render();
 })();
 </script>
 </body>
