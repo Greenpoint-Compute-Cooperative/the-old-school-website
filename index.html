@@ -304,7 +304,8 @@ const bakedLit = (map) => {
 
 // ---- stage framing: the stage rect is the fitted frame; the canvas is the wider plate --
 const stage = document.getElementById('stage');
-const orbit = { angle: Math.PI / 4, elev: 0.62, dist: 100, speed: REDUCED ? 0 : 0.09 };
+const FRONT = Math.PI / 4;
+const orbit = { angle: FRONT - 0.35, elev: 0.62, dist: 100, speed: REDUCED ? 0 : 0.07 };
 const TARGET = new THREE.Vector3();
 const ext = { h: 40, v: 10 };
 const ISLAND_R = 23;   // world units; the school is ~30 long
@@ -451,7 +452,15 @@ const clock = new THREE.Clock();
   const dt = Math.min(clock.getDelta(), 0.1), t = clock.elapsedTime;
   runTweens(performance.now());
   inkMat.uniforms.uTime.value = REDUCED ? 10 : t; grade.uniforms.uTime.value = t;
-  if (loaded) { orbit.angle += orbit.speed * dt; placeCamera(); camera.updateMatrixWorld(); updateLight(); }
+  if (loaded) {
+    // linger only within ~±30° of the facade (gaussian slow zone), otherwise hurry
+    const d = Math.atan2(Math.sin(orbit.angle - FRONT), Math.cos(orbit.angle - FRONT));   // signed angle to front, -π..π
+    // plateau: slow from ~125° before the facade to ~20° after it; fast only across the back arc
+    const ss = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+    const front = ss(-2.6, -2.0, d) * (1 - ss(0.25, 0.75, d));
+    const speed = 1.5 - (1.5 - orbit.speed) * front;                // 0.07 rad/s at the facade, 1.5 rad/s round the back
+    orbit.angle += speed * dt; placeCamera(); camera.updateMatrixWorld(); updateLight();
+  }
   renderer.setRenderTarget(inkRT); renderer.render(inkScene, inkCam); renderer.setRenderTarget(null);
   composer.render();
 })();
