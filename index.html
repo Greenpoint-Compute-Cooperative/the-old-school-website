@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#07080c" />
+<title>The School — 29 Nassau Avenue</title>
+<meta name="description" content="The School. 29 Nassau Avenue, Williamsburg, Brooklyn." />
+<style>
+  :root { --fg:#f2f2f4; --dim:#9a9da4; --line:#2a2d33; --bg:#07080c; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; height:100%; background:var(--bg); overflow:hidden; overscroll-behavior:none;
+    font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace; color:var(--fg);
+    -webkit-font-smoothing:antialiased; }
+  canvas { position:fixed; inset:0; display:block; touch-action:none; }
+  #bg { z-index:0; }
+  #c  { z-index:1; }
+  #brand { position:fixed; z-index:5; pointer-events:none;
+    top:calc(18px + env(safe-area-inset-top)); left:calc(18px + env(safe-area-inset-left));
+    text-shadow:0 2px 24px rgba(0,0,0,.85); }
+  #brand .kick { font-size:10px; letter-spacing:.34em; color:var(--dim); text-transform:uppercase; }
+  #brand .h { font-size:26px; letter-spacing:-.01em; margin-top:6px; line-height:1.1; }
+  #brand .sub { font-size:12px; color:var(--dim); margin-top:6px; }
+  #hint { position:fixed; z-index:5; pointer-events:none; color:#5f636b; font-size:10px; letter-spacing:.12em; text-transform:uppercase;
+    left:calc(18px + env(safe-area-inset-left)); bottom:calc(18px + env(safe-area-inset-bottom));
+    transition:opacity .8s; }
+  #hint.off { opacity:0; }
+  @media (min-width:720px) {
+    #brand { top:26px; left:30px; }
+    #brand .kick { font-size:11px; }
+    #brand .h { font-size:28px; }
+    #hint { left:30px; bottom:22px; }
+  }
+</style>
+</head>
+<body>
+<canvas id="bg"></canvas>
+<canvas id="c"></canvas>
+<div id="brand">
+  <div class="kick">Williamsburg · Brooklyn</div>
+  <div class="h">THE SCHOOL</div>
+  <div class="sub">29 Nassau Avenue</div>
+</div>
+<div id="hint">drag to look around</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+const isMobile = matchMedia('(max-width: 719px), (pointer: coarse)').matches;
+const DPR = Math.min(devicePixelRatio, isMobile ? 1.5 : 2);
+
+// ---------- background: slow ink field ----------------------------------------------
+const bgCanvas = document.getElementById('bg');
+const bgRenderer = new THREE.WebGLRenderer({ canvas: bgCanvas, antialias: false, alpha: false });
+bgRenderer.setPixelRatio(Math.min(DPR, 1));
+bgRenderer.setSize(innerWidth, innerHeight);
+const bgScene = new THREE.Scene();
+const bgCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+const bgMat = new THREE.ShaderMaterial({
+  uniforms: { uTime: { value: 0 }, uRes: { value: new THREE.Vector2(innerWidth, innerHeight) } },
+  vertexShader: `void main(){ gl_Position = vec4(position, 1.0); }`,
+  fragmentShader: `
+    precision highp float;
+    uniform float uTime; uniform vec2 uRes;
+    vec3 hash3(vec2 p){ vec3 q = vec3(dot(p,vec2(127.1,311.7)), dot(p,vec2(269.5,183.3)), dot(p,vec2(419.2,371.9))); return fract(sin(q)*43758.5453); }
+    float noise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f);
+      float a = hash3(i).x, b = hash3(i+vec2(1,0)).x, c = hash3(i+vec2(0,1)).x, d = hash3(i+vec2(1,1)).x;
+      return mix(mix(a,b,f.x), mix(c,d,f.x), f.y); }
+    float fbm(vec2 p){ float v = 0.0, a = 0.5; mat2 m = mat2(0.8,0.6,-0.6,0.8);
+      for (int i = 0; i < 5; i++){ v += a*noise(p); p = m*p*2.0 + 10.0; a *= 0.5; } return v; }
+    void main(){
+      vec2 uv = gl_FragCoord.xy / uRes.xy;
+      vec2 p = (gl_FragCoord.xy - 0.5*uRes.xy) / min(uRes.x, uRes.y);
+      float t = uTime * 0.035;
+      // domain-warped ink
+      vec2 q = vec2(fbm(p*1.6 + t), fbm(p*1.6 - t*0.7 + 4.1));
+      vec2 r = vec2(fbm(p*1.6 + 2.4*q + vec2(1.7,9.2) + t*0.5), fbm(p*1.6 + 2.4*q + vec2(8.3,2.8) - t*0.3));
+      float f = fbm(p*1.6 + 2.0*r);
+      // palette: deep ink -> oxblood -> verdigris, all kept dark
+      vec3 ink   = vec3(0.027,0.031,0.047);
+      vec3 ox    = vec3(0.26,0.09,0.11);
+      vec3 verd  = vec3(0.07,0.24,0.22);
+      vec3 brass = vec3(0.42,0.33,0.16);
+      vec3 col = mix(ink, ox, smoothstep(0.35,0.75,f));
+      col = mix(col, verd, smoothstep(0.3,0.8,length(q)));
+      col = mix(col, brass, smoothstep(0.55,0.95,r.x*r.y) * 0.55);
+      col *= 0.75 + 0.7*f;
+      // vignette toward the edges, keep the centre open for the model
+      float vig = smoothstep(1.35, 0.35, length(p*vec2(1.0,1.25)));
+      col *= mix(0.45, 1.0, vig);
+      // grain
+      float g = fract(sin(dot(gl_FragCoord.xy + uTime*60.0, vec2(12.9898,78.233))) * 43758.5453);
+      col += (g - 0.5) * 0.035;
+      gl_FragColor = vec4(col, 1.0);
+    }`
+});
+bgScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), bgMat));
+
+// ---------- model ---------------------------------------------------------------------
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+renderer.setPixelRatio(DPR);
+renderer.setSize(innerWidth, innerHeight);
+renderer.setClearColor(0x000000, 0);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 5000);
+
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true; controls.dampingFactor = 0.08;
+controls.autoRotate = true; controls.autoRotateSpeed = 0.5;
+controls.enablePan = false; controls.zoomToCursor = false; controls.zoomSpeed = 0.8;
+controls.maxPolarAngle = Math.PI * 0.48; // never below the ground plane
+
+const hint = document.getElementById('hint');
+['pointerdown', 'wheel', 'touchstart'].forEach(ev => canvas.addEventListener(ev, () => { controls.autoRotate = false; hint.classList.add('off'); }, { passive: true }));
+// resume the slow spin after the user lets go for a while
+let idle; ['pointerup', 'touchend'].forEach(ev => canvas.addEventListener(ev, () => { clearTimeout(idle); idle = setTimeout(() => { controls.autoRotate = true; }, 6000); }, { passive: true }));
+
+const HOME = { pos: new THREE.Vector3(), tgt: new THREE.Vector3() };
+let radius = 60;
+function frame() {
+  // distance that fits the bounding sphere in the narrower viewport dimension
+  const vfov = THREE.MathUtils.degToRad(camera.fov);
+  const hfov = 2 * Math.atan(Math.tan(vfov / 2) * camera.aspect);
+  const fit = Math.min(vfov, hfov);
+  const dist = (radius * (isMobile ? 0.55 : 0.85)) / Math.sin(fit / 2);
+  const dir = new THREE.Vector3(1, 0.55, 1).normalize();
+  HOME.pos.copy(HOME.tgt).addScaledVector(dir, dist);
+  camera.position.copy(HOME.pos);
+  controls.target.copy(HOME.tgt);
+  controls.minDistance = dist * 0.45; controls.maxDistance = dist * 2.2;
+  camera.near = Math.max(0.5, radius * 0.02); camera.far = radius * 60;
+  camera.updateProjectionMatrix(); controls.update();
+}
+
+new GLTFLoader().load('public/school.glb', (gltf) => {
+  const model = gltf.scene;
+  model.traverse((o) => { if (o.isMesh) { o.material.side = THREE.DoubleSide; o.frustumCulled = false; } });
+  scene.add(model);
+  const box = new THREE.Box3().setFromObject(model);
+  const sphere = box.getBoundingSphere(new THREE.Sphere());
+  radius = sphere.radius;
+  HOME.tgt.copy(sphere.center);
+  HOME.tgt.y = box.min.y + (box.max.y - box.min.y) * 0.5;
+  frame();
+  window.__loaded = true;
+}, undefined, (e) => { console.error('load error', e); window.__error = String(e); });
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+  bgRenderer.setSize(innerWidth, innerHeight);
+  bgMat.uniforms.uRes.value.set(innerWidth, innerHeight);
+  if (window.__loaded) frame();
+});
+
+const clock = new THREE.Clock();
+(function loop() {
+  requestAnimationFrame(loop);
+  bgMat.uniforms.uTime.value = clock.getElapsedTime();
+  bgRenderer.render(bgScene, bgCam);
+  controls.update();
+  renderer.render(scene, camera);
+})();
+</script>
+</body>
+</html>
