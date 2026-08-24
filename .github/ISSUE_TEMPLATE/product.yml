@@ -1,5 +1,5 @@
 name: Product idea
-description: Propose a measurable improvement for Grove.
+description: Propose a measurable marketplace improvement.
 title: "product: "
 labels: [product, needs-triage]
 body:
@@ -12,7 +12,7 @@ body:
         - Artist
         - Collector
         - Bazaar visitor
-        - Grove operator
+        - Marketplace operator
     validations:
       required: true
   - type: textarea

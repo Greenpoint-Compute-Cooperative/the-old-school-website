@@ -1,11 +1,11 @@
 # Environments
 
-Grove separates public production data from pull-request and local-development writes. Project references are identifiers, not credentials; keys remain in Supabase, Vercel, GitHub Actions secrets, or the operator password manager.
+The marketplace separates public production data from pull-request and local-development writes. Project references are identifiers, not credentials; keys remain in Supabase, Vercel, GitHub Actions secrets, or the operator password manager.
 
 | Surface | Vercel scope | Supabase project | Data | Metrics | Integrations |
 |---|---|---|---|---|---|
-| Production | Production | `Grove Marketplace New York` · `xscysuvqragqwhxuhivv` · US East | Real, approved records only | Enabled; 180-day retention | Fail closed until approved |
-| Pull requests | Preview | `Grove Marketplace New York Preview` · `nlvxepkzrctbjafcgffk` · US East | Synthetic records only | Disabled | Disabled |
+| Production | Production | `xscysuvqragqwhxuhivv` · US East | Real, approved records only | Enabled; 180-day retention | Fail closed until approved |
+| Pull requests | Preview | `nlvxepkzrctbjafcgffk` · US East | Synthetic records only | Disabled | Disabled |
 | Local API work | Development | Same `nlvxepkzrctbjafcgffk` preview project | Synthetic records only | Disabled | Disabled |
 | Static local UI | None | None | Bundled prototype catalog | Disabled | Disabled |
 

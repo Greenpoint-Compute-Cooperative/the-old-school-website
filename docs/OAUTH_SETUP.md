@@ -1,11 +1,11 @@
 # Social access setup
 
-Grove Marketplace — New York accepts curator access only through Instagram or X. The site never accepts an email/password form, social password, or scraped account data.
+Marketplace & Auction House of Brooklyn New York accepts curator access only through Instagram or X. The site never accepts an email/password form, social password, or scraped account data.
 
 ## Shared Supabase setup
 
-1. Apply the Grove migration and set the Supabase Site URL to the production Grove origin.
-2. Allow the exact app callback for production and each reviewed preview: `https://<grove-origin>/api/auth/callback`.
+1. Apply the marketplace migration and set the Supabase Site URL to the production origin.
+2. Allow the exact app callback for production and each reviewed preview: `https://<marketplace-origin>/api/auth/callback`.
 3. Each provider app sends its callback to Supabase: `https://<project-ref>.supabase.co/auth/v1/callback`.
 4. Use PKCE, HTTPS, least-privilege scopes, and provider consent. The Vercel app needs only `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY`; provider secrets stay in Supabase.
 5. Keep `GROVE_*_OAUTH_ENABLED=false` until staging proves consent, cancellation, callback, refresh, sign-out, revocation, and deletion.
@@ -36,7 +36,7 @@ Grove Marketplace — New York accepts curator access only through Instagram or 
 
 It does not copy email, phone, credentials, social graph, messages, tokens, or media into the public curator record. No scraping or ambient chat monitoring is present.
 
-Before either flag is enabled, publish a privacy policy and deletion route, choose a documented retention period for private discoveries, and implement an authenticated deletion process that removes the Supabase Auth user and cascaded Grove records. Recommended launch default: purge archived discovery drafts after 90 days; retain published sale/provenance records only for the legally required period and describe that exception clearly. Verify Vercel/Supabase log retention separately.
+Before either flag is enabled, publish a privacy policy and deletion route, choose a documented retention period for private discoveries, and implement an authenticated deletion process that removes the Supabase Auth user and cascaded marketplace records. Recommended launch default: purge archived discovery drafts after 90 days; retain published sale/provenance records only for the legally required period and describe that exception clearly. Verify Vercel/Supabase log retention separately.
 
 ## Verification
 

@@ -9,7 +9,7 @@ const fetchChecked = async (path, options = {}, expectedStatus = 200) => {
     ...options,
     headers: {
       Accept: "application/json, text/html;q=0.9, */*;q=0.8",
-      "User-Agent": "grove-production-check/1.0",
+      "User-Agent": "brooklyn-marketplace-production-check/1.0",
       ...options.headers
     },
     signal: AbortSignal.timeout(8_000)
@@ -22,7 +22,7 @@ const fetchChecked = async (path, options = {}, expectedStatus = 200) => {
 
 const home = await fetchChecked("/");
 const homeText = await home.text();
-assert.match(homeText, /Grove Marketplace — New York/);
+assert.match(homeText, /Marketplace &amp; Auction House of Brooklyn New York/);
 for (const header of [
   "content-security-policy",
   "cross-origin-opener-policy",

@@ -21,15 +21,15 @@ jobs:
       - run: npm run ci
       - name: Package static release
         run: |
-          tar -czf grove-marketplace-static.tar.gz dist
-          sha256sum grove-marketplace-static.tar.gz > SHA256SUMS.txt
+          tar -czf brooklyn-marketplace-auction-house-static.tar.gz dist
+          sha256sum brooklyn-marketplace-auction-house-static.tar.gz > SHA256SUMS.txt
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: >-
           gh release create "$GITHUB_REF_NAME"
-          grove-marketplace-static.tar.gz
+          brooklyn-marketplace-auction-house-static.tar.gz
           SHA256SUMS.txt
           --repo "$GITHUB_REPOSITORY"
-          --title "Grove Marketplace $GITHUB_REF_NAME"
+          --title "Marketplace & Auction House $GITHUB_REF_NAME"
           --generate-notes

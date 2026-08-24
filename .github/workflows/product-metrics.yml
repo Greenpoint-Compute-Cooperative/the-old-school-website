@@ -35,15 +35,15 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Build private report
-        run: npm run metrics -- --days="$REPORT_DAYS" > grove-metrics.txt
+        run: npm run metrics -- --days="$REPORT_DAYS" > marketplace-metrics.txt
       - name: Publish job summary
         run: |
-          echo '## Grove Marketplace — private product metrics' >> "$GITHUB_STEP_SUMMARY"
+          echo '## Marketplace & Auction House — private product metrics' >> "$GITHUB_STEP_SUMMARY"
           echo '```text' >> "$GITHUB_STEP_SUMMARY"
-          cat grove-metrics.txt >> "$GITHUB_STEP_SUMMARY"
+          cat marketplace-metrics.txt >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: grove-private-metrics-${{ github.run_id }}
-          path: grove-metrics.txt
+          name: marketplace-private-metrics-${{ github.run_id }}
+          path: marketplace-metrics.txt
           retention-days: 30

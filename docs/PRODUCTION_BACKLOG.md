@@ -51,7 +51,7 @@ This is the shortest path from the current invited-pilot build to a trustworthy 
 ## Owner decisions
 
 1. Public/custom domain and legal/policy owner.
-2. Open-source license and whether the GitHub repository should be renamed from `school-website` to `grove-marketplace`.
+2. Whether the GitHub repository should eventually be renamed from `school-website` to a concise auction-house slug.
 3. Instagram/X app-owning organizations, legal contact, and review metadata.
 4. Crypto chain/contract model, card provider, seller-of-record, custody, tax, and refund model.
 5. Pilot curator cohort, editorial approver, launch catalog, and first bazaar date/capacity.

@@ -1,4 +1,4 @@
-# Grove Marketplace — New York
+# Marketplace & Auction House of Brooklyn New York
 
 [![CI](https://github.com/Greenpoint-Compute-Cooperative/school-website/actions/workflows/ci.yml/badge.svg)](https://github.com/Greenpoint-Compute-Cooperative/school-website/actions/workflows/ci.yml)
 [![Production health](https://github.com/Greenpoint-Compute-Cooperative/school-website/actions/workflows/uptime.yml/badge.svg)](https://github.com/Greenpoint-Compute-Cooperative/school-website/actions/workflows/uptime.yml)
@@ -8,11 +8,11 @@ A curator-led marketplace for physical art in the School and born-digital work. 
 
 **Live:** [the-school-omega.vercel.app](https://the-school-omega.vercel.app)
 
-![Grove Marketplace — New York home page](docs/screenshot-desktop.jpg)
+![Marketplace & Auction House of Brooklyn New York home page](docs/screenshot-desktop.jpg)
 
 ![Born-digital work and acquisition preview](docs/screenshot-work.jpg)
 
-<img src="docs/screenshot-phone.jpg" alt="Grove Marketplace — New York on a phone" width="300">
+<img src="docs/screenshot-phone.jpg" alt="Marketplace & Auction House of Brooklyn New York on a phone" width="300">
 
 ## Architecture
 
@@ -24,7 +24,7 @@ A curator-led marketplace for physical art in the School and born-digital work. 
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for trust boundaries and [`docs/ENVIRONMENTS.md`](docs/ENVIRONMENTS.md) for production/preview isolation.
 
-The repository uses dedicated `Grove Marketplace New York` production and preview Supabase projects in US East plus the `dmarzzzs-projects/the-school` Vercel project. Database migrations are applied independently, and Preview/Development receive synthetic data only. Instagram and X remain visibly disabled until their dedicated provider apps, policy URLs, and credentials are approved.
+The repository uses dedicated production and preview Supabase projects in US East plus the `dmarzzzs-projects/the-school` Vercel project. Database migrations are applied independently, and Preview/Development receive synthetic data only. Instagram and X remain visibly disabled until their dedicated provider apps, policy URLs, and credentials are approved.
 
 ## Run the interface
 
@@ -97,4 +97,4 @@ Start with [`CONTRIBUTING.md`](CONTRIBUTING.md). Pull requests run deterministic
 
 The code is available under the [MIT License](LICENSE). Tagged releases rebuild the app, rerun CI, and publish a checksummed static artifact.
 
-The supplied floating-school image is Grove’s primary mark. Catalog records are fictional prototype content. Wallet, contract, card, inventory, media retrieval, and RSVP integrations are not connected.
+The supplied floating-school image is the marketplace’s primary mark. Catalog records are fictional prototype content. Wallet, contract, card, inventory, media retrieval, and RSVP integrations are not connected.

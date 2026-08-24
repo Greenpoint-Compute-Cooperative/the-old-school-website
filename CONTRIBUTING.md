@@ -1,6 +1,6 @@
-# Contributing to Grove
+# Contributing
 
-Grove Marketplace — New York is curator-led, art-first, and intentionally small. Contributions should make the real product clearer, safer, faster, or easier to operate—not simulate an integration that does not exist.
+Marketplace & Auction House of Brooklyn New York is curator-led, art-first, and intentionally small. Contributions should make the real product clearer, safer, faster, or easier to operate—not simulate an integration that does not exist.
 
 ## Golden path
 
@@ -37,7 +37,7 @@ Development and pull-request deployments use the synthetic preview Supabase proj
 - **Sponsorship:** the named curator recommendation required before a work can be published.
 - **Work:** physical, born-digital, or paired physical + digital art.
 - **Acquisition:** an authoritative payment or on-chain state—not a button click.
-- **Bazaar:** Grove’s monthly in-person program at 29 Nassau Avenue.
+- **Bazaar:** the monthly in-person program at 29 Nassau Avenue.
 
 Architecture, metrics, and operations live in `docs/`. Security reports follow `SECURITY.md`.
 

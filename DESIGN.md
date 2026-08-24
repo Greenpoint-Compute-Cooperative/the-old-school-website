@@ -1,12 +1,12 @@
-# Grove Marketplace — New York · design notes
+# Marketplace & Auction House of Brooklyn New York · design notes
 
 ## Identity
 
-The user-supplied floating school is Grove’s primary mark, not mood-board material. The full square image anchors the home and join pages; a centered crop serves as the compact logo. The visible identity is **Grove Marketplace — New York**.
+The user-supplied floating school is the primary mark, not mood-board material. The full square image anchors the home and join pages; a centered crop serves as the compact logo. The visible identity is **Marketplace & Auction House of Brooklyn New York**.
 
 ## Visual thesis
 
-Grove is a celestial curator desk:
+The experience is a celestial curator desk:
 
 - pale-blue cloud light and icy white highlights;
 - art at the largest practical scale;
@@ -15,7 +15,7 @@ Grove is a celestial curator desk:
 - serif display type with quiet sans-serif utility text;
 - very little copy.
 
-The former Foundation marketplace influences the confident artwork scale, rounded pop-out objects, editorial calm, and clear acquisition focus. Grove combines that sensibility with its own pixelated school and luminous-blue atmosphere rather than reproducing Foundation’s branding or layouts.
+The former Foundation marketplace influences the confident artwork scale, rounded pop-out objects, editorial calm, and clear acquisition focus. This experience combines that sensibility with its own pixelated school and luminous-blue atmosphere rather than reproducing Foundation’s branding or layouts.
 
 ## Product hierarchy
 
@@ -23,7 +23,7 @@ The former Foundation marketplace influences the confident artwork scale, rounde
 2. **Add a piece** — a discovery or public link becomes an unlisted draft.
 3. **Join** — a curator authorizes Instagram or X and imports only granted name/photo/handle data.
 4. **Marketplace** — collectors explore physical, digital / NFT, and paired work.
-5. **Bazaar** — Grove coordinates a monthly physical gathering.
+5. **Bazaar** — the marketplace coordinates a monthly physical gathering.
 
 The interface exposes only the state needed for the current decision. Detail, edition, network, and fulfillment metadata stay collapsed or on the work page.
 
@@ -42,7 +42,7 @@ Controls state exactly what happens. Missing credentials and contracts are repre
 
 ## Responsive behavior
 
-Desktop uses three-column art grids and paired detail surfaces. Phone layouts collapse to one column, retain the Grove name, keep curator actions prominent, and move the three primary destinations into a thumb-reachable floating navigation. Visible first-viewport targets are at least 44px, horizontal overflow is suppressed and tested, and motion respects `prefers-reduced-motion`.
+Desktop uses three-column art grids and paired detail surfaces. Phone layouts collapse to one column, retain the full identity in a compact two-line lockup, keep curator actions prominent, and move the three primary destinations into a thumb-reachable floating navigation. Visible first-viewport targets are at least 44px, horizontal overflow is suppressed and tested, and motion respects `prefers-reduced-motion`.
 
 ## Assets
 

@@ -30,23 +30,23 @@ assert.equal(config.providers.instagram.configured, false);
 assert.equal(config.providers.x.configured, false);
 assert.equal(config.metrics.configured, false);
 
-const invalidProvider = await startAuth(new Request("https://grove.example/api/auth/start?provider=email"));
+const invalidProvider = await startAuth(new Request("https://marketplace.example/api/auth/start?provider=email"));
 assert.equal(invalidProvider.status, 400, "email is not accepted as a join path");
 
-const unavailableProvider = await startAuth(new Request("https://grove.example/api/auth/start?provider=instagram"));
+const unavailableProvider = await startAuth(new Request("https://marketplace.example/api/auth/start?provider=instagram"));
 assert.equal(unavailableProvider.status, 503, "unconfigured OAuth cannot claim success");
 
-const unavailableHealth = await getHealth(new Request("https://grove.example/api/health"));
+const unavailableHealth = await getHealth(new Request("https://marketplace.example/api/health"));
 assert.equal(unavailableHealth.status, 503, "health cannot claim a configured backend without credentials");
 
 const acquisition = await createAcquisition();
 assert.equal(acquisition.status, 503, "checkout stays disabled without a provider");
 assert.match(JSON.stringify(await acquisition.json()), /No order was created/);
 
-const unavailableEvent = await recordEvent(new Request("https://grove.example/api/events", { method: "POST", body: "{}" }));
+const unavailableEvent = await recordEvent(new Request("https://marketplace.example/api/events", { method: "POST", body: "{}" }));
 assert.equal(unavailableEvent.status, 503, "events fail closed without the server-only metrics boundary");
 
-const unavailableMetrics = await getMetrics(new Request("https://grove.example/api/metrics"));
+const unavailableMetrics = await getMetrics(new Request("https://marketplace.example/api/metrics"));
 assert.equal(unavailableMetrics.status, 503, "operator metrics fail closed without server secrets");
 
 const migration = await readFile(new URL("../supabase/migrations/20260824000000_grove_marketplace_foundation.sql", import.meta.url), "utf8");

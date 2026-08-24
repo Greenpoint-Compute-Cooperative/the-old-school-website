@@ -16,4 +16,4 @@ Include the affected route or component, impact, reproduction using non-sensitiv
 - Supabase RLS, service credentials, Vercel environment variables, and deployment logs;
 - analytics ingestion, admin metrics access, and retention jobs.
 
-Grove never asks for a social password, seed phrase, private key, or recovery phrase. Checkout and minting must remain disabled until real providers and authoritative reconciliation are configured.
+The marketplace never asks for a social password, seed phrase, private key, or recovery phrase. Checkout and minting must remain disabled until real providers and authoritative reconciliation are configured.

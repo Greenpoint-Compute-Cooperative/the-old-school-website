@@ -162,10 +162,12 @@ h2 {
 }
 
 .brand strong {
+  max-width: 300px;
   font-family: var(--serif);
   font-size: 25px;
   font-weight: 400;
   letter-spacing: -0.03em;
+  line-height: 0.92;
 }
 
 .brand small {
@@ -1680,11 +1682,13 @@ h2 {
   }
 
   .brand strong {
-    font-size: 21px;
+    max-width: 180px;
+    font-size: 16px;
+    line-height: 0.9;
   }
 
   .brand small {
-    font-size: 8px;
+    font-size: 7px;
   }
 
   .join-link {

@@ -1,8 +1,8 @@
-# Grove Marketplace — New York · launch plan
+# Marketplace & Auction House of Brooklyn New York · launch plan
 
 ## Position
 
-Grove Marketplace — New York is the curator-led market for physical work at 29 Nassau Avenue and born-digital work. A named curator sponsors every artist and piece. The monthly auditorium bazaar turns the catalog into a recurring in-person program.
+Marketplace & Auction House of Brooklyn New York is the curator-led market for physical work at 29 Nassau Avenue and born-digital work. A named curator sponsors every artist and piece. The monthly auditorium bazaar turns the catalog into a recurring in-person program.
 
 NFT acquisition is not deferred: verified existing tokens, new editions, and paired physical + NFT works belong in the first production launch. Crypto is the primary rail; hosted card checkout remains available.
 
@@ -88,7 +88,7 @@ Hard launch gates:
 
 ## Future: Instagram chat intake
 
-A later, non-intrusive Instagram chat intake may let a curator send a link in a normal conversation and receive an unlisted Grove draft. This is a convenience layer over the curator desk, not a surveillance or scraping system.
+A later, non-intrusive Instagram chat intake may let a curator send a link in a normal conversation and receive an unlisted marketplace draft. This is a convenience layer over the curator desk, not a surveillance or scraping system.
 
 Required constraints:
 
@@ -126,7 +126,7 @@ NFTs already exist in launch scope. Phase two deepens them:
 
 ## Prototype map
 
-- `#home` — Grove Marketplace — New York identity, seed image, and one discovery action.
+- `#home` — Marketplace & Auction House of Brooklyn New York identity, seed image, and one discovery action.
 - `#discover` — discovery inbox, saved/sponsored states, and link-to-draft intake.
 - `#sponsor` / `#join` — curator draft and configured/unconfigured Instagram/X consent boundary.
 - `#market` / `#work/:slug` — mixed catalog and honest crypto/card preview.

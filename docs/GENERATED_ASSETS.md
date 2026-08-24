@@ -1,18 +1,18 @@
 # Visual assets
 
-The Grove identity uses the user-supplied seed directly. The catalog contact sheets are generated prototype assets; their works, artists, prices, and listings are fictional and are not real offers for sale.
+The identity uses the user-supplied seed directly. The catalog contact sheets are generated prototype assets; their works, artists, prices, and listings are fictional and are not real offers for sale.
 
 ## `public/assets/school-seed.jpg`
 
-Exact copy of the supplied 1254×1254 glowing-school image. It is the primary Grove brand image and home-page hero.
+Exact copy of the supplied 1254×1254 glowing-school image. It is the primary brand image and home-page hero.
 
 ## `public/assets/school-mark.jpg`
 
-Deterministic center crop of `school-seed.jpg`, used as the compact Grove logo. It is not a generated reinterpretation.
+Deterministic center crop of `school-seed.jpg`, used as the compact logo. It is not a generated reinterpretation.
 
 ## `public/assets/celestial-school.jpg`
 
-Legacy generated concept from the earlier design pass. The revised Grove experience does not load it.
+Legacy generated concept from the earlier design pass. The revised experience does not load it.
 
 Use case: stylized-concept
 Asset type: marketplace landing-page hero image

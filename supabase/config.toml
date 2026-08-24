@@ -1,5 +1,5 @@
 # Local-only defaults. Link a real project with `supabase link` before any push.
-project_id = "grove-marketplace-new-york"
+project_id = "brooklyn-marketplace-auction-house"
 
 [api]
 enabled = true

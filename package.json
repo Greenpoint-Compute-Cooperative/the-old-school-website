@@ -1,6 +1,6 @@
 {
-  "name": "grove-marketplace",
-  "version": "1.0.0",
+  "name": "brooklyn-marketplace-auction-house",
+  "version": "1.0.1",
   "license": "MIT",
   "private": true,
   "type": "module",

@@ -23,8 +23,8 @@ assert.match(html, /href="styles\.css"/, "stylesheet is linked");
 assert.match(html, /src="app\.js"/, "application module is linked");
 assert.match(html, /rel="manifest"/, "install metadata is linked");
 assert.match(html, /rel="canonical"/, "canonical production URL is declared");
-assert.match(html, /Grove Marketplace/, "Grove identity is visible in source");
-assert.match(html, /Marketplace — New York/, "New York is visible in the compact brand");
+assert.match(html, /Marketplace &amp; Auction House/, "auction-house identity is visible in source");
+assert.match(html, /of Brooklyn New York/, "Brooklyn and New York are visible in the compact brand");
 assert.match(html, /public\/assets\/school-mark\.jpg/, "supplied school mark is the primary logo");
 assert.doesNotMatch(html, /The School Art/, "retired product name is absent");
 assert.doesNotMatch(html, /href="#"/, "no placeholder-only links remain");
@@ -37,7 +37,7 @@ assert.match(app, /track\("discovery_sponsored"/, "curator intent is measured");
 assert.match(analytics, /sessionStorage/, "metrics use a browser-session identifier");
 assert.match(analytics, /globalPrivacyControl/, "metrics honor Global Privacy Control");
 assert.doesNotMatch(analytics, /localStorage|document\.cookie|fingerprint/, "metrics avoid persistent tracking");
-assert.match(manifest, /Grove Marketplace — New York/, "manifest carries the Grove identity");
+assert.match(manifest, /Marketplace & Auction House of Brooklyn New York/, "manifest carries the auction-house identity");
 
 for (const route of ["home", "discoverPage", "marketPage", "exhibitionPage", "workPage", "curatorsPage", "curatorPage", "bazaarPage", "sponsorPage", "joinPage"]) {
   assert.match(app, new RegExp(`const ${route}`), `${route} is implemented`);
@@ -94,7 +94,7 @@ assert.match(launch, /NFT acquisition is not deferred/, "roadmap keeps NFTs in l
 assert.match(launch, /Curator-first go-to-market/, "roadmap includes curator-first GTM");
 assert.match(launch, /Instagram chat intake/, "roadmap includes the constrained chat-intake concept");
 assert.match(launch, /no scraping/i, "roadmap prohibits scraping");
-assert.match(launch, /Grove Marketplace — New York/, "launch plan is grounded in New York");
+assert.match(launch, /Marketplace & Auction House of Brooklyn New York/, "launch plan is grounded in Brooklyn and New York");
 assert.match(oauth, /email\/password form/, "social-only access is documented");
 assert.match(oauth, /instagram_business_basic/, "Instagram scope boundary is documented");
 assert.match(oauth, /users\.read/, "X profile scope boundary is documented");

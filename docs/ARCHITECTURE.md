@@ -1,6 +1,6 @@
 # Architecture
 
-Grove is a deliberately small web application with a strict trust boundary: the gallery can render without a backend, but identity, private curator state, metrics, and future acquisition state cross same-origin Vercel Functions before reaching Supabase.
+The marketplace is a deliberately small web application with a strict trust boundary: the gallery can render without a backend, but identity, private curator state, metrics, and future acquisition state cross same-origin Vercel Functions before reaching Supabase.
 
 ```mermaid
 flowchart LR

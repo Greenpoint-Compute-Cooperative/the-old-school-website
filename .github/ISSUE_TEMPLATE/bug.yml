@@ -1,5 +1,5 @@
 name: Bug
-description: Something in Grove is broken or misleading.
+description: Something in the marketplace is broken or misleading.
 title: "bug: "
 labels: [bug, needs-triage]
 body:

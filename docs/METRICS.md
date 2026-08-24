@@ -1,6 +1,6 @@
 # Product metrics
 
-Grove measures whether curators discover and sponsor strong work, collectors understand and approach acquisition, and the monthly bazaar creates real participation. It does not optimize for empty page-view volume.
+The marketplace measures whether curators discover and sponsor strong work, collectors understand and approach acquisition, and the monthly bazaar creates real participation. It does not optimize for empty page-view volume.
 
 ## Instrumentation boundary
 
@@ -68,7 +68,7 @@ Button clicks are never counted as sales, mints, ownership, or revenue.
 
 ## Read the dashboard feed
 
-Pull production environment variables into the ignored `.env.local`, then run the report. The founding operator’s non-exportable Vercel token is mirrored in macOS Keychain under `Grove Marketplace / metrics-read-token`; other authorized operators should receive their token through the team password manager, never GitHub or chat.
+Pull production environment variables into the ignored `.env.local`, then run the report. The founding operator’s non-exportable Vercel token is mirrored in macOS Keychain under `Marketplace & Auction House / metrics-read-token`; the script also accepts the legacy service name during migration. Other authorized operators should receive their token through the team password manager, never GitHub or chat.
 
 ```sh
 npm run metrics -- --days=30

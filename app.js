@@ -11,6 +11,7 @@ import {
 } from "./catalog.js";
 import { track, trackClientErrors } from "./analytics.js";
 
+const BRAND_NAME = "Marketplace & Auction House of Brooklyn New York";
 const app = document.querySelector("#app");
 const collectDialog = document.querySelector("#collect-dialog");
 const collectContent = document.querySelector("#collect-content");
@@ -118,7 +119,7 @@ const home = () => {
   const featuredWorks = [getWork("blue-hour-nassau"), getWork("cloud-protocol-i"), getWork("stairwell-for-nobody")];
   return `
     <div class="page home-page">
-      <section class="hero" aria-label="Grove Marketplace — New York">
+      <section class="hero" aria-label="${BRAND_NAME}">
         <img class="hero__seed" src="public/assets/school-seed.jpg" alt="A glowing ornate school floating in pale-blue clouds">
         <div class="hero__copy">
           <a class="button button--light" href="#discover">Open discoveries</a>
@@ -158,7 +159,7 @@ const discoverPage = () => {
     <div class="page">
       <header class="page-title">
         <h1>Discoveries</h1>
-        <a class="button button--dark" href="#join">Join Grove</a>
+        <a class="button button--dark" href="#join">Join as curator</a>
       </header>
 
       <form class="link-capture" id="link-capture">
@@ -237,7 +238,7 @@ const workPage = (work) => {
         </aside>
       </div>
       <section class="page section related" aria-labelledby="related-title">
-        <div class="section-head"><h2 id="related-title">More from Grove</h2></div>
+        <div class="section-head"><h2 id="related-title">More works</h2></div>
         <div class="work-grid">${related.map(workTile).join("")}</div>
       </section>
     </div>
@@ -248,7 +249,7 @@ const curatorsPage = () => `
   <div class="page">
     <header class="page-title">
       <h1>Curators</h1>
-      <a class="button button--dark" href="#join">Join Grove</a>
+      <a class="button button--dark" href="#join">Join as curator</a>
     </header>
     <section class="curator-grid">
       ${curators.map((curator) => {
@@ -308,7 +309,7 @@ const joinPage = () => `
     <div class="join-image"><img src="public/assets/school-seed.jpg" alt="A glowing school floating in clouds"></div>
     <div class="join-panel">
       <h1>Join.</h1>
-      <div class="social-join" aria-label="Join Grove">
+      <div class="social-join" aria-label="Join as curator">
         <button type="button" data-auth-provider="instagram">
           <span class="social-mark" aria-hidden="true">◎</span>
           <span><strong>Instagram</strong><small>Name · photo · handle</small></span>
@@ -320,7 +321,7 @@ const joinPage = () => `
           <i data-provider-state="x">${providerState("x")}</i>
         </button>
       </div>
-      <p class="join-note">Provider consent only. Grove never asks for your password.</p>
+      <p class="join-note">Provider consent only. We never ask for your password.</p>
       <div class="join-result" id="join-result" aria-live="polite"></div>
     </div>
   </div>
@@ -480,17 +481,17 @@ const render = () => {
   const [root, detail] = route();
   let html;
   let title;
-  if (root === "home") { html = home(); title = "Grove Marketplace — New York"; }
-  else if (root === "discover") { html = discoverPage(); title = "Discoveries · Grove Marketplace — New York"; }
-  else if (root === "market") { html = marketPage(detail || "all"); title = "Works · Grove Marketplace — New York"; }
-  else if (root === "work" && getWork(detail)) { const work = getWork(detail); html = workPage(work); title = `${work.title} · Grove Marketplace — New York`; }
-  else if (root === "exhibition" && getExhibition(detail)) { const exhibition = getExhibition(detail); html = exhibitionPage(exhibition); title = `${exhibition.title} · Grove Marketplace — New York`; }
-  else if (root === "curators") { html = curatorsPage(); title = "Curators · Grove Marketplace — New York"; }
-  else if (root === "curator" && getCurator(detail)) { const curator = getCurator(detail); html = curatorPage(curator); title = `${curator.name} · Grove Marketplace — New York`; }
-  else if (root === "sponsor") { html = sponsorPage(); title = "Add a piece · Grove Marketplace — New York"; }
-  else if (root === "join") { html = joinPage(); title = "Join · Grove Marketplace — New York"; }
-  else if (root === "bazaar") { html = bazaarPage(); title = "Bazaar · Grove Marketplace — New York"; }
-  else { html = notFound(); title = "Not found · Grove Marketplace — New York"; }
+  if (root === "home") { html = home(); title = BRAND_NAME; }
+  else if (root === "discover") { html = discoverPage(); title = `Discoveries · ${BRAND_NAME}`; }
+  else if (root === "market") { html = marketPage(detail || "all"); title = `Works · ${BRAND_NAME}`; }
+  else if (root === "work" && getWork(detail)) { const work = getWork(detail); html = workPage(work); title = `${work.title} · ${BRAND_NAME}`; }
+  else if (root === "exhibition" && getExhibition(detail)) { const exhibition = getExhibition(detail); html = exhibitionPage(exhibition); title = `${exhibition.title} · ${BRAND_NAME}`; }
+  else if (root === "curators") { html = curatorsPage(); title = `Curators · ${BRAND_NAME}`; }
+  else if (root === "curator" && getCurator(detail)) { const curator = getCurator(detail); html = curatorPage(curator); title = `${curator.name} · ${BRAND_NAME}`; }
+  else if (root === "sponsor") { html = sponsorPage(); title = `Add a piece · ${BRAND_NAME}`; }
+  else if (root === "join") { html = joinPage(); title = `Join · ${BRAND_NAME}`; }
+  else if (root === "bazaar") { html = bazaarPage(); title = `Bazaar · ${BRAND_NAME}`; }
+  else { html = notFound(); title = `Not found · ${BRAND_NAME}`; }
 
   app.innerHTML = html;
   document.title = title;
@@ -602,9 +603,9 @@ document.addEventListener("submit", (event) => {
 });
 
 const downloadCalendar = () => {
-  const file = ["BEGIN:VCALENDAR", "VERSION:2.0", "BEGIN:VEVENT", "DTSTART:20260912T160000Z", "DTEND:20260912T230000Z", "SUMMARY:Grove Marketplace — New York · Assembly of Light", "LOCATION:29 Nassau Avenue\\, Brooklyn\\, New York", "END:VEVENT", "END:VCALENDAR"].join("\r\n");
+  const file = ["BEGIN:VCALENDAR", "VERSION:2.0", "BEGIN:VEVENT", "DTSTART:20260912T160000Z", "DTEND:20260912T230000Z", `SUMMARY:${BRAND_NAME} · Assembly of Light`, "LOCATION:29 Nassau Avenue\\, Brooklyn\\, New York", "END:VEVENT", "END:VCALENDAR"].join("\r\n");
   const url = URL.createObjectURL(new Blob([file], { type: "text/calendar" }));
-  const link = Object.assign(document.createElement("a"), { href: url, download: "grove-bazaar.ics" });
+  const link = Object.assign(document.createElement("a"), { href: url, download: "brooklyn-auction-house-bazaar.ics" });
   link.click();
   URL.revokeObjectURL(url);
   showToast("Calendar ready");

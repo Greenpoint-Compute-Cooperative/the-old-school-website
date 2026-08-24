@@ -26,10 +26,10 @@ let configurationRequest;
 
 const sessionId = () => {
   try {
-    const current = sessionStorage.getItem("grove_session_id");
+    const current = sessionStorage.getItem("brooklyn_marketplace_session_id");
     if (current) return current;
     const created = crypto.randomUUID();
-    sessionStorage.setItem("grove_session_id", created);
+    sessionStorage.setItem("brooklyn_marketplace_session_id", created);
     return created;
   } catch {
     return crypto.randomUUID();
