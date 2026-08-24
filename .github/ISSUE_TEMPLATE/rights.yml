@@ -1,0 +1,35 @@
+name: Rights or provenance concern
+description: Flag a listing, source, edition, or permission concern.
+title: "rights: "
+labels: [rights-provenance, needs-triage]
+body:
+  - type: markdown
+    attributes:
+      value: Do not post private contracts, identity documents, wallet recovery material, or unredacted personal information.
+  - type: input
+    id: work
+    attributes:
+      label: Work or route
+      placeholder: Work title, slug, or internal record ID
+    validations:
+      required: true
+  - type: dropdown
+    id: concern
+    attributes:
+      label: Concern
+      options:
+        - Image or media permission
+        - Artist / rightsholder identity
+        - Edition or duplicate mint
+        - Contract / token mismatch
+        - Physical and digital rights mismatch
+        - Takedown or deletion request
+        - Other provenance issue
+    validations:
+      required: true
+  - type: textarea
+    id: detail
+    attributes:
+      label: Sanitized details
+    validations:
+      required: true

@@ -1,0 +1,46 @@
+name: Production health
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: production-health
+  cancel-in-progress: true
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+      - name: Verify browser, API, database, integration flags, and security headers
+        run: node scripts/check-live.mjs
+      - name: Open or update incident
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          incident_number="$(gh issue list --repo "$GITHUB_REPOSITORY" --label 'ops:incident' --state open --json number --jq '.[0].number // empty')"
+          if [ -n "$incident_number" ]; then
+            gh issue comment "$incident_number" --repo "$GITHUB_REPOSITORY" --body "Production health failed again: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "Production health check failing" --label 'ops:incident,priority:P0' --body "The hourly full-story production check failed: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          fi
+      - name: Close recovered incident
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          incident_number="$(gh issue list --repo "$GITHUB_REPOSITORY" --label 'ops:incident' --state open --json number --jq '.[0].number // empty')"
+          if [ -n "$incident_number" ]; then
+            gh issue close "$incident_number" --repo "$GITHUB_REPOSITORY" --comment "Production health recovered in $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          fi

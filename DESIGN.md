@@ -1,31 +1,53 @@
-# Design notes
+# Grove Marketplace — New York · design notes
 
-Thesis: one light, one image. The building, the ink field, and the four doors all obey a single key
-light (world dir `KEY` in index.html). The camera orbits; the light does not, so once per revolution
-(~70 s) the building passes in front of the light and the brass rim, bloom, ink lobe and card speculars
-lift together. That is the signature moment; nothing else on the page animates on its own.
+## Identity
 
-Palette: slate #0a0d12, chalk #ece6da, chalk-2 #9a948a, brass 214,178,110 (the only accent).
-Door tints are the ink shader's own constants (verdigris / brass / oxblood); Join is the one lit door.
+The user-supplied floating school is Grove’s primary mark, not mood-board material. The full square image anchors the home and join pages; a centered crop serves as the compact logo. The visible identity is **Grove Marketplace — New York**.
 
-Why no numbering on the links: the four destinations are not a sequence. Each door carries a small
-engraved mark instead: plan-with-door (a place), circle+line+dot and circle+stroke (two kinds of giving,
-siblings), bare plus (the invitation).
+## Visual thesis
 
-Removed on purpose (Chanel rule): per-card colored pointer glows; the second background canvas and its
-own vignette+grain (now one grade pass); drag/zoom interaction; the "drag to look around" hint.
+Grove is a celestial curator desk:
 
-Pipeline: ink shader -> half-res RT -> scene.background -> RenderPass -> UnrealBloom (threshold .9, only
-the rim and the ink core cross it) -> OutputPass (ACES) -> grade (vignette, luminance-weighted grain,
-tiny chromatic aberration, off on mobile). Contact shadow baked once at load from a depth render below.
-Mobile (`LOW`): DPR 1.5, quarter-res bloom, no CA, no antialias.
+- pale-blue cloud light and icy white highlights;
+- art at the largest practical scale;
+- rounded gallery cards that lift from the page;
+- translucent stacked surfaces, soft shadows, and tactile controls;
+- serif display type with quiet sans-serif utility text;
+- very little copy.
 
-Tried and rejected: wet-slate Reflector floor (fights the cut-out street geometry), depth of field
-(double blur under the glass cards), fog (desaturates a fully-fit object).
+The former Foundation marketplace influences the confident artwork scale, rounded pop-out objects, editorial calm, and clear acquisition focus. Grove combines that sensibility with its own pixelated school and luminous-blue atmosphere rather than reproducing Foundation’s branding or layouts.
 
-## Island (added after the "still looks bad" pass)
-The photogrammetry's ragged edges were the real problem, not the lighting. The model is now clipped in
-the fragment shader to a disc of radius `ISLAND_R` (23 world units) around the centroid of the rooftops,
-and to everything above street level; it sits on a slate plinth disc with a baked contact shadow confined
-to the same disc. Because the island radius is known, the camera frames it exactly on any stage size
-(`fit()`), which is what finally made it fill a phone screen without guessing.
+## Product hierarchy
+
+1. **Discover** — a curator receives, saves, or sponsors a piece.
+2. **Add a piece** — a discovery or public link becomes an unlisted draft.
+3. **Join** — a curator authorizes Instagram or X and imports only granted name/photo/handle data.
+4. **Marketplace** — collectors explore physical, digital / NFT, and paired work.
+5. **Bazaar** — Grove coordinates a monthly physical gathering.
+
+The interface exposes only the state needed for the current decision. Detail, edition, network, and fulfillment metadata stay collapsed or on the work page.
+
+## System
+
+- **Sky** `#dceefa`
+- **Ice** `#f8fcff`
+- **Ink** `#17202c`
+- **Cobalt** `#3157e8`
+- **Display** Instrument Serif
+- **Body** DM Sans
+- **Utility** IBM Plex Mono
+- **Cards** 18–34px radii with pale borders and blue-gray elevation
+
+Controls state exactly what happens. Missing credentials and contracts are represented by disabled acquisition actions and short preview labels. No state claims a fetch, submission, wallet connection, mint, payment, or inventory hold.
+
+## Responsive behavior
+
+Desktop uses three-column art grids and paired detail surfaces. Phone layouts collapse to one column, retain the Grove name, keep curator actions prominent, and move the three primary destinations into a thumb-reachable floating navigation. Visible first-viewport targets are at least 44px, horizontal overflow is suppressed and tested, and motion respects `prefers-reduced-motion`.
+
+## Assets
+
+- `public/assets/school-seed.jpg` — exact supplied 1254×1254 image.
+- `public/assets/school-mark.jpg` — deterministic center crop of the supplied image.
+- `physical-works.jpg` / `digital-works.jpg` — generated fictional prototype contact sheets.
+
+`public/school.glb` remains archival and is not loaded.

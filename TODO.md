@@ -1,1 +1,7 @@
-- [ ] Attribution for Google Earth tile data in public/school.glb (credit line or own capture) before going live on convent.lol
+- [ ] Complete the `P0` invited-pilot gates in `docs/PRODUCTION_BACKLOG.md`.
+- [ ] Replace prototype catalog records with curator-sponsored, rights-cleared work.
+- [ ] Publish privacy/deletion/rights policies and configure reviewed Instagram/X apps.
+- [ ] Wire curator actions to the database and create the editorial rights-review queue.
+- [ ] Establish preview data, monitoring, backup/restore, required GitHub checks, and an owner-approved license.
+- [ ] Complete the `P1` acquisition and bazaar gates before enabling checkout, minting, or RSVP claims.
+- [ ] Resolve `public/school.glb` Google Earth tile-data attribution before distributing that archival source file. The production build excludes it.

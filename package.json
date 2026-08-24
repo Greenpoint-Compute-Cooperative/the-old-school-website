@@ -1,0 +1,27 @@
+{
+  "name": "grove-marketplace",
+  "version": "1.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/serve-static.mjs",
+    "build": "npm run check && npm test && node scripts/build-static.mjs",
+    "check": "find api lib scripts tests -type f \\( -name '*.js' -o -name '*.mjs' \\) -print0 | xargs -0 -n1 node --check && node --check app.js && node --check analytics.js && node --check catalog.js",
+    "ci": "npm run build && npm run repo:check",
+    "config:check": "node scripts/check-config.mjs",
+    "live:check": "node scripts/check-live.mjs",
+    "metrics": "node --env-file-if-exists=.env.local scripts/metrics.mjs",
+    "repo:check": "node scripts/check-repo.mjs",
+    "seed:preview": "node scripts/seed-preview.mjs",
+    "test": "node tests/smoke.mjs && node tests/backend.mjs"
+  },
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.12.4",
+    "@supabase/supabase-js": "^2.112.3",
+    "cookie": "^2.0.1"
+  }
+}

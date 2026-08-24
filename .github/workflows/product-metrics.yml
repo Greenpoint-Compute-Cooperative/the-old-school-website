@@ -1,0 +1,49 @@
+name: Private product metrics
+
+on:
+  schedule:
+    - cron: "7 13 * * 1"
+  workflow_dispatch:
+    inputs:
+      days:
+        description: Reporting window
+        required: true
+        default: "30"
+        type: choice
+        options: ["7", "30", "90"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: product-metrics
+  cancel-in-progress: true
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GROVE_SITE_URL: https://the-school-omega.vercel.app
+      GROVE_METRICS_READ_TOKEN: ${{ secrets.GROVE_METRICS_READ_TOKEN }}
+      REPORT_DAYS: ${{ inputs.days || '30' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci
+      - name: Build private report
+        run: npm run metrics -- --days="$REPORT_DAYS" > grove-metrics.txt
+      - name: Publish job summary
+        run: |
+          echo '## Grove Marketplace — private product metrics' >> "$GITHUB_STEP_SUMMARY"
+          echo '```text' >> "$GITHUB_STEP_SUMMARY"
+          cat grove-metrics.txt >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: grove-private-metrics-${{ github.run_id }}
+          path: grove-metrics.txt
+          retention-days: 30

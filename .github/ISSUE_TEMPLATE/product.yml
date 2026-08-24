@@ -1,0 +1,41 @@
+name: Product idea
+description: Propose a measurable improvement for Grove.
+title: "product: "
+labels: [product, needs-triage]
+body:
+  - type: dropdown
+    id: audience
+    attributes:
+      label: Who is this for?
+      options:
+        - Curator
+        - Artist
+        - Collector
+        - Bazaar visitor
+        - Grove operator
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Describe the behavior or friction, not the feature first.
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+    validations:
+      required: true
+  - type: textarea
+    id: measure
+    attributes:
+      label: How will we know?
+      description: Name a metric or observable result. Do not propose invasive tracking.
+    validations:
+      required: true
+  - type: textarea
+    id: smallest
+    attributes:
+      label: Smallest useful version

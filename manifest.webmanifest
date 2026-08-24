@@ -1,0 +1,17 @@
+{
+  "name": "Grove Marketplace — New York",
+  "short_name": "Grove",
+  "description": "Curator-led physical and digital art in New York.",
+  "start_url": "/#home",
+  "display": "standalone",
+  "background_color": "#eef7fc",
+  "theme_color": "#dceefa",
+  "icons": [
+    {
+      "src": "/public/assets/school-mark.jpg",
+      "sizes": "620x620",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    }
+  ]
+}

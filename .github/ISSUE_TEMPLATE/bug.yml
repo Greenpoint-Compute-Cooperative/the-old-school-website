@@ -1,0 +1,52 @@
+name: Bug
+description: Something in Grove is broken or misleading.
+title: "bug: "
+labels: [bug, needs-triage]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Discoveries
+        - Marketplace / work page
+        - Curator flow
+        - Bazaar
+        - Social sign-in
+        - API / database
+        - Deployment / operations
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: What happened?
+      description: Include the route and the exact visible state. Never paste credentials or private artist data.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What should happen?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction
+      placeholder: |
+        1. Open …
+        2. Tap …
+        3. See …
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: Production / preview / local; browser and device
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Screenshots, response codes, or sanitized logs.

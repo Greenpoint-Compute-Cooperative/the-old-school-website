@@ -1,0 +1,8 @@
+# Keep the default review path explicit while the founding team is small.
+* @dmarzzz
+
+/.github/ @dmarzzz
+/api/ @dmarzzz
+/lib/server/ @dmarzzz
+/supabase/ @dmarzzz
+/vercel.json @dmarzzz
