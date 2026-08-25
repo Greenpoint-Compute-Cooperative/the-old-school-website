@@ -9,6 +9,15 @@ All notable changes to Marketplace & Auction House of Brooklyn are recorded here
 - Provider-approved Instagram and X OAuth apps.
 - Authoritative wallet, mint, card, inventory, and fulfillment integrations.
 
+## 1.0.4 - 2026-08-25
+
+### Changed
+
+- Added a low-contrast bluish checker field with asymmetric fade zones across every route.
+- Recast principal content as restrained white catalogue sheets and flattened nested art mounts.
+- Inset the sticky desktop and mobile header so the pixel field remains visible above it.
+- Verified the full route set at desktop, tablet, 390px, and 320px widths.
+
 ## 1.0.3 - 2026-08-25
 
 ### Changed
