@@ -9,6 +9,14 @@ All notable changes to Marketplace & Auction House of Brooklyn are recorded here
 - Provider-approved Instagram and X OAuth apps.
 - Authoritative wallet, mint, card, inventory, and fulfillment integrations.
 
+## 1.0.5 - 2026-08-25
+
+### Changed
+
+- Restored the full-image celestial home card from v1.0.1 (`8e59181`) over the v1.0.3 pre-checker page shell.
+- Removed the v1.0.4 checker field, fade masks, inset header, and catalogue-sheet surfaces.
+- Preserved the current **Marketplace & Auction House of Brooklyn** identity and all production integration boundaries.
+
 ## 1.0.4 - 2026-08-25
 
 ### Changed
