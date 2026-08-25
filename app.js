@@ -133,7 +133,7 @@ const home = () => {
         </div>
       </section>
 
-      <section class="section" aria-labelledby="home-discoveries-title">
+      <section class="section catalogue-sheet" aria-labelledby="home-discoveries-title">
         <div class="section-head">
           <h2 id="home-discoveries-title">Discoveries</h2>
           <a href="#discover">View inbox →</a>
@@ -143,7 +143,7 @@ const home = () => {
         </div>
       </section>
 
-      <section class="section" aria-labelledby="home-market-title">
+      <section class="section catalogue-sheet" aria-labelledby="home-market-title">
         <div class="section-head">
           <h2 id="home-market-title">At 29 Nassau</h2>
           <a href="#market">View marketplace →</a>
@@ -169,18 +169,20 @@ const discoverPage = () => {
         <a class="button button--dark" href="#join">Join as curator</a>
       </header>
 
-      <form class="link-capture" id="link-capture">
-        <img src="public/assets/school-mark.jpg" alt="" width="64" height="64">
-        <label for="discovery-link">Add a public link</label>
-        <input id="discovery-link" name="link" type="url" placeholder="https://" value="${escapeHtml(draftLink)}" required>
-        <button type="submit">Start draft →</button>
-        <small>No fetch in preview</small>
-      </form>
+      <div class="catalogue-sheet catalogue-sheet--route">
+        <form class="link-capture" id="link-capture">
+          <img src="public/assets/school-mark.jpg" alt="" width="64" height="64">
+          <label for="discovery-link">Add a public link</label>
+          <input id="discovery-link" name="link" type="url" placeholder="https://" value="${escapeHtml(draftLink)}" required>
+          <button type="submit">Start draft →</button>
+          <small>No fetch in preview</small>
+        </form>
 
-      <div class="filter-bar" aria-label="Discovery status">${discoveryFilters()}</div>
-      <section class="discovery-grid" id="discovery-grid" aria-live="polite">
-        ${items.length ? items.map(discoveryItem).join("") : `<div class="empty"><strong>Nothing here yet.</strong><span>Save a discovery to move it here.</span></div>`}
-      </section>
+        <div class="filter-bar" aria-label="Discovery status">${discoveryFilters()}</div>
+        <section class="discovery-grid" id="discovery-grid" aria-live="polite">
+          ${items.length ? items.map(discoveryItem).join("") : `<div class="empty"><strong>Nothing here yet.</strong><span>Save a discovery to move it here.</span></div>`}
+        </section>
+      </div>
     </div>
   `;
 };
@@ -193,10 +195,12 @@ const marketPage = (initial = "all") => {
       <header class="page-title page-title--simple">
         <h1>Works</h1>
       </header>
-      <div class="filter-bar" aria-label="Work format">
-        ${[["all", "All"], ["physical", "Physical"], ["digital", "Digital"], ["paired", "Paired"]].map(([value, label]) => `<button type="button" data-market-filter="${value}" aria-pressed="${marketFilter === value}">${label}</button>`).join("")}
+      <div class="catalogue-sheet catalogue-sheet--route">
+        <div class="filter-bar" aria-label="Work format">
+          ${[["all", "All"], ["physical", "Physical"], ["digital", "Digital"], ["paired", "Paired"]].map(([value, label]) => `<button type="button" data-market-filter="${value}" aria-pressed="${marketFilter === value}">${label}</button>`).join("")}
+        </div>
+        <section class="work-grid" id="market-grid">${filtered.map(workTile).join("")}</section>
       </div>
-      <section class="work-grid" id="market-grid">${filtered.map(workTile).join("")}</section>
     </div>
   `;
 };
@@ -211,7 +215,7 @@ const exhibitionPage = (exhibition) => {
         <h1>${escapeHtml(exhibition.title)}</h1>
         ${curatorPill(curator)}
       </header>
-      <section class="work-grid">${selected.map(workTile).join("")}</section>
+      <section class="work-grid catalogue-sheet catalogue-sheet--route">${selected.map(workTile).join("")}</section>
     </div>
   `;
 };
@@ -244,7 +248,7 @@ const workPage = (work) => {
           </details>
         </aside>
       </div>
-      <section class="page section related" aria-labelledby="related-title">
+      <section class="page section related catalogue-sheet" aria-labelledby="related-title">
         <div class="section-head"><h2 id="related-title">More works</h2></div>
         <div class="work-grid">${related.map(workTile).join("")}</div>
       </section>
@@ -258,7 +262,7 @@ const curatorsPage = () => `
       <h1>Curators</h1>
       <a class="button button--dark" href="#join">Join as curator</a>
     </header>
-    <section class="curator-grid">
+    <section class="curator-grid catalogue-sheet catalogue-sheet--route">
       ${curators.map((curator) => {
         const count = worksForCurator(curator.id).length;
         return `<a class="curator-card" href="#curator/${curator.id}"><img src="public/assets/school-mark.jpg" alt=""><span class="curator-card__initials">${escapeHtml(curator.initials)}</span><h2>${escapeHtml(curator.name)}</h2><small>${escapeHtml(curator.role.split(" · ")[0])}</small><strong>${count} works →</strong></a>`;
@@ -276,7 +280,7 @@ const curatorPage = (curator) => {
         <div class="curator-profile__mark"><img src="public/assets/school-mark.jpg" alt=""><span>${escapeHtml(curator.initials)}</span></div>
         <div><span class="curator-role">${escapeHtml(curator.role.split(" · ")[0])}</span><h1>${escapeHtml(curator.name)}</h1><div class="action-row"><a class="button button--dark" href="#sponsor">Add a piece</a><a class="button button--soft" href="#discover">Discover</a></div></div>
       </header>
-      <section class="section"><div class="section-head"><h2>Sponsored</h2><span>${selected.length}</span></div><div class="work-grid">${selected.map(workTile).join("")}</div></section>
+      <section class="section catalogue-sheet"><div class="section-head"><h2>Sponsored</h2><span>${selected.length}</span></div><div class="work-grid">${selected.map(workTile).join("")}</div></section>
     </div>
   `;
 };
@@ -345,7 +349,7 @@ const bazaarPage = () => {
       <section class="schedule" aria-label="Bazaar schedule">
         ${bazaar.schedule.slice(0, 3).map((item) => `<div><time>${escapeHtml(item.time)}</time><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(item.note)}</span></div>`).join("")}
       </section>
-      <section class="section"><div class="section-head"><h2>At the bazaar</h2></div><div class="work-grid">${featured.map(workTile).join("")}</div></section>
+      <section class="section catalogue-sheet"><div class="section-head"><h2>At the bazaar</h2></div><div class="work-grid">${featured.map(workTile).join("")}</div></section>
     </div>
   `;
 };

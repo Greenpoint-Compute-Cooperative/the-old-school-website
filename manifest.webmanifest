@@ -4,8 +4,8 @@
   "description": "Curator-led physical and digital art in Brooklyn.",
   "start_url": "/#home",
   "display": "standalone",
-  "background_color": "#f4f9fc",
-  "theme_color": "#d5e8f3",
+  "background_color": "#f5f9fc",
+  "theme_color": "#f5f9fc",
   "icons": [
     {
       "src": "/public/assets/school-mark.jpg",

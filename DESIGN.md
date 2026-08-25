@@ -10,9 +10,12 @@ The marketplace pairs auction-house discipline with a pale-blue, pixelated schoo
 
 - measured editorial serif type and quiet sans-serif navigation;
 - thin rules, truthful catalogue metadata, and deliberate spacing;
-- near-flat cards with small radii and restrained elevation;
+- disciplined white catalogue sheets with small radii and shallow elevation;
+- a low-contrast bluish checker field that fades through asymmetric cloud-wash zones;
 - the supplied school image as the singular atmospheric signature;
 - one concrete home action: **Open discoveries**.
+
+The inset sticky header leaves a narrow strip of the checker field visible above it. The pattern is strongest in margins and between route-level sheets, then nearly disappears beneath broad pale washes. It should read as a material field related to the pixel-school image, never as a transparency-grid effect. Individual work and discovery entries remain flatter mounts within a sheet so the composition does not become a dashboard.
 
 The current official [Sotheby’s](https://www.sothebys.com/en/) presentation informed the clear auction/exhibition hierarchy and concise date, location, format, estimate, and status patterns. The current official [Christie’s](https://www.christies.com/en) presentation informed the editorial scale, generous negative space, fine rules, and disciplined auction-calendar structure. The marketplace translates those traits into its own curator desk; it does not reproduce either company’s trade dress, content, or layouts.
 
@@ -28,22 +31,22 @@ The interface exposes only what the current decision needs. Edition, network, fu
 
 ## System
 
-- **Cloud Paper** `#f4f9fc`
-- **Celestial Field** `#d5e8f3`
+- **Cloud Ground** `#f5f9fc`
+- **Tile Blue** `#e4eff5`
+- **Sheet White** `#ffffff`
 - **Archive Ink** `#15202a`
-- **Slate** `#5e6a73`
-- **Hairline Blue** `#afc7d5`
+- **Catalogue Slate** `#5e6a73`
 - **Signal Cobalt** `#2349c8`, reserved for action and focus
 - **Display** Instrument Serif
 - **Body** DM Sans
 - **Catalogue utility** IBM Plex Mono
-- **Surfaces** 4–16px radii, pale borders, and shallow blue-gray elevation
+- **Surfaces** 4–10px radii, fine blue-gray rules, white sheets, and shallow elevation
 
 Controls state exactly what happens. Missing credentials and contracts appear as disabled acquisition actions and short preview labels. No state claims a fetch, submission, wallet connection, mint, payment, or inventory hold.
 
 ## Responsive behavior
 
-Desktop uses a 440px home plate with the school capped at 300px, three-column catalogues, and paired work-detail surfaces. Phone layouts use a roughly 400px plate with a 150–172px school mark, collapse catalogues to one column, and keep curator destinations thumb-reachable. Visible first-viewport targets are at least 44px, horizontal overflow is suppressed and tested, and motion respects `prefers-reduced-motion`.
+Desktop uses a 440px home plate with the school capped at 300px, three-column catalogues, and paired work-detail sheets. Tablet collapses primary navigation into a floating bottom sheet while preserving two-column catalogues. Phone layouts use a roughly 400px plate with a 150px school mark, one-column catalogues, a 6px checker strip above the sticky header, and thumb-reachable curator destinations. Visible targets are at least 44px, horizontal overflow is suppressed and tested down to 320px, and motion respects `prefers-reduced-motion`.
 
 ## Assets
 
