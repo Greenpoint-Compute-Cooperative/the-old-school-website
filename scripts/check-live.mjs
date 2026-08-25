@@ -22,7 +22,8 @@ const fetchChecked = async (path, options = {}, expectedStatus = 200) => {
 
 const home = await fetchChecked("/");
 const homeText = await home.text();
-assert.match(homeText, /Marketplace &amp; Auction House of Brooklyn New York/);
+assert.match(homeText, /Grove Marketplace/);
+assert.doesNotMatch(homeText, /Marketplace &amp; Auction House/);
 for (const header of [
   "content-security-policy",
   "cross-origin-opener-policy",

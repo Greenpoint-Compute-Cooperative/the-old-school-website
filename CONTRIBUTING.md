@@ -1,6 +1,6 @@
 # Contributing
 
-Marketplace & Auction House of Brooklyn New York is curator-led, art-first, and intentionally small. Contributions should make the real product clearer, safer, faster, or easier to operate—not simulate an integration that does not exist.
+Grove Marketplace is curator-led, art-first, and intentionally small. Contributions should make the real product clearer, safer, faster, or easier to operate—not simulate an integration that does not exist.
 
 ## Golden path
 

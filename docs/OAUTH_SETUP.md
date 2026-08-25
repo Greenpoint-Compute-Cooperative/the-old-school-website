@@ -1,6 +1,6 @@
 # Social access setup
 
-Marketplace & Auction House of Brooklyn New York accepts curator access only through Instagram or X. The site never accepts an email/password form, social password, or scraped account data.
+Grove Marketplace accepts curator access only through Instagram or X. The site never accepts an email/password form, social password, or scraped account data.
 
 ## Shared Supabase setup
 

@@ -1,8 +1,8 @@
-# Marketplace & Auction House of Brooklyn New York · launch plan
+# Grove Marketplace · launch plan
 
 ## Position
 
-Marketplace & Auction House of Brooklyn New York is the curator-led market for physical work at 29 Nassau Avenue and born-digital work. A named curator sponsors every artist and piece. The monthly auditorium bazaar turns the catalog into a recurring in-person program.
+Grove Marketplace is the curator-led market for physical work at 29 Nassau Avenue and born-digital work. A named curator sponsors every artist and piece. The monthly auditorium bazaar turns the catalog into a recurring in-person program.
 
 NFT acquisition is not deferred: verified existing tokens, new editions, and paired physical + NFT works belong in the first production launch. Crypto is the primary rail; hosted card checkout remains available.
 
@@ -126,7 +126,7 @@ NFTs already exist in launch scope. Phase two deepens them:
 
 ## Prototype map
 
-- `#home` — Marketplace & Auction House of Brooklyn New York identity, seed image, and one discovery action.
+- `#home` — Grove Marketplace identity, compact school mark, and one discovery action.
 - `#discover` — discovery inbox, saved/sponsored states, and link-to-draft intake.
 - `#sponsor` / `#join` — curator draft and configured/unconfigured Instagram/X consent boundary.
 - `#market` / `#work/:slug` — mixed catalog and honest crypto/card preview.

@@ -38,7 +38,7 @@ jobs:
         run: npm run metrics -- --days="$REPORT_DAYS" > marketplace-metrics.txt
       - name: Publish job summary
         run: |
-          echo '## Marketplace & Auction House — private product metrics' >> "$GITHUB_STEP_SUMMARY"
+          echo '## Grove Marketplace — private product metrics' >> "$GITHUB_STEP_SUMMARY"
           echo '```text' >> "$GITHUB_STEP_SUMMARY"
           cat marketplace-metrics.txt >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"

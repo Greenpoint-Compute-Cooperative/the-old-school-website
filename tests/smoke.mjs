@@ -23,8 +23,8 @@ assert.match(html, /href="styles\.css"/, "stylesheet is linked");
 assert.match(html, /src="app\.js"/, "application module is linked");
 assert.match(html, /rel="manifest"/, "install metadata is linked");
 assert.match(html, /rel="canonical"/, "canonical production URL is declared");
-assert.match(html, /Marketplace &amp; Auction House/, "auction-house identity is visible in source");
-assert.match(html, /of Brooklyn New York/, "Brooklyn and New York are visible in the compact brand");
+assert.match(html, /Grove Marketplace/, "Grove Marketplace identity is visible in source");
+assert.doesNotMatch(html, /Marketplace &amp; Auction House/, "retired long lockup is absent from source");
 assert.match(html, /public\/assets\/school-mark\.jpg/, "supplied school mark is the primary logo");
 assert.doesNotMatch(html, /The School Art/, "retired product name is absent");
 assert.doesNotMatch(html, /href="#"/, "no placeholder-only links remain");
@@ -32,12 +32,17 @@ assert.doesNotMatch(app, new RegExp(["Curate", "what enters"].join(" ")), "rejec
 assert.doesNotMatch(app, /desk-popout/, "decorative hero popout is absent");
 assert.doesNotMatch(app, /join-form/, "manual signup form is absent");
 assert.doesNotMatch(app, /type="email"/, "email signup is absent");
+assert.match(app, /const BRAND_NAME = "Grove Marketplace"/, "route titles use the Grove Marketplace identity");
+assert.doesNotMatch(app, /Marketplace & Auction House/, "retired long lockup is absent from the application");
+assert.match(app, /class="hero__mark"/, "home uses the supplied school as a compact brand mark");
+assert.match(app, /class="hero__action"/, "home retains one concrete curator action");
 assert.match(app, /track\("work_viewed"/, "work engagement is measured");
 assert.match(app, /track\("discovery_sponsored"/, "curator intent is measured");
 assert.match(analytics, /sessionStorage/, "metrics use a browser-session identifier");
 assert.match(analytics, /globalPrivacyControl/, "metrics honor Global Privacy Control");
 assert.doesNotMatch(analytics, /localStorage|document\.cookie|fingerprint/, "metrics avoid persistent tracking");
-assert.match(manifest, /Marketplace & Auction House of Brooklyn New York/, "manifest carries the auction-house identity");
+assert.match(manifest, /Grove Marketplace/, "manifest carries the Grove Marketplace identity");
+assert.doesNotMatch(manifest, /Marketplace & Auction House/, "manifest omits the retired long lockup");
 
 for (const route of ["home", "discoverPage", "marketPage", "exhibitionPage", "workPage", "curatorsPage", "curatorPage", "bazaarPage", "sponsorPage", "joinPage"]) {
   assert.match(app, new RegExp(`const ${route}`), `${route} is implemented`);
@@ -54,7 +59,10 @@ assert.match(app, /Continue by card/, "card path is present");
 assert.match(css, /prefers-reduced-motion/, "reduced-motion behavior exists");
 assert.match(css, /:focus-visible/, "keyboard focus treatment exists");
 assert.match(css, /@media \(max-width: 760px\)/, "phone layout exists");
-assert.match(css, /border-radius: 3[0-9]px/, "rounded gallery surfaces are part of the visual system");
+assert.match(css, /\.hero \{[\s\S]*?height: 440px;/, "desktop hero is materially reduced");
+assert.match(css, /width: clamp\(210px, 22vw, 300px\)/, "desktop school mark is capped at 300px");
+assert.match(css, /width: min\(45vw, 172px\)/, "phone school mark stays compact");
+assert.match(css, /border-radius: 1[0-6]px/, "restrained gallery surfaces are part of the visual system");
 
 assert.equal(new Set(works.map((work) => work.slug)).size, works.length, "work slugs are unique");
 assert.equal(new Set(curators.map((curator) => curator.id)).size, curators.length, "curator IDs are unique");
@@ -94,7 +102,8 @@ assert.match(launch, /NFT acquisition is not deferred/, "roadmap keeps NFTs in l
 assert.match(launch, /Curator-first go-to-market/, "roadmap includes curator-first GTM");
 assert.match(launch, /Instagram chat intake/, "roadmap includes the constrained chat-intake concept");
 assert.match(launch, /no scraping/i, "roadmap prohibits scraping");
-assert.match(launch, /Marketplace & Auction House of Brooklyn New York/, "launch plan is grounded in Brooklyn and New York");
+assert.match(launch, /Grove Marketplace/, "launch plan uses the current identity");
+assert.match(launch, /29 Nassau Avenue/, "launch plan remains grounded in Brooklyn");
 assert.match(oauth, /email\/password form/, "social-only access is documented");
 assert.match(oauth, /instagram_business_basic/, "Instagram scope boundary is documented");
 assert.match(oauth, /users\.read/, "X profile scope boundary is documented");

@@ -1,21 +1,20 @@
-# Marketplace & Auction House of Brooklyn New York · design notes
+# Grove Marketplace · design notes
 
 ## Identity
 
-The user-supplied floating school is the primary mark, not mood-board material. The full square image anchors the home and join pages; a centered crop serves as the compact logo. The visible identity is **Marketplace & Auction House of Brooklyn New York**.
+The user-supplied floating school is Grove Marketplace’s primary mark. A compact crop identifies the header; the exact square image appears on the home page as a restrained celestial catalogue plate rather than a full-bleed illustration.
 
 ## Visual thesis
 
-The experience is a celestial curator desk:
+Grove pairs auction-house discipline with a pale-blue, pixelated school in the clouds:
 
-- pale-blue cloud light and icy white highlights;
-- art at the largest practical scale;
-- rounded gallery cards that lift from the page;
-- translucent stacked surfaces, soft shadows, and tactile controls;
-- serif display type with quiet sans-serif utility text;
-- very little copy.
+- measured editorial serif type and quiet sans-serif navigation;
+- thin rules, truthful catalogue metadata, and deliberate spacing;
+- near-flat cards with small radii and restrained elevation;
+- the supplied school image as the singular atmospheric signature;
+- one concrete home action: **Open discoveries**.
 
-The former Foundation marketplace influences the confident artwork scale, rounded pop-out objects, editorial calm, and clear acquisition focus. This experience combines that sensibility with its own pixelated school and luminous-blue atmosphere rather than reproducing Foundation’s branding or layouts.
+The current official [Sotheby’s](https://www.sothebys.com/en/) presentation informed the clear auction/exhibition hierarchy and concise date, location, format, estimate, and status patterns. The current official [Christie’s](https://www.christies.com/en) presentation informed the editorial scale, generous negative space, fine rules, and disciplined auction-calendar structure. Grove translates those traits into its own curator desk; it does not reproduce either company’s trade dress, content, or layouts.
 
 ## Product hierarchy
 
@@ -25,24 +24,26 @@ The former Foundation marketplace influences the confident artwork scale, rounde
 4. **Marketplace** — collectors explore physical, digital / NFT, and paired work.
 5. **Bazaar** — the marketplace coordinates a monthly physical gathering.
 
-The interface exposes only the state needed for the current decision. Detail, edition, network, and fulfillment metadata stay collapsed or on the work page.
+The interface exposes only what the current decision needs. Edition, network, fulfillment, and acquisition detail remain on work pages or inside the honest preview boundary.
 
 ## System
 
-- **Sky** `#dceefa`
-- **Ice** `#f8fcff`
-- **Ink** `#17202c`
-- **Cobalt** `#3157e8`
+- **Cloud Paper** `#f4f9fc`
+- **Celestial Field** `#d5e8f3`
+- **Archive Ink** `#15202a`
+- **Slate** `#5e6a73`
+- **Hairline Blue** `#afc7d5`
+- **Signal Cobalt** `#2349c8`, reserved for action and focus
 - **Display** Instrument Serif
 - **Body** DM Sans
-- **Utility** IBM Plex Mono
-- **Cards** 18–34px radii with pale borders and blue-gray elevation
+- **Catalogue utility** IBM Plex Mono
+- **Surfaces** 4–16px radii, pale borders, and shallow blue-gray elevation
 
-Controls state exactly what happens. Missing credentials and contracts are represented by disabled acquisition actions and short preview labels. No state claims a fetch, submission, wallet connection, mint, payment, or inventory hold.
+Controls state exactly what happens. Missing credentials and contracts appear as disabled acquisition actions and short preview labels. No state claims a fetch, submission, wallet connection, mint, payment, or inventory hold.
 
 ## Responsive behavior
 
-Desktop uses three-column art grids and paired detail surfaces. Phone layouts collapse to one column, retain the full identity in a compact two-line lockup, keep curator actions prominent, and move the three primary destinations into a thumb-reachable floating navigation. Visible first-viewport targets are at least 44px, horizontal overflow is suppressed and tested, and motion respects `prefers-reduced-motion`.
+Desktop uses a 440px home plate with the school capped at 300px, three-column catalogues, and paired work-detail surfaces. Phone layouts use a roughly 400px plate with a 150–172px school mark, collapse catalogues to one column, and keep curator destinations thumb-reachable. Visible first-viewport targets are at least 44px, horizontal overflow is suppressed and tested, and motion respects `prefers-reduced-motion`.
 
 ## Assets
 
