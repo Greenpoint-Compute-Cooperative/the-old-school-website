@@ -51,8 +51,7 @@ This is the shortest path from the current invited-pilot build to a trustworthy 
 ## Owner decisions
 
 1. Public/custom domain and legal/policy owner.
-2. Whether the GitHub repository should eventually be renamed from `school-website` to a concise auction-house slug.
-3. Instagram/X app-owning organizations, legal contact, and review metadata.
-4. Crypto chain/contract model, card provider, seller-of-record, custody, tax, and refund model.
-5. Pilot curator cohort, editorial approver, launch catalog, and first bazaar date/capacity.
-6. Monitoring provider, on-call owner, backup/PITR tier, and acceptable retention windows.
+2. Instagram/X app-owning organizations, legal contact, and review metadata.
+3. Crypto chain/contract model, card provider, seller-of-record, custody, tax, and refund model.
+4. Pilot curator cohort, editorial approver, launch catalog, and first bazaar date/capacity.
+5. Monitoring provider, on-call owner, backup/PITR tier, and acceptable retention windows.

@@ -1,7 +1,7 @@
 # Marketplace & Auction House of Brooklyn New York
 
-[![CI](https://github.com/Greenpoint-Compute-Cooperative/school-website/actions/workflows/ci.yml/badge.svg)](https://github.com/Greenpoint-Compute-Cooperative/school-website/actions/workflows/ci.yml)
-[![Production health](https://github.com/Greenpoint-Compute-Cooperative/school-website/actions/workflows/uptime.yml/badge.svg)](https://github.com/Greenpoint-Compute-Cooperative/school-website/actions/workflows/uptime.yml)
+[![CI](https://github.com/Greenpoint-Compute-Cooperative/grove-marketplace/actions/workflows/ci.yml/badge.svg)](https://github.com/Greenpoint-Compute-Cooperative/grove-marketplace/actions/workflows/ci.yml)
+[![Production health](https://github.com/Greenpoint-Compute-Cooperative/grove-marketplace/actions/workflows/uptime.yml/badge.svg)](https://github.com/Greenpoint-Compute-Cooperative/grove-marketplace/actions/workflows/uptime.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-0a6cff.svg)](LICENSE)
 
 A curator-led marketplace for physical art in the School and born-digital work. The primary loop is discovery → save → sponsor → publish; the monthly auditorium bazaar brings the catalog into New York.
