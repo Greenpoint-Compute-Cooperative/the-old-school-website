@@ -31,5 +31,5 @@ jobs:
           brooklyn-marketplace-auction-house-static.tar.gz
           SHA256SUMS.txt
           --repo "$GITHUB_REPOSITORY"
-          --title "Grove Marketplace $GITHUB_REF_NAME"
+          --title "Marketplace & Auction House of Brooklyn $GITHUB_REF_NAME"
           --generate-notes

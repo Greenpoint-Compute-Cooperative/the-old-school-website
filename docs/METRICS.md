@@ -68,7 +68,7 @@ Button clicks are never counted as sales, mints, ownership, or revenue.
 
 ## Read the dashboard feed
 
-Pull production environment variables into the ignored `.env.local`, then run the report. The founding operator’s non-exportable Vercel token is mirrored in macOS Keychain under `Grove Marketplace / metrics-read-token`; the script also accepts the former service name during migration. Other authorized operators should receive their token through the team password manager, never GitHub or chat.
+Pull production environment variables into the ignored `.env.local`, then run the report. The founding operator’s non-exportable Vercel token is mirrored in macOS Keychain under `Marketplace & Auction House of Brooklyn / metrics-read-token`; the script also accepts former service names during migration. Other authorized operators should receive their token through the team password manager, never GitHub or chat.
 
 ```sh
 npm run metrics -- --days=30

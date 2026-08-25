@@ -7,14 +7,15 @@ import { bazaar, curators, discoveries, exhibitions, works } from "../catalog.js
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const read = (path) => readFile(join(root, path), "utf8");
 
-const [html, css, app, analytics, launch, oauth, manifest] = await Promise.all([
+const [html, css, app, analytics, launch, oauth, manifest, health] = await Promise.all([
   read("index.html"),
   read("styles.css"),
   read("app.js"),
   read("analytics.js"),
   read("LAUNCH.md"),
   read("docs/OAUTH_SETUP.md"),
-  read("manifest.webmanifest")
+  read("manifest.webmanifest"),
+  read("api/health.js")
 ]);
 
 assert.match(html, /id="app"/, "application mount exists");
@@ -23,8 +24,9 @@ assert.match(html, /href="styles\.css"/, "stylesheet is linked");
 assert.match(html, /src="app\.js"/, "application module is linked");
 assert.match(html, /rel="manifest"/, "install metadata is linked");
 assert.match(html, /rel="canonical"/, "canonical production URL is declared");
-assert.match(html, /Grove Marketplace/, "Grove Marketplace identity is visible in source");
-assert.doesNotMatch(html, /Marketplace &amp; Auction House/, "retired long lockup is absent from source");
+assert.match(html, /aria-label="Marketplace &amp; Auction House of Brooklyn, home"/, "exact public identity is visible in source");
+assert.doesNotMatch(html, /Grove Marketplace/, "retired Grove identity is absent from source");
+assert.doesNotMatch(html, /Marketplace &amp; Auction House of Brooklyn New York/, "trailing New York is absent from the identity");
 assert.match(html, /public\/assets\/school-mark\.jpg/, "supplied school mark is the primary logo");
 assert.doesNotMatch(html, /The School Art/, "retired product name is absent");
 assert.doesNotMatch(html, /href="#"/, "no placeholder-only links remain");
@@ -32,8 +34,8 @@ assert.doesNotMatch(app, new RegExp(["Curate", "what enters"].join(" ")), "rejec
 assert.doesNotMatch(app, /desk-popout/, "decorative hero popout is absent");
 assert.doesNotMatch(app, /join-form/, "manual signup form is absent");
 assert.doesNotMatch(app, /type="email"/, "email signup is absent");
-assert.match(app, /const BRAND_NAME = "Grove Marketplace"/, "route titles use the Grove Marketplace identity");
-assert.doesNotMatch(app, /Marketplace & Auction House/, "retired long lockup is absent from the application");
+assert.match(app, /const BRAND_NAME = "Marketplace & Auction House of Brooklyn"/, "route titles use the exact public identity");
+assert.doesNotMatch(app, /Grove Marketplace/, "retired Grove identity is absent from the application");
 assert.match(app, /class="hero__mark"/, "home uses the supplied school as a compact brand mark");
 assert.match(app, /class="hero__action"/, "home retains one concrete curator action");
 assert.match(app, /track\("work_viewed"/, "work engagement is measured");
@@ -41,8 +43,9 @@ assert.match(app, /track\("discovery_sponsored"/, "curator intent is measured");
 assert.match(analytics, /sessionStorage/, "metrics use a browser-session identifier");
 assert.match(analytics, /globalPrivacyControl/, "metrics honor Global Privacy Control");
 assert.doesNotMatch(analytics, /localStorage|document\.cookie|fingerprint/, "metrics avoid persistent tracking");
-assert.match(manifest, /Grove Marketplace/, "manifest carries the Grove Marketplace identity");
-assert.doesNotMatch(manifest, /Marketplace & Auction House/, "manifest omits the retired long lockup");
+assert.match(manifest, /Marketplace & Auction House of Brooklyn/, "manifest carries the exact public identity");
+assert.doesNotMatch(manifest, /Grove Marketplace|Brooklyn New York/, "manifest omits retired identity variants");
+assert.match(health, /service: "Marketplace & Auction House of Brooklyn"/, "health output uses the exact public-facing service identity");
 
 for (const route of ["home", "discoverPage", "marketPage", "exhibitionPage", "workPage", "curatorsPage", "curatorPage", "bazaarPage", "sponsorPage", "joinPage"]) {
   assert.match(app, new RegExp(`const ${route}`), `${route} is implemented`);
@@ -61,7 +64,7 @@ assert.match(css, /:focus-visible/, "keyboard focus treatment exists");
 assert.match(css, /@media \(max-width: 760px\)/, "phone layout exists");
 assert.match(css, /\.hero \{[\s\S]*?height: 440px;/, "desktop hero is materially reduced");
 assert.match(css, /width: clamp\(210px, 22vw, 300px\)/, "desktop school mark is capped at 300px");
-assert.match(css, /width: min\(45vw, 172px\)/, "phone school mark stays compact");
+assert.match(css, /width: min\(42vw, 150px\)/, "phone school mark stays compact");
 assert.match(css, /border-radius: 1[0-6]px/, "restrained gallery surfaces are part of the visual system");
 
 assert.equal(new Set(works.map((work) => work.slug)).size, works.length, "work slugs are unique");
@@ -102,7 +105,7 @@ assert.match(launch, /NFT acquisition is not deferred/, "roadmap keeps NFTs in l
 assert.match(launch, /Curator-first go-to-market/, "roadmap includes curator-first GTM");
 assert.match(launch, /Instagram chat intake/, "roadmap includes the constrained chat-intake concept");
 assert.match(launch, /no scraping/i, "roadmap prohibits scraping");
-assert.match(launch, /Grove Marketplace/, "launch plan uses the current identity");
+assert.match(launch, /Marketplace & Auction House of Brooklyn/, "launch plan uses the current identity");
 assert.match(launch, /29 Nassau Avenue/, "launch plan remains grounded in Brooklyn");
 assert.match(oauth, /email\/password form/, "social-only access is documented");
 assert.match(oauth, /instagram_business_basic/, "Instagram scope boundary is documented");

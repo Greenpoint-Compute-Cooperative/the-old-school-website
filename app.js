@@ -11,7 +11,7 @@ import {
 } from "./catalog.js";
 import { track, trackClientErrors } from "./analytics.js";
 
-const BRAND_NAME = "Grove Marketplace";
+const BRAND_NAME = "Marketplace & Auction House of Brooklyn";
 const app = document.querySelector("#app");
 const collectDialog = document.querySelector("#collect-dialog");
 const collectContent = document.querySelector("#collect-content");
@@ -121,7 +121,7 @@ const home = () => {
     <div class="page home-page">
       <section class="hero" aria-label="${BRAND_NAME}">
         <div class="hero__identity">
-          <h1>Grove<br>Marketplace</h1>
+          <h1>Marketplace &amp;<br>Auction House<br>of Brooklyn</h1>
           <a class="hero__action" href="#discover">Open discoveries <span aria-hidden="true">→</span></a>
         </div>
         <figure class="hero__mark">
@@ -612,7 +612,7 @@ document.addEventListener("submit", (event) => {
 const downloadCalendar = () => {
   const file = ["BEGIN:VCALENDAR", "VERSION:2.0", "BEGIN:VEVENT", "DTSTART:20260912T160000Z", "DTEND:20260912T230000Z", `SUMMARY:${BRAND_NAME} · Assembly of Light`, "LOCATION:29 Nassau Avenue\\, Brooklyn\\, New York", "END:VEVENT", "END:VCALENDAR"].join("\r\n");
   const url = URL.createObjectURL(new Blob([file], { type: "text/calendar" }));
-  const link = Object.assign(document.createElement("a"), { href: url, download: "grove-marketplace-bazaar.ics" });
+  const link = Object.assign(document.createElement("a"), { href: url, download: "marketplace-auction-house-of-brooklyn-bazaar.ics" });
   link.click();
   URL.revokeObjectURL(url);
   showToast("Calendar ready");

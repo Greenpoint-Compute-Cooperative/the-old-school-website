@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to Grove Marketplace are recorded here.
+All notable changes to Marketplace & Auction House of Brooklyn are recorded here.
 
 ## Unreleased
 
@@ -9,11 +9,18 @@ All notable changes to Grove Marketplace are recorded here.
 - Provider-approved Instagram and X OAuth apps.
 - Authoritative wallet, mint, card, inventory, and fulfillment integrations.
 
+## 1.0.3 - 2026-08-25
+
+### Changed
+
+- Set the exact public identity to **Marketplace & Auction House of Brooklyn** across the interface, metadata, manifest, service output, calendar export, and documentation.
+- Preserved the compact celestial school plate and restrained auction-house-informed editorial system.
+
 ## 1.0.2 - 2026-08-25
 
 ### Changed
 
-- Restored the public identity to **Grove Marketplace**.
+- Restored a concise interim marketplace identity.
 - Reframed the supplied floating school as a compact catalogue mark and introduced a restrained, auction-house-informed editorial surface system.
 
 ## 1.0.1 - 2026-08-24

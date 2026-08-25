@@ -7,7 +7,7 @@ if (!Number.isInteger(days) || days < 1 || days > 90) throw new Error("Use --day
 const siteUrl = String(process.env.GROVE_SITE_URL || "").replace(/\/$/, "");
 const token = process.env.GROVE_METRICS_READ_TOKEN || (() => {
   if (process.platform !== "darwin") return "";
-  for (const service of ["Grove Marketplace", "Marketplace & Auction House"]) {
+  for (const service of ["Marketplace & Auction House of Brooklyn", "Grove Marketplace", "Marketplace & Auction House"]) {
     try {
       return execFileSync("security", ["find-generic-password", "-s", service, "-a", "metrics-read-token", "-w"], {
         encoding: "utf8",
@@ -20,7 +20,7 @@ const token = process.env.GROVE_METRICS_READ_TOKEN || (() => {
   return "";
 })();
 if (!siteUrl || !token) {
-  throw new Error("Set GROVE_SITE_URL and provide GROVE_METRICS_READ_TOKEN via the environment or the Grove Marketplace macOS Keychain entry.");
+  throw new Error("Set GROVE_SITE_URL and provide GROVE_METRICS_READ_TOKEN via the environment or the Marketplace & Auction House of Brooklyn macOS Keychain entry.");
 }
 
 const response = await fetch(`${siteUrl}/api/metrics?days=${days}`, {
@@ -36,7 +36,7 @@ const percentage = (numerator, denominator) => {
 };
 const routeViews = Object.fromEntries((body.top_routes || []).map((item) => [item.route, Number(item.views)]));
 
-console.log(`Grove Marketplace product metrics · ${body.range_days} days`);
+console.log(`Marketplace & Auction House of Brooklyn product metrics · ${body.range_days} days`);
 console.table({
   events: Number(body.totals?.events || 0),
   sessions: Number(body.totals?.sessions || 0),

@@ -1,12 +1,12 @@
-# Grove Marketplace · design notes
+# Marketplace & Auction House of Brooklyn · design notes
 
 ## Identity
 
-The user-supplied floating school is Grove Marketplace’s primary mark. A compact crop identifies the header; the exact square image appears on the home page as a restrained celestial catalogue plate rather than a full-bleed illustration.
+The user-supplied floating school is the primary mark for **Marketplace & Auction House of Brooklyn**. A compact crop identifies the header; the exact square image appears on the home page as a restrained celestial catalogue plate rather than a full-bleed illustration.
 
 ## Visual thesis
 
-Grove pairs auction-house discipline with a pale-blue, pixelated school in the clouds:
+The marketplace pairs auction-house discipline with a pale-blue, pixelated school in the clouds:
 
 - measured editorial serif type and quiet sans-serif navigation;
 - thin rules, truthful catalogue metadata, and deliberate spacing;
@@ -14,7 +14,7 @@ Grove pairs auction-house discipline with a pale-blue, pixelated school in the c
 - the supplied school image as the singular atmospheric signature;
 - one concrete home action: **Open discoveries**.
 
-The current official [Sotheby’s](https://www.sothebys.com/en/) presentation informed the clear auction/exhibition hierarchy and concise date, location, format, estimate, and status patterns. The current official [Christie’s](https://www.christies.com/en) presentation informed the editorial scale, generous negative space, fine rules, and disciplined auction-calendar structure. Grove translates those traits into its own curator desk; it does not reproduce either company’s trade dress, content, or layouts.
+The current official [Sotheby’s](https://www.sothebys.com/en/) presentation informed the clear auction/exhibition hierarchy and concise date, location, format, estimate, and status patterns. The current official [Christie’s](https://www.christies.com/en) presentation informed the editorial scale, generous negative space, fine rules, and disciplined auction-calendar structure. The marketplace translates those traits into its own curator desk; it does not reproduce either company’s trade dress, content, or layouts.
 
 ## Product hierarchy
 

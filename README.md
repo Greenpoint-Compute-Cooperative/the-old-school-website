@@ -1,4 +1,4 @@
-# Grove Marketplace
+# Marketplace & Auction House of Brooklyn
 
 [![CI](https://github.com/Greenpoint-Compute-Cooperative/grove-marketplace/actions/workflows/ci.yml/badge.svg)](https://github.com/Greenpoint-Compute-Cooperative/grove-marketplace/actions/workflows/ci.yml)
 [![Production health](https://github.com/Greenpoint-Compute-Cooperative/grove-marketplace/actions/workflows/uptime.yml/badge.svg)](https://github.com/Greenpoint-Compute-Cooperative/grove-marketplace/actions/workflows/uptime.yml)
@@ -8,11 +8,11 @@ A curator-led marketplace for physical art in the School and born-digital work. 
 
 **Live:** [the-school-omega.vercel.app](https://the-school-omega.vercel.app)
 
-![Grove Marketplace home page](docs/screenshot-desktop.jpg)
+![Marketplace & Auction House of Brooklyn home page](docs/screenshot-desktop.jpg)
 
 ![Born-digital work and acquisition preview](docs/screenshot-work.jpg)
 
-<img src="docs/screenshot-phone.jpg" alt="Grove Marketplace on a phone" width="300">
+<img src="docs/screenshot-phone.jpg" alt="Marketplace &amp; Auction House of Brooklyn on a phone" width="300">
 
 ## Architecture
 

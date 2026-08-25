@@ -162,9 +162,9 @@ h2 {
 }
 
 .brand strong {
-  max-width: none;
+  max-width: 320px;
   font-family: var(--serif);
-  font-size: 27px;
+  font-size: 22px;
   font-weight: 400;
   letter-spacing: -0.025em;
   line-height: 1;
@@ -173,7 +173,7 @@ h2 {
 .brand small {
   margin-top: 4px;
   color: var(--ink-soft);
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 500;
   letter-spacing: 0.01em;
   white-space: nowrap;
@@ -358,9 +358,9 @@ h2 {
 }
 
 .hero__identity h1 {
-  font-size: clamp(62px, 7.2vw, 104px);
-  letter-spacing: -0.055em;
-  line-height: 0.78;
+  font-size: clamp(58px, 6vw, 82px);
+  letter-spacing: -0.05em;
+  line-height: 0.8;
 }
 
 .hero__action {
@@ -1762,12 +1762,13 @@ h2 {
   }
 
   .brand strong {
-    max-width: 180px;
-    font-size: 20px;
-    line-height: 1;
+    max-width: 184px;
+    font-size: 14px;
+    line-height: 0.94;
   }
 
   .brand small {
+    margin-top: 3px;
     font-size: 7px;
   }
 
@@ -1829,21 +1830,21 @@ h2 {
   }
 
   .hero__identity h1 {
-    font-size: clamp(54px, 16vw, 68px);
-    line-height: 0.79;
+    font-size: clamp(42px, 11.5vw, 50px);
+    line-height: 0.8;
   }
 
   .hero__action {
     width: 184px;
     min-height: 46px;
-    margin-top: 25px;
+    margin-top: 18px;
   }
 
   .hero__mark {
     position: absolute;
     right: 18px;
-    bottom: 58px;
-    width: min(45vw, 172px);
+    bottom: 48px;
+    width: min(42vw, 150px);
     padding: 5px;
   }
 
@@ -2161,7 +2162,7 @@ h2 {
   }
 
   .hero__identity h1 {
-    font-size: 53px;
+    font-size: 40px;
   }
 
   .action-row {

@@ -11,7 +11,7 @@ export const GET = async (request) => {
     const configuration = publicConfiguration();
     return json({
       status: "ok",
-      service: "marketplace-auction-house-brooklyn-new-york",
+      service: "Marketplace & Auction House of Brooklyn",
       runtime: {
         environment: process.env.VERCEL_ENV || "local",
         region: process.env.VERCEL_REGION || "local"
