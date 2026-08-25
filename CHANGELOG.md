@@ -9,6 +9,14 @@ All notable changes to Marketplace & Auction House of Brooklyn are recorded here
 - Provider-approved Instagram and X OAuth apps.
 - Authoritative wallet, mint, card, inventory, and fulfillment integrations.
 
+## 1.0.6 - 2026-08-25
+
+### Changed
+
+- Inset the sticky header inside a narrow reveal of the existing celestial field at every breakpoint.
+- Reduced the visible **Open discoveries** pill by roughly one third while retaining a 44px interaction target.
+- Preserved the restored v1.0.1 hero geometry and all current product and integration behavior.
+
 ## 1.0.5 - 2026-08-25
 
 ### Changed

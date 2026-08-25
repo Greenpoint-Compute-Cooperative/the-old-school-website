@@ -15,7 +15,7 @@ The marketplace pairs auction-house discipline with a pale-blue, pixelated schoo
 - the supplied school image as the singular atmospheric signature;
 - one concrete home action: **Open discoveries**.
 
-The home composition is restored directly from release **v1.0.1** (`8e59181`): the supplied school image fills a card up to 720px tall on desktop and becomes a 660px / 620px portrait card on phone. The header stays flush to the top edge and the page background remains continuous; the later checker field, inset gap, catalogue-sheet wrappers, compact square school plate, and hero identity column are intentionally absent.
+The home composition is restored directly from release **v1.0.1** (`8e59181`): the supplied school image fills a card up to 720px tall on desktop and becomes a 660px / 620px portrait card on phone. The sticky header now floats inside a narrow reveal of the continuous celestial field. This isolated inset does not restore the later checker field, catalogue-sheet wrappers, compact square school plate, or hero identity column.
 
 The current official [Sotheby’s](https://www.sothebys.com/en/) presentation informed the clear auction/exhibition hierarchy and concise date, location, format, estimate, and status patterns. The current official [Christie’s](https://www.christies.com/en) presentation informed the editorial scale, generous negative space, fine rules, and disciplined auction-calendar structure. The marketplace translates those traits into its own curator desk; it does not reproduce either company’s trade dress, content, or layouts.
 
@@ -46,7 +46,7 @@ Controls state exactly what happens. Missing credentials and contracts appear as
 
 ## Responsive behavior
 
-Desktop uses the restored v1.0.1 main card at up to 720px tall, three-column catalogues, and paired work-detail surfaces. Tablet collapses primary navigation into a floating bottom surface while preserving two-column catalogues. Phone layouts use the historical 660px card (620px at 390px and below), one-column catalogues, a flush sticky header, and thumb-reachable curator destinations. Visible targets are at least 44px, horizontal overflow is suppressed and tested down to 320px, and motion respects `prefers-reduced-motion`.
+Desktop uses the restored v1.0.1 main card at up to 720px tall, three-column catalogues, and paired work-detail surfaces. Tablet collapses primary navigation into a floating bottom surface while preserving two-column catalogues. Phone layouts use the historical 660px card (620px at 390px and below), one-column catalogues, a rounded inset sticky header, and thumb-reachable curator destinations. Interactive targets remain at least 44px even where the hero pill has a deliberately smaller visible face; horizontal overflow is suppressed and tested down to 320px, and motion respects `prefers-reduced-motion`.
 
 ## Assets
 
