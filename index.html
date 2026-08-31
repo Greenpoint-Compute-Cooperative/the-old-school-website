@@ -4,8 +4,11 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#0a0d12" />
+<meta name="referrer" content="no-referrer" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-XYXW6MCzuPx6YgVBikaWzj/WPdhV/gvfR5GuWfBulSI=' 'sha256-tJYLiRDOFmYeUWkjsetzWODjTpwELxmGR5ywWttKXcQ='; script-src-attr 'none'; style-src 'self' 'sha256-sUo6YN/LtOdlULAW0AOBnuFvuna7HHHcgpfn8ASJZEk='; img-src 'self' data: blob:; connect-src 'self' blob:; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'" />
 <title>The School — 29 Nassau Avenue</title>
 <meta name="description" content="The School. 29 Nassau Avenue, Williamsburg, Brooklyn." />
+<link rel="icon" href="public/favicon.svg" type="image/svg+xml" />
 <style>
   :root {
     --slate:#0a0d12; --chalk:#ece6da; --chalk-2:#9a948a;
@@ -24,7 +27,7 @@
 
   /* one-screen layout: header / stage (layout rect only) / text / doors */
   #page { position:relative; z-index:1; height:100dvh; height:var(--vh, 100dvh); display:grid;
-    grid-template-rows:auto minmax(0,1fr) auto auto;
+    grid-template-rows:auto minmax(0,1fr) auto auto auto;
     padding:calc(var(--pad) + env(safe-area-inset-top)) calc(var(--pad) + env(safe-area-inset-right))
             calc(var(--pad) + env(safe-area-inset-bottom)) calc(var(--pad) + env(safe-area-inset-left)); }
 
@@ -43,6 +46,9 @@
   #copy p { margin:0; font-size:13.5px; line-height:1.65; letter-spacing:.005em; color:#c4c0b6;
     text-wrap:pretty; text-shadow:0 1px 12px rgba(0,0,0,.6); }
   #copy p::first-line { color:var(--chalk); }
+
+  #attribution { display:block; padding-top:8px; font-size:9px; line-height:1.35; letter-spacing:.11em;
+    text-transform:uppercase; color:rgba(236,230,218,.42); text-shadow:0 1px 10px rgba(0,0,0,.7); }
 
   /* ---- the four doors ---------------------------------------------------------- */
   #links { display:grid; gap:8px; grid-template-columns:1fr; margin-top:12px; }
@@ -127,12 +133,10 @@
   <div id="stage"></div>
 
   <section id="copy" class="in">
-    <!-- PLACEHOLDER: Dan's copy goes here -->
     <p>Accelerate the Arts and Technology, safely.</p>
   </section>
 
   <nav id="links" aria-label="Sections">
-    <!-- hrefs are placeholders -->
     <a class="door space in" href="#">
       <svg class="mark" viewBox="0 0 20 20" aria-hidden="true"><rect x="3.5" y="3.5" width="13" height="13"/><path d="M16.5 8 H13 V12 H16.5"/></svg>
       <span class="label">The Space</span><span class="cue" aria-hidden="true">→</span>
@@ -150,12 +154,13 @@
       <span class="label">Join The Neighborhood</span><span class="cue" aria-hidden="true">+</span>
     </a>
   </nav>
+  <small id="attribution">3D imagery derived from Google Earth</small>
 </div>
 
 <script type="importmap">
 { "imports": {
-  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  "three": "./public/vendor/three/three.module.min.js",
+  "three/addons/": "./public/vendor/three/addons/"
 }}
 </script>
 <script type="module">

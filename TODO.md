@@ -1,1 +1,4 @@
-- [ ] Attribution for Google Earth tile data in public/school.glb (credit line or own capture) before going live on convent.lol
+- [x] Add a visible source disclosure for the current Google Earth-derived model.
+- [ ] Replace `public/school.glb` with a model built from owned or explicitly licensed source imagery before making the repository public or deploying the site. Attribution alone does not clear the current asset for redistribution.
+- [ ] Replace the four placeholder `href="#"` destinations in `index.html` once final URLs are available.
+- [ ] Choose an explicit source-code license, or intentionally retain all rights, before changing repository visibility.

@@ -6,7 +6,7 @@ This repository is intentionally small: there is no framework, package manager, 
 
 ## Project status
 
-This is the preserved legacy School experience, separated from the newer Grove Marketplace codebase. It is useful as a working visual prototype and historical implementation, but it is not ready for a public launch: the four destinations are not connected and the model attribution remains unresolved.
+This is the preserved legacy School experience, separated from the newer Grove Marketplace codebase. It is useful as a working visual prototype and historical implementation, but it is not ready for a public launch: the four destinations are not connected and the current model’s source imagery is not cleared for redistribution. The small on-page source disclosure is informational, not a substitute for asset rights.
 
 ![Desktop view of The School website](docs/screenshot-desktop.jpg)
 
@@ -22,7 +22,7 @@ python3 -m http.server 8013
 
 Then open [http://localhost:8013](http://localhost:8013).
 
-Use a local HTTP server rather than opening `index.html` as a `file://` URL. The page loads an ES module graph and a local GLB asset, both of which are more reliably served over HTTP. Three.js `0.160.0` and its example modules are loaded from jsDelivr at runtime, so the first page load also requires an internet connection.
+Use a local HTTP server rather than opening `index.html` as a `file://` URL. The page loads an ES module graph and a local GLB asset, both of which are more reliably served over HTTP. The pinned Three.js runtime is vendored in the repository, so the page has no production CDN dependency.
 
 There is nothing to install and nothing to compile.
 
@@ -32,9 +32,11 @@ There is nothing to install and nothing to compile.
 | --- | --- |
 | [`index.html`](index.html) | All markup, styles, shaders, Three.js scene setup, animation, and responsive behavior. |
 | [`public/school.glb`](public/school.glb) | Baked building and neighboring street geometry used by the 3D scene. |
+| [`public/vendor/three/`](public/vendor/three/) | Minimal vendored dependency graph from the official `three@0.160.0` package, including its MIT license. |
 | [`DESIGN.md`](DESIGN.md) | Visual thesis, lighting rules, rendering pipeline, and design decisions. |
 | [`TODO.md`](TODO.md) | Remaining work that must be resolved before public release. |
 | [`docs/`](docs/) | Reference screenshots for desktop and phone layouts. |
+| [`scripts/check-release.mjs`](scripts/check-release.mjs) | Dependency and Content Security Policy integrity check. |
 | [`vercel.json`](vercel.json) | Zero-build Vercel configuration; the repository root is the output directory. |
 
 ## How the page works
@@ -62,6 +64,8 @@ Everything below is in [`index.html`](index.html):
 - **Camera and lighting:** edit `FRONT`, `orbit`, `KEY`, and the `fit()` logic in the module script.
 - **Island crop:** edit `ISLAND_R`; the framing and plinth are derived from it.
 
+The page uses hashed inline CSS and scripts in both its CSP meta element and Vercel response header. After changing the `<style>`, import map, or module script, run `node scripts/check-release.mjs`. If the check reports a stale hash, recompute it and update both `index.html` and `vercel.json` before deployment.
+
 Keep the site deliberately single-purpose. The visual system is built around “one light, one image,” so new animations, effects, and accents should be evaluated against that constraint rather than added independently.
 
 ## Replacing the 3D model
@@ -76,7 +80,7 @@ If the model changes:
 4. Check the facade during both the slow front orbit and the fast back orbit.
 5. Update the screenshots in `docs/` if the visible result changed materially.
 
-The existing model was baked from a local source at `~/29-dobbin-content/site/building.html`. Its Google Earth tile-data attribution or replacement must be resolved before public release; see [`TODO.md`](TODO.md). Do not assume the asset is cleared for redistribution merely because it is present in this private repository.
+The existing model was baked from a local prototype using Google Earth-derived imagery. Google’s current [Geo Guidelines](https://about.google/brand-resource-center/products-and-services/geo-guidelines/) prohibit using Earth output to reconstruct 3D models. Replace this asset with one built from owned or explicitly licensed capture before making the repository public or deploying the site. Do not assume the asset is cleared for redistribution merely because it is present in this private repository or visibly attributed on the page.
 
 ## Verification checklist
 
@@ -88,23 +92,25 @@ Before pushing a visual or content change:
 4. Confirm the tagline and all four door labels remain readable without clipping.
 5. Test keyboard focus on each door and verify every real destination URL.
 6. Test with reduced motion enabled.
-7. Run `git diff --check` to catch whitespace errors.
-8. Refresh once with the network cache disabled when changing shaders, imports, or the GLB asset.
+7. Run `node scripts/check-release.mjs` to validate vendored imports and CSP hashes.
+8. Run `git diff --check` to catch whitespace errors.
+9. Refresh once with the network cache disabled when changing shaders, imports, or the GLB asset.
 
 There is currently no automated test suite. Browser verification is the source of truth for this graphics-heavy static page.
 
 ## Deployment
 
-The site can be deployed to any static host that serves the repository root. For Vercel, [`vercel.json`](vercel.json) declares the root as the output directory and enables clean URLs; no build command is required.
+The site can be deployed to any static host that serves the repository root. For Vercel, [`vercel.json`](vercel.json) declares the root as the output directory, enables clean URLs, and sets CSP, framing, referrer, permissions, MIME-sniffing, cross-origin, and transport-security headers. No build command is required.
 
-The browser must be able to reach jsDelivr in production because Three.js is imported from the CDN. If the site needs to work offline or under a restrictive Content Security Policy, vendor the pinned Three.js modules locally and update the import map before deployment.
+Other hosts should reproduce those response headers. The page also carries a matching CSP meta element so the core script and style restrictions remain active during ordinary static hosting.
 
 ## Before a public launch
 
 - Replace all four placeholder `href="#"` destinations.
-- Resolve and document the GLB imagery attribution noted in [`TODO.md`](TODO.md).
+- Replace the Google Earth-derived GLB with an owned or explicitly licensed model.
 - Confirm the intended production domain and canonical metadata.
-- Add a favicon and social-sharing image if the page will be shared publicly.
+- Add an absolute social-sharing image URL once the production domain is known.
+- Choose an explicit source-code license, or intentionally retain all rights.
 - Recheck the desktop and phone screenshots against the final copy and model.
 
 ## License and asset reuse
