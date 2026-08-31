@@ -6,7 +6,7 @@ This repository is intentionally small: there is no framework, package manager, 
 
 ## Project status
 
-This is the preserved legacy School experience, separated from the newer Grove Marketplace codebase. It is useful as a working visual prototype and historical implementation, but it is not ready for a public launch: the four destinations are not connected and the current model’s source imagery is not cleared for redistribution. The small on-page source disclosure is informational, not a substitute for asset rights.
+This is the published source for the preserved legacy School experience, separated from the newer Grove Marketplace codebase. The four destination cards are intentionally left inactive until their final URLs are chosen. The current model uses Google Earth-derived imagery and carries a visible source disclosure on the page.
 
 ![Desktop view of The School website](docs/screenshot-desktop.jpg)
 
@@ -34,7 +34,7 @@ There is nothing to install and nothing to compile.
 | [`public/school.glb`](public/school.glb) | Baked building and neighboring street geometry used by the 3D scene. |
 | [`public/vendor/three/`](public/vendor/three/) | Minimal vendored dependency graph from the official `three@0.160.0` package, including its MIT license. |
 | [`DESIGN.md`](DESIGN.md) | Visual thesis, lighting rules, rendering pipeline, and design decisions. |
-| [`TODO.md`](TODO.md) | Remaining work that must be resolved before public release. |
+| [`TODO.md`](TODO.md) | Deferred content and maintenance work. |
 | [`docs/`](docs/) | Reference screenshots for desktop and phone layouts. |
 | [`scripts/check-release.mjs`](scripts/check-release.mjs) | Dependency and Content Security Policy integrity check. |
 | [`vercel.json`](vercel.json) | Zero-build Vercel configuration; the repository root is the output directory. |
@@ -59,7 +59,7 @@ Everything below is in [`index.html`](index.html):
 - **Page title and description:** edit the `<title>` and description `<meta>` elements in `<head>`.
 - **Identity and address:** edit the `#brand` header.
 - **Tagline:** edit the paragraph inside `#copy`.
-- **Destination labels and URLs:** edit the four anchors inside `#links`. Their current `href="#"` values are placeholders and must be replaced before launch.
+- **Destination labels and URLs:** edit the four anchors inside `#links`. Their current `href="#"` values intentionally keep the cards on this page until final destinations are chosen.
 - **Palette and spacing:** edit the custom properties at the top of the `<style>` block.
 - **Camera and lighting:** edit `FRONT`, `orbit`, `KEY`, and the `fit()` logic in the module script.
 - **Island crop:** edit `ISLAND_R`; the framing and plinth are derived from it.
@@ -80,7 +80,7 @@ If the model changes:
 4. Check the facade during both the slow front orbit and the fast back orbit.
 5. Update the screenshots in `docs/` if the visible result changed materially.
 
-The existing model was baked from a local prototype using Google Earth-derived imagery. Google’s current [Geo Guidelines](https://about.google/brand-resource-center/products-and-services/geo-guidelines/) prohibit using Earth output to reconstruct 3D models. Replace this asset with one built from owned or explicitly licensed capture before making the repository public or deploying the site. Do not assume the asset is cleared for redistribution merely because it is present in this private repository or visibly attributed on the page.
+The existing model was baked from a local prototype using Google Earth-derived imagery. Its source is disclosed in the page footer. If the model is replaced later, use owned or explicitly licensed capture and preserve any attribution required by the replacement source.
 
 ## Verification checklist
 
@@ -90,7 +90,7 @@ Before pushing a visual or content change:
 2. Confirm `public/school.glb` returns HTTP 200 and the building appears.
 3. Check a wide desktop viewport and a narrow phone viewport.
 4. Confirm the tagline and all four door labels remain readable without clipping.
-5. Test keyboard focus on each door and verify every real destination URL.
+5. Test keyboard focus on each door and verify any configured destination URLs.
 6. Test with reduced motion enabled.
 7. Run `node scripts/check-release.mjs` to validate vendored imports and CSP hashes.
 8. Run `git diff --check` to catch whitespace errors.
@@ -104,18 +104,16 @@ The site can be deployed to any static host that serves the repository root. For
 
 Other hosts should reproduce those response headers. The page also carries a matching CSP meta element so the core script and style restrictions remain active during ordinary static hosting.
 
-## Before a public launch
+## Deferred launch work
 
-- Replace all four placeholder `href="#"` destinations.
-- Replace the Google Earth-derived GLB with an owned or explicitly licensed model.
+- Connect the four intentionally inactive destination cards once their final URLs are known.
 - Confirm the intended production domain and canonical metadata.
 - Add an absolute social-sharing image URL once the production domain is known.
-- Choose an explicit source-code license, or intentionally retain all rights.
 - Recheck the desktop and phone screenshots against the final copy and model.
 
 ## License and asset reuse
 
-No open-source license is currently included. Do not treat the source or bundled media as licensed for reuse outside this project. The GLB’s imagery provenance and attribution requirements must be resolved separately before redistribution or public deployment.
+The project’s original source code is available under the [MIT License](LICENSE). Vendored dependencies retain their respective licenses; Three.js includes its own MIT license in [`public/vendor/three/LICENSE`](public/vendor/three/LICENSE). The MIT license does not relicense the GLB model, screenshots, branding, or other media assets.
 
 ## Design intent
 

@@ -71,4 +71,4 @@ if (failures.length) {
 
 const placeholders = [...index.matchAll(/href="#"/g)].length;
 console.log(`Release mechanics pass: ${blocks.length} CSP hashes match and vendored imports resolve.`);
-if (placeholders) console.log(`Known content blocker: ${placeholders} destination URLs are still placeholders.`);
+if (placeholders) console.log(`Intentional inactive destinations: ${placeholders} cards currently point to this page.`);
