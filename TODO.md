@@ -1,4 +1,4 @@
 - [x] Add a visible source disclosure for the current Google Earth-derived model.
 - [x] Record the decision to publish the current model with its visible source disclosure.
-- [ ] Connect the four intentionally inactive `href="#"` destinations once final URLs are available.
+- [ ] Connect the intentionally inactive Art Philanthropy `href="#"` once its final URL is available.
 - [x] License the project’s original source code under the MIT License.

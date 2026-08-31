@@ -6,7 +6,7 @@ This repository is intentionally small: there is no framework, package manager, 
 
 ## Project status
 
-This is the published source for the preserved legacy School experience, separated from the newer Grove Marketplace codebase. The four destination cards are intentionally left inactive until their final URLs are chosen. The current model uses Google Earth-derived imagery and carries a visible source disclosure on the page.
+This is the published source for the preserved legacy School experience, separated from the newer Grove Marketplace codebase. The Space, Technology Philanthropy, and Join the Neighborhood cards link to their live destinations; Art Philanthropy remains intentionally inactive until its final URL is chosen. The current model uses Google Earth-derived imagery and carries a visible source disclosure on the page.
 
 ![Desktop view of The School website](docs/screenshot-desktop.jpg)
 
@@ -59,7 +59,7 @@ Everything below is in [`index.html`](index.html):
 - **Page title and description:** edit the `<title>` and description `<meta>` elements in `<head>`.
 - **Identity and address:** edit the `#brand` header.
 - **Tagline:** edit the paragraph inside `#copy`.
-- **Destination labels and URLs:** edit the four anchors inside `#links`. Their current `href="#"` values intentionally keep the cards on this page until final destinations are chosen.
+- **Destination labels and URLs:** edit the four anchors inside `#links`. Art Philanthropy currently uses `href="#"` to remain on this page until its final destination is chosen.
 - **Palette and spacing:** edit the custom properties at the top of the `<style>` block.
 - **Camera and lighting:** edit `FRONT`, `orbit`, `KEY`, and the `fit()` logic in the module script.
 - **Island crop:** edit `ISLAND_R`; the framing and plinth are derived from it.
@@ -106,7 +106,7 @@ Other hosts should reproduce those response headers. The page also carries a mat
 
 ## Deferred launch work
 
-- Connect the four intentionally inactive destination cards once their final URLs are known.
+- Connect the intentionally inactive Art Philanthropy card once its final URL is known.
 - Confirm the intended production domain and canonical metadata.
 - Add an absolute social-sharing image URL once the production domain is known.
 - Recheck the desktop and phone screenshots against the final copy and model.
