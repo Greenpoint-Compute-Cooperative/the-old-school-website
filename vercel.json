@@ -7,7 +7,7 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'sha256-XYXW6MCzuPx6YgVBikaWzj/WPdhV/gvfR5GuWfBulSI=' 'sha256-tJYLiRDOFmYeUWkjsetzWODjTpwELxmGR5ywWttKXcQ='; script-src-attr 'none'; style-src 'self' 'sha256-sUo6YN/LtOdlULAW0AOBnuFvuna7HHHcgpfn8ASJZEk='; img-src 'self' data: blob:; connect-src 'self' blob:; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+          "value": "default-src 'self'; script-src 'self' 'sha256-XYXW6MCzuPx6YgVBikaWzj/WPdhV/gvfR5GuWfBulSI=' 'sha256-ITH41Ijx/HPQGQv5fNElC6WBFhlXB1c8DfQty1lPZv0='; script-src-attr 'none'; style-src 'self' 'sha256-gyXE3FSWWWcHHhJ3Iby+cqsJYYO4qKxdQmV7CythzaY='; img-src 'self' data: blob:; connect-src 'self' blob:; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
         },
         {
           "key": "Cross-Origin-Opener-Policy",

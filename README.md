@@ -43,10 +43,10 @@ There is nothing to install and nothing to compile.
 
 The experience is split into two layers:
 
-1. A fixed, full-viewport WebGL canvas renders the procedural ink field, clipped building island, contact shadow, bloom, tone mapping, vignette, grain, and subtle chromatic aberration.
+1. A fixed, full-viewport WebGL canvas renders the procedural chromatic field, clipped building island, contact shadow, bloom, tone mapping, vignette, grain, and subtle chromatic aberration.
 2. A regular HTML layer renders the header, Brooklyn clock, tagline, and four accessible navigation links above the canvas.
 
-One world-space key light drives the building shading, brass rim, ink highlight, bloom peak, and card specular position. The camera orbits the stationary model, slowing around the facade and accelerating across the back. On lower-power or coarse-pointer devices, the renderer reduces pixel ratio and bloom resolution, disables antialiasing and chromatic aberration, and keeps the same composition at a lower cost.
+One world-space key light drives the building shading, signal-mint rim, field highlight, bloom peak, and card specular position. The camera orbits the stationary model, slowing around the facade and accelerating across the back. On lower-power or coarse-pointer devices, the renderer reduces pixel ratio and bloom resolution, disables antialiasing and chromatic aberration, and keeps the same composition at a lower cost.
 
 The implementation also respects `prefers-reduced-motion`: the orbit stops, animation transitions are removed, and the scene settles immediately into its lit state.
 

@@ -3,23 +3,22 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#0a0d12" />
+<meta name="theme-color" content="#111713" />
 <meta name="referrer" content="no-referrer" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-XYXW6MCzuPx6YgVBikaWzj/WPdhV/gvfR5GuWfBulSI=' 'sha256-tJYLiRDOFmYeUWkjsetzWODjTpwELxmGR5ywWttKXcQ='; script-src-attr 'none'; style-src 'self' 'sha256-sUo6YN/LtOdlULAW0AOBnuFvuna7HHHcgpfn8ASJZEk='; img-src 'self' data: blob:; connect-src 'self' blob:; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-XYXW6MCzuPx6YgVBikaWzj/WPdhV/gvfR5GuWfBulSI=' 'sha256-ITH41Ijx/HPQGQv5fNElC6WBFhlXB1c8DfQty1lPZv0='; script-src-attr 'none'; style-src 'self' 'sha256-gyXE3FSWWWcHHhJ3Iby+cqsJYYO4qKxdQmV7CythzaY='; img-src 'self' data: blob:; connect-src 'self' blob:; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'" />
 <title>The School — 29 Nassau Avenue</title>
 <meta name="description" content="The School. 29 Nassau Avenue, Williamsburg, Brooklyn." />
 <link rel="icon" href="public/favicon.svg" type="image/svg+xml" />
 <style>
   :root {
-    --slate:#0a0d12; --chalk:#ece6da; --chalk-2:#9a948a;
-    --brass-hi:214,178,110;           /* the only accent */
-    --verd:18,61,56; --ox:66,23,28; --brass:107,84,41;   /* door tints, lifted from the ink shader */
+    --slate:#111713; --chalk:#f4f2ec; --chalk-2:#afb6af; --ink:#151a16;
+    --signal:126,255,151; --cobalt:78,91,255; --coral:255,102,80; --amber:242,205,79;
     --pad:18px; --ease:cubic-bezier(.2,.8,.2,1);
     --kx:50%; --kb:0;                 /* key-light x (viewport %) and backlit scalar, set per frame */
   }
   * { box-sizing:border-box; }
   html,body { margin:0; height:100%; background:var(--slate); overflow:hidden;
-    font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace; color:var(--chalk);
+    font:14px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif; color:var(--chalk);
     -webkit-font-smoothing:antialiased; }
 
   /* one full-bleed canvas: ink field + building + grade, one image */
@@ -31,71 +30,70 @@
     padding:calc(var(--pad) + env(safe-area-inset-top)) calc(var(--pad) + env(safe-area-inset-right))
             calc(var(--pad) + env(safe-area-inset-bottom)) calc(var(--pad) + env(safe-area-inset-left)); }
 
-  #brand { position:relative; padding-bottom:12px; text-shadow:0 1px 0 rgba(0,0,0,.6), 0 2px 24px rgba(0,0,0,.85); }
-  #brand .kick { font-size:10px; letter-spacing:.38em; color:var(--chalk-2); text-transform:uppercase; }
-  #brand .h { font-size:26px; letter-spacing:.02em; margin-top:6px; line-height:1.1; }
-  #brand .sub { display:flex; gap:0 16px; align-items:baseline; font-size:12px; color:var(--chalk-2); margin-top:6px; }
-  #brand .sub .addr { color:rgba(var(--brass-hi),.85); }
+  #brand { position:relative; padding-bottom:12px; text-shadow:0 2px 18px rgba(0,0,0,.72); }
+  #brand .kick { font:600 10px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.38em; color:var(--chalk-2); text-transform:uppercase; }
+  #brand .h { font-size:26px; font-weight:850; letter-spacing:-.04em; margin-top:6px; line-height:1.1; }
+  #brand .sub { display:flex; gap:0 16px; align-items:baseline; font:500 12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace; color:var(--chalk-2); margin-top:6px; }
+  #brand .sub .addr { color:rgba(var(--signal),.92); }
   #brand .sub .time { margin-left:auto; font-variant-numeric:tabular-nums; font-size:11px; letter-spacing:.12em; color:var(--chalk-2); }
   #brand::after { content:""; position:absolute; left:0; right:0; bottom:0; height:1px;
-    background:linear-gradient(90deg, rgba(var(--brass-hi),.55), rgba(var(--brass-hi),.12) 60%, transparent); }
+    background:linear-gradient(90deg, rgba(var(--signal),.85), rgba(var(--cobalt),.7) 48%, rgba(var(--coral),.62) 78%, transparent); }
 
   #stage { position:relative; min-height:0; }
 
   #copy { max-width:560px; padding:10px 0 2px; }
-  #copy p { margin:0; font-size:13.5px; line-height:1.65; letter-spacing:.005em; color:#c4c0b6;
-    text-wrap:pretty; text-shadow:0 1px 12px rgba(0,0,0,.6); }
+  #copy p { margin:0; font-size:13.5px; line-height:1.65; font-weight:520; letter-spacing:-.005em; color:#d7dcd6;
+    text-wrap:pretty; text-shadow:0 2px 14px rgba(0,0,0,.72); }
   #copy p::first-line { color:var(--chalk); }
 
-  #attribution { display:block; padding-top:8px; font-size:9px; line-height:1.35; letter-spacing:.11em;
-    text-transform:uppercase; color:rgba(236,230,218,.42); text-shadow:0 1px 10px rgba(0,0,0,.7); }
+  #attribution { display:block; padding-top:8px; font:600 9px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.11em;
+    text-transform:uppercase; color:rgba(244,242,236,.52); text-shadow:0 1px 10px rgba(0,0,0,.75); }
 
   /* ---- the four doors ---------------------------------------------------------- */
   #links { display:grid; gap:8px; grid-template-columns:1fr; margin-top:12px; }
   .door { position:relative; display:grid; grid-template-columns:20px 1fr auto; align-items:center; gap:14px;
-    min-height:52px; padding:13px 16px 13px 15px; color:var(--chalk); text-decoration:none;
-    border-radius:10px; overflow:hidden; isolation:isolate; -webkit-tap-highlight-color:transparent;
-    background:linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.04)),
-               linear-gradient(180deg, rgba(var(--tint),.22), rgba(var(--tint),.08));
-    -webkit-backdrop-filter:blur(16px) saturate(150%); backdrop-filter:blur(16px) saturate(150%);
-    box-shadow:0 14px 34px -10px rgba(0,0,0,.6), 0 1px 0 rgba(255,255,255,.05);
+    min-height:52px; padding:13px 16px 13px 15px; color:var(--ink); text-decoration:none;
+    border-radius:14px; overflow:hidden; isolation:isolate; -webkit-tap-highlight-color:transparent;
+    background:linear-gradient(180deg, rgba(250,249,245,.96), rgba(238,237,231,.93));
+    -webkit-backdrop-filter:blur(18px) saturate(115%); backdrop-filter:blur(18px) saturate(115%);
+    box-shadow:0 16px 34px -18px rgba(0,0,0,.9), 0 1px 0 rgba(255,255,255,.72);
     transition:transform .4s var(--ease), box-shadow .4s var(--ease), border-color .4s; }
-  /* rim: 1px white, top-lit, with the key light's specular travelling along the crown */
+  /* paper rim, with the scene's key light travelling along the crown */
   .door::before { content:""; position:absolute; inset:0; border-radius:inherit; padding:1px; pointer-events:none;
     background:
-      radial-gradient(220px 3px at var(--kx) 0, rgba(255,246,228,calc(.45 + .5*var(--kb))), transparent 70%),
-      linear-gradient(180deg, rgba(255,255,255,.26), rgba(255,255,255,.07) 45%, rgba(255,255,255,.12));
+      radial-gradient(220px 3px at var(--kx) 0, rgba(var(--tint),calc(.55 + .4*var(--kb))), transparent 70%),
+      linear-gradient(180deg, rgba(255,255,255,.96), rgba(21,26,22,.14) 52%, rgba(21,26,22,.24));
     -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
             mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
     -webkit-mask-composite:xor; mask-composite:exclude; }
-  /* sill: the one warm line */
-  .door::after { content:""; position:absolute; left:10px; right:10px; bottom:0; height:1px; pointer-events:none;
-    background:linear-gradient(90deg, transparent, rgba(var(--brass-hi), var(--sill,.45)), transparent); }
-  .door.space { --tint:var(--verd); }
-  .door.tech  { --tint:var(--brass); }
-  .door.art   { --tint:var(--ox); }
-  .door.join  { --tint:255,255,255; --sill:.85;
-    background:linear-gradient(180deg, rgba(255,255,255,.18), rgba(255,255,255,.08));
-    box-shadow:0 14px 34px -10px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.06), 0 1px 0 rgba(255,255,255,.08); }
+  /* registration stripe: one vivid material note per door */
+  .door::after { content:""; position:absolute; left:10px; right:10px; bottom:0; height:2px; pointer-events:none;
+    background:linear-gradient(90deg, transparent, rgba(var(--tint), var(--sill,.9)) 18%, rgba(var(--tint), var(--sill,.9)) 82%, transparent); }
+  .door.space { --tint:var(--signal); }
+  .door.tech  { --tint:var(--cobalt); }
+  .door.art   { --tint:var(--coral); }
+  .door.join  { --tint:var(--amber); --sill:1; color:var(--chalk);
+    background:linear-gradient(180deg, rgba(24,30,25,.98), rgba(14,19,15,.97));
+    box-shadow:0 18px 38px -18px rgba(0,0,0,.95), 0 1px 0 rgba(255,255,255,.08); }
   .door .mark { width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:1; stroke-linecap:square;
-    color:rgba(var(--brass-hi),.85); filter:drop-shadow(0 1px 0 rgba(0,0,0,.6)); }
-  .door.join .mark { color:var(--chalk); stroke-width:1.25; }
-  .door .label { font-size:15px; letter-spacing:-.005em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-    text-shadow:0 1px 0 rgba(0,0,0,.5), 0 -1px 0 rgba(255,255,255,.04); }
-  .door.join .label { font-weight:600; letter-spacing:0; }
-  .door .cue { font-size:14px; color:var(--chalk-2); opacity:.55; transform:translateX(-4px);
+    color:rgb(var(--tint)); filter:none; }
+  .door.join .mark { color:rgb(var(--amber)); stroke-width:1.25; }
+  .door .label { font-size:15px; font-weight:720; letter-spacing:-.025em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .door.join .label { font-weight:720; }
+  .door .cue { font:700 14px/1 ui-monospace,SFMono-Regular,Menlo,monospace; color:#687069; opacity:.72; transform:translateX(-4px);
     transition:transform .4s var(--ease), opacity .4s, color .4s; }
-  .door.join .cue { color:rgba(var(--brass-hi),.9); opacity:.8; transform:none; font-size:16px; }
+  .door.join .cue { color:rgb(var(--amber)); opacity:1; transform:none; font-size:16px; }
   @media (hover:hover) {
-    .door:hover { transform:translateY(-1px); box-shadow:0 18px 40px -12px rgba(0,0,0,.65), 0 1px 0 rgba(255,255,255,.07); }
-    .door:hover::before { filter:brightness(1.5); }
-    .door:hover .cue { transform:none; opacity:1; color:var(--chalk); }
-    .door:hover .mark { color:rgba(var(--brass-hi),1); }
+    .door:hover { transform:translateY(-1px); box-shadow:0 20px 42px -18px rgba(0,0,0,.92), 0 1px 0 rgba(255,255,255,.85); }
+    .door:hover::before { filter:saturate(1.4); }
+    .door:hover .cue { transform:none; opacity:1; color:var(--ink); }
+    .door:hover .mark { filter:drop-shadow(0 0 7px rgba(var(--tint),.45)); }
+    .door.join:hover .cue { color:rgb(var(--amber)); }
     .door.join:hover { --sill:1; }
   }
   .door:active { transform:translateY(0) scale(.995); transition-duration:.08s; }
   .door:focus-visible { outline:none;
-    box-shadow:0 0 0 2px var(--slate), 0 0 0 3px rgba(var(--brass-hi),.9), 0 14px 34px -10px rgba(0,0,0,.6); }
+    box-shadow:0 0 0 2px var(--slate), 0 0 0 4px rgba(var(--signal),.95), 0 16px 34px -18px rgba(0,0,0,.9); }
 
   /* load choreography */
   .in { opacity:0; transform:translateY(6px); transition:opacity .6s var(--ease), transform .6s var(--ease); }
@@ -210,7 +208,7 @@ const inkRT  = new THREE.WebGLRenderTarget(2, 2, { depthBuffer: false, type: THR
 const inkCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 const inkScene = new THREE.Scene();
 const inkMat = new THREE.ShaderMaterial({
-  uniforms: { uTime: { value: 0 }, uRes: { value: new THREE.Vector2(2, 2) }, uLight: { value: new THREE.Vector2(-0.45, 0.35) }, uBack: { value: 0 }, uGain: { value: 0.47 } },
+  uniforms: { uTime: { value: 0 }, uRes: { value: new THREE.Vector2(2, 2) }, uLight: { value: new THREE.Vector2(-0.45, 0.35) }, uBack: { value: 0 }, uGain: { value: 0.62 } },
   vertexShader: `void main(){ gl_Position = vec4(position, 1.0); }`,
   fragmentShader: `
     precision highp float;
@@ -231,18 +229,20 @@ const inkMat = new THREE.ShaderMaterial({
       vec2 r = vec2(fbm(p*1.6 + 2.4*q + vec2(1.7,9.2) + t*0.5), fbm(p*1.6 + 2.4*q + vec2(8.3,2.8) - t*0.3));
       r -= 0.28 * lobe * normalize(toL + 1e-4);            // ink streams toward the key
       float f = fbm(p*1.6 + 2.0*r);
-      vec3 ink   = vec3(0.039,0.051,0.071);
-      vec3 ox    = vec3(0.24,0.08,0.10);
-      vec3 verd  = vec3(0.09,0.28,0.25);
-      vec3 brass = vec3(0.55,0.42,0.20);
-      vec3 col = mix(ink, ox,  smoothstep(0.50,0.85,f) * 0.75);
-      col = mix(col, verd,     smoothstep(0.40,0.85,length(q)) * 0.7);
-      col = mix(col, brass,    pow(smoothstep(0.60,0.96, r.x*r.y), 1.6) * 0.7);
-      col *= 0.6 + 0.9*f;
-      vec3 keyCol = vec3(0.62, 0.50, 0.30);
-      col += keyCol * lobe * (0.22 + 0.30 * uBack) * (0.6 + 0.8 * f);
-      col += keyCol * core * (0.35 + 1.40 * uBack);          // HDR at the peak: bloom catches it behind the silhouette
-      col *= mix(0.78, 1.04, smoothstep(-0.55, 0.45, p.y));  // horizon: darker below
+      vec3 ink    = vec3(0.025,0.060,0.047);
+      vec3 cobalt = vec3(0.12,0.19,0.95);
+      vec3 mint   = vec3(0.22,0.98,0.52);
+      vec3 coral  = vec3(1.00,0.18,0.24);
+      vec3 col = mix(ink, cobalt, smoothstep(0.47,0.88,f) * 0.78);
+      col = mix(col, mint,      smoothstep(0.43,0.88,length(q)) * 0.42);
+      col = mix(col, coral,     pow(smoothstep(0.28,0.68, r.x*r.y), 1.35) * 0.48);
+      col *= 0.52 + 1.08*f;
+      float contour = 1.0 - smoothstep(0.015, 0.075, abs(fract((f + 0.18*length(q))*7.0) - 0.5));
+      col += vec3(0.56,1.0,0.70) * contour * 0.055;        // flowing plan lines in the chromatic field
+      vec3 keyCol = vec3(0.48, 1.00, 0.62);
+      col += keyCol * lobe * (0.18 + 0.32 * uBack) * (0.55 + 0.85 * f);
+      col += keyCol * core * (0.30 + 1.55 * uBack);          // HDR at the peak: bloom catches it behind the silhouette
+      col *= mix(0.84, 1.06, smoothstep(-0.55, 0.45, p.y));  // horizon: darker below
       gl_FragColor = vec4(col * uGain, 1.0);
     }`
 });
@@ -268,7 +268,7 @@ const grade = new ShaderPass({
       vec2 d = vUv - 0.5; float r2 = dot(d,d);
       vec3 c = vec3( texture2D(tDiffuse, vUv + d*uCA*r2*4.0).r, texture2D(tDiffuse, vUv).g, texture2D(tDiffuse, vUv - d*uCA*r2*4.0).b );
       float vig = smoothstep(0.95, 0.25, length(d * vec2(1.0, 1.25)));
-      c *= mix(0.42, 1.0, vig);
+      c *= mix(0.62, 1.0, vig);
       float g = hash(gl_FragCoord.xy + fract(uTime*7.0)*97.0) - 0.5;
       float lum = dot(c, vec3(0.2126, 0.7152, 0.0722));
       c += g * mix(0.045, 0.012, smoothstep(0.0, 0.6, lum));
@@ -300,7 +300,7 @@ const bakedLit = (map) => {
         float wrap = dot(N, uKeyV) * 0.5 + 0.5;                    // wrapped lambert: never a black side
         float key = mix(0.82, mix(0.70, 1.25, wrap), uKey);
         float fres = pow(1.0 - max(dot(N, vV), 0.0), 3.0);
-        vec3 rim = vec3(1.0, 0.92, 0.78) * fres * uRim;            // brass-white, crosses the bloom threshold at the peak
+        vec3 rim = vec3(0.55, 1.0, 0.68) * fres * uRim;             // signal-mint, crosses the bloom threshold at the peak
         gl_FragColor = vec4(base * key + rim, 1.0);
       }`
   });
@@ -395,7 +395,7 @@ new GLTFLoader().load('public/school.glb', (gltf) => {
     uniforms: { uKeyV: { value: new THREE.Vector3() } }, transparent: true, depthWrite: false,
     vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
     fragmentShader: `varying vec2 vUv; void main(){ float d = length(vUv - 0.5) * 2.0;
-      vec3 col = mix(vec3(0.17,0.185,0.21), vec3(0.085,0.095,0.115), smoothstep(0.15, 1.0, d));
+      vec3 col = mix(vec3(0.13,0.16,0.14), vec3(0.025,0.055,0.043), smoothstep(0.15, 1.0, d));
       float rim = smoothstep(0.995, 0.975, d);                            // crisp edge
       gl_FragColor = vec4(col, rim); }` }));
   plinth.rotation.x = -Math.PI / 2; plinth.position.set(c.x, FLOOR - 0.35, c.z);
