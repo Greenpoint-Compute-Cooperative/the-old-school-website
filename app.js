@@ -25,6 +25,7 @@ let draftLink = "";
 let toastTimer;
 let authConfiguration;
 let authConfigurationRequest;
+let checkoutReturnHandled = false;
 
 const escapeHtml = (value = "") => String(value)
   .replaceAll("&", "&amp;")
@@ -50,20 +51,139 @@ const showToast = (message) => {
   toastTimer = setTimeout(() => toast.classList.remove("is-visible"), 2800);
 };
 
+const safeMediaUrl = (value) => {
+  try {
+    const url = new URL(String(value || ""), location.origin);
+    const sameOriginHttp = url.origin === location.origin && ["http:", "https:"].includes(url.protocol);
+    return url.protocol === "https:" || sameOriginHttp ? url.href : "";
+  } catch {
+    return "";
+  }
+};
+
+const safeDocumentUrl = (value) => {
+  try {
+    const url = new URL(String(value || ""), location.origin);
+    return ["https:", "ipfs:"].includes(url.protocol) ? url.href : "";
+  } catch {
+    return "";
+  }
+};
+
 const visualStyle = (work) => {
   const sheet = work.sheet === "digital" ? "digital" : "physical";
   return `--art:url('public/assets/${sheet}-works.jpg');--x:${work.x};--y:${work.y}`;
 };
 
-const art = (work, className = "") => `
-  <div class="art ${className}" style="${visualStyle(work)}" role="img" aria-label="${escapeHtml(work.alt)}"></div>
-`;
+const art = (work, className = "") => {
+  const mediaUrl = safeMediaUrl(work.mediaUrl);
+  if (mediaUrl) return `<img class="art art--live ${className}" src="${escapeHtml(mediaUrl)}" alt="${escapeHtml(work.alt)}">`;
+  return `<div class="art ${className}" style="${visualStyle(work)}" role="img" aria-label="${escapeHtml(work.alt)}"></div>`;
+};
 
 const typeLabel = (type) => ({ physical: "Physical", digital: "Digital", paired: "Physical + NFT" }[type]);
 
+const money = (amountMinor, currency) => {
+  if (!Number.isSafeInteger(amountMinor) || !currency) return "Price on request";
+  try {
+    return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(amountMinor / 100);
+  } catch {
+    return `${amountMinor} ${currency}`;
+  }
+};
+
+const apiWork = (work, index) => ({
+  slug: work.slug,
+  title: work.title,
+  artist: work.artist_name,
+  year: work.listed_at?.slice(0, 4) || "",
+  type: work.format,
+  typeLabel: typeLabel(work.format),
+  medium: work.format === "digital" ? "Born-digital artwork" : work.format === "paired" ? "Physical work with digital edition" : "Physical artwork",
+  dimensions: "See work details",
+  location: work.location || "Fulfillment details at checkout",
+  price: money(work.price_minor, work.currency),
+  cryptoPrice: work.crypto_amount && work.crypto_asset ? `${work.crypto_amount} ${work.crypto_asset}` : "",
+  availability: work.status === "sold" ? "Sold" : work.status === "reserved" ? "Reserved" : work.inventory_available > 0 ? "Available" : "Unavailable",
+  status: work.status,
+  edition: work.format === "physical" ? "Physical work" : "Edition details in work record",
+  chain: work.chain,
+  tokenStandard: null,
+  contractStatus: work.contract_status,
+  curatorId: work.curator_id || "grove-marketplace",
+  collection: "Live catalog",
+  sheet: work.format === "physical" ? "physical" : "digital",
+  x: index % 3,
+  y: index % 2,
+  alt: `${work.title} by ${work.artist_name}`,
+  description: work.description || "Full details are available from the marketplace team.",
+  artistBio: "",
+  curatorNote: "",
+  rights: "Review the linked buyer terms and license before purchase.",
+  fulfillment: work.requires_shipping ? "Shipping address and tax are collected in secure checkout." : "Delivery details are confirmed after payment.",
+  featured: false,
+  mediaUrl: work.media_url,
+  termsUrl: work.buyer_terms_url,
+  licenseUrl: work.license_uri,
+  saleEnabled: work.checkout_ready === true
+});
+
+const hydrateLiveCatalog = async () => {
+  try {
+    const response = await fetch("/api/catalog", { headers: { Accept: "application/json" } });
+    if (!response.ok || !response.headers.get("content-type")?.includes("application/json")) return;
+    const catalog = await response.json();
+    if (!Array.isArray(catalog.works)) return;
+
+    const liveCurators = (Array.isArray(catalog.curators) ? catalog.curators : []).map((curator) => {
+      const initials = curator.display_name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
+      return { id: curator.id, name: curator.display_name, initials: initials || "C", role: curator.focus || "Curator", city: "", bio: curator.bio || "", thesis: "", accent: "cobalt", rooms: [], joined: curator.created_at?.slice(0, 4) || "" };
+    });
+    liveCurators.push({ id: "grove-marketplace", name: "The School", initials: "TS", role: "Marketplace", city: "Brooklyn, NY", bio: "", thesis: "", accent: "cobalt", rooms: [], joined: "" });
+    curators.splice(0, curators.length, ...liveCurators);
+
+    const liveWorks = catalog.works.map(apiWork);
+    const liveSlugs = new Set(liveWorks.map((work) => work.slug));
+    works.splice(0, works.length, ...liveWorks);
+    discoveries.splice(0, discoveries.length, ...discoveries.filter((item) => liveSlugs.has(item.workSlug)));
+    const nextBazaar = Array.isArray(catalog.bazaars) ? catalog.bazaars[0] : null;
+    if (nextBazaar) {
+      const startsAt = new Date(nextBazaar.starts_at);
+      const endsAt = new Date(nextBazaar.ends_at);
+      Object.assign(bazaar, {
+        available: true,
+        slug: nextBazaar.slug,
+        title: nextBazaar.title,
+        startsAt: nextBazaar.starts_at,
+        endsAt: nextBazaar.ends_at,
+        dateLabel: new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "America/New_York" }).format(startsAt),
+        timeLabel: `${new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" }).format(startsAt)}–${new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" }).format(endsAt)}`,
+        venue: nextBazaar.venue,
+        address: `${nextBazaar.address}, ${nextBazaar.city}`,
+        description: nextBazaar.summary || "",
+        schedule: []
+      });
+    } else {
+      Object.assign(bazaar, {
+        available: false,
+        title: "Bazaar schedule",
+        startsAt: null,
+        endsAt: null,
+        dateLabel: "To be announced",
+        timeLabel: "",
+        description: "The next published bazaar will appear here.",
+        schedule: []
+      });
+    }
+    render();
+  } catch {
+    // The bundled editorial catalog is an intentional read-only fallback.
+  }
+};
+
 const curatorPill = (curator) => `
-  <a class="curator-pill" href="#curator/${curator.id}">
-    <span>${escapeHtml(curator.initials)}</span>${escapeHtml(curator.name)}
+  <a class="curator-pill" href="${curator ? `#curator/${curator.id}` : "#market"}">
+    <span>${escapeHtml(curator?.initials || "TS")}</span>${escapeHtml(curator?.name || "The School")}
   </a>
 `;
 
@@ -78,7 +198,7 @@ const workTile = (work) => {
         </div>
         <div class="work-tile__line">
           <span><strong>${escapeHtml(work.title)}</strong><small>${escapeHtml(work.artist)}</small></span>
-          <span class="tile-price">${escapeHtml(work.cryptoPrice)}</span>
+          <span class="tile-price">${escapeHtml(work.cryptoPrice || work.price)}</span>
         </div>
       </a>
       ${curatorPill(curator)}
@@ -116,7 +236,13 @@ const discoveryFilters = () => ["new", "saved", "sponsored"].map((state) => {
 
 const home = () => {
   const featuredDiscoveries = discoveries.slice(0, 3);
-  const featuredWorks = [getWork("blue-hour-nassau"), getWork("cloud-protocol-i"), getWork("stairwell-for-nobody")];
+  const saleReadyWorks = works.filter((work) => work.saleEnabled).slice(0, 3);
+  const featuredWorks = saleReadyWorks.length
+    ? saleReadyWorks
+    : works.slice(0, 3);
+  const bazaarDate = new Date(bazaar.startsAt || bazaar.date);
+  const bazaarDay = Number.isNaN(bazaarDate.getTime()) ? "—" : new Intl.DateTimeFormat("en-US", { day: "numeric", timeZone: "America/New_York" }).format(bazaarDate);
+  const bazaarMonth = Number.isNaN(bazaarDate.getTime()) ? "TBD" : new Intl.DateTimeFormat("en-US", { month: "short", timeZone: "America/New_York" }).format(bazaarDate).toUpperCase();
   return `
     <div class="page home-page">
       <section class="hero" aria-label="${BRAND_NAME}">
@@ -144,11 +270,11 @@ const home = () => {
         <div class="work-grid">${featuredWorks.map(workTile).join("")}</div>
       </section>
 
-      <section class="bazaar-card" aria-labelledby="home-bazaar-title">
-        <div class="bazaar-card__date"><strong>12</strong><span>SEP</span></div>
-        <div><h2 id="home-bazaar-title">Assembly of Light</h2></div>
+      ${bazaar.available === false ? "" : `<section class="bazaar-card" aria-labelledby="home-bazaar-title">
+        <div class="bazaar-card__date"><strong>${escapeHtml(bazaarDay)}</strong><span>${escapeHtml(bazaarMonth)}</span></div>
+        <div><h2 id="home-bazaar-title">${escapeHtml(bazaar.title)}</h2></div>
         <a class="round-arrow" href="#bazaar" aria-label="Open bazaar">→</a>
-      </section>
+      </section>`}
     </div>
   `;
 };
@@ -213,6 +339,7 @@ const workPage = (work) => {
   const curator = getCurator(work.curatorId);
   const related = works.filter((item) => item.slug !== work.slug && (item.curatorId === work.curatorId || item.type === work.type)).slice(0, 3);
   const verb = work.type === "digital" ? "Collect" : work.type === "paired" ? "Acquire pair" : "Buy work";
+  const unavailable = ["reserved", "sold"].includes(work.status);
   return `
     <div class="work-page">
       <a class="back-link work-page__back" href="#market">← Marketplace</a>
@@ -223,9 +350,11 @@ const workPage = (work) => {
           <h1>${escapeHtml(work.title)}</h1>
           <span class="artist-name">${escapeHtml(work.artist)}, ${work.year}</span>
           ${curatorPill(curator)}
-          <div class="work-price"><strong>${escapeHtml(work.cryptoPrice)}</strong><span>${escapeHtml(work.price)} card</span></div>
-          <button class="button button--blue" type="button" data-collect="${work.slug}" data-method="crypto">${verb}</button>
-          <button class="text-button" type="button" data-collect="${work.slug}" data-method="card">Use card</button>
+          <div class="work-price"><strong>${escapeHtml(work.cryptoPrice || work.price)}</strong><span>${escapeHtml(work.cryptoPrice ? `${work.price} card` : "Card / Apple Pay")}</span></div>
+          ${unavailable
+            ? `<p class="pending-note" role="status">${escapeHtml(work.availability)} · checkout is unavailable</p>`
+            : `<button class="button button--blue" type="button" data-collect="${work.slug}" data-method="crypto">${verb}</button>
+          <button class="text-button" type="button" data-collect="${work.slug}" data-method="card">Use card</button>`}
           <details class="work-details">
             <summary>Details</summary>
             <dl>
@@ -233,6 +362,8 @@ const workPage = (work) => {
               <div><dt>Edition</dt><dd>${escapeHtml(work.edition)}</dd></div>
               <div><dt>Location</dt><dd>${escapeHtml(work.location)}</dd></div>
               ${work.chain ? `<div><dt>Network</dt><dd>${escapeHtml(work.chain)}</dd></div>` : ""}
+              ${safeDocumentUrl(work.termsUrl) ? `<div><dt>Buyer terms</dt><dd><a href="${escapeHtml(safeDocumentUrl(work.termsUrl))}" target="_blank" rel="noopener">Review terms</a></dd></div>` : ""}
+              ${safeDocumentUrl(work.licenseUrl) ? `<div><dt>License</dt><dd><a href="${escapeHtml(safeDocumentUrl(work.licenseUrl))}" target="_blank" rel="noopener">Review license</a></dd></div>` : ""}
             </dl>
           </details>
         </aside>
@@ -328,17 +459,19 @@ const joinPage = () => `
 `;
 
 const bazaarPage = () => {
-  const featured = [getWork("aperture-vessel"), getWork("grid-chorus"), getWork("orbit-32")];
+  const featured = [getWork("aperture-vessel"), getWork("grid-chorus"), getWork("orbit-32")].filter(Boolean);
+  const bazaarWorks = featured.length ? featured : works.slice(0, 3);
+  const heroWork = getWork("portal-study") || bazaarWorks[0];
   return `
     <div class="page bazaar-page">
       <section class="bazaar-hero">
-        <div class="bazaar-hero__image">${art(getWork("portal-study"))}</div>
-        <div class="bazaar-hero__copy"><span class="bazaar-meta">Sep 12 · 12–7 PM</span><h1>${escapeHtml(bazaar.title)}</h1><button class="button button--light" type="button" data-calendar>Save the date</button></div>
+        <div class="bazaar-hero__image">${heroWork ? art(heroWork) : `<img class="art art--live" src="public/assets/school-seed.jpg" alt="The School">`}</div>
+        <div class="bazaar-hero__copy"><span class="bazaar-meta">${escapeHtml(bazaar.dateLabel)} · ${escapeHtml(bazaar.timeLabel)}</span><h1>${escapeHtml(bazaar.title)}</h1>${bazaar.available !== false && (bazaar.startsAt || bazaar.date) ? `<button class="button button--light" type="button" data-calendar>Save the date</button>` : ""}</div>
       </section>
       <section class="schedule" aria-label="Bazaar schedule">
-        ${bazaar.schedule.slice(0, 3).map((item) => `<div><time>${escapeHtml(item.time)}</time><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(item.note)}</span></div>`).join("")}
+        ${bazaar.schedule.slice(0, 3).map((item) => `<div><time>${escapeHtml(item.time)}</time><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(item.note)}</span></div>`).join("") || `<p>${escapeHtml(bazaar.description || "Program details are coming soon.")}</p>`}
       </section>
-      <section class="section"><div class="section-head"><h2>At the bazaar</h2></div><div class="work-grid">${featured.map(workTile).join("")}</div></section>
+      <section class="section"><div class="section-head"><h2>At the bazaar</h2></div><div class="work-grid">${bazaarWorks.map(workTile).join("")}</div></section>
     </div>
   `;
 };
@@ -352,9 +485,9 @@ const collectTemplate = (work, method) => `
     <button type="button" role="tab" data-method="crypto" aria-selected="${method !== "card"}">Crypto</button>
     <button type="button" role="tab" data-method="card" aria-selected="${method === "card"}">Card</button>
   </div>
-  <div class="method-panel" data-panel="crypto" ${method === "card" ? "hidden" : ""}><span>${work.chain ? `${escapeHtml(work.chain)} · ${escapeHtml(work.edition)}` : "USDC · inventory hold"}</span><button class="button button--dark" disabled>Connect wallet</button></div>
-  <div class="method-panel" data-panel="card" ${method !== "card" ? "hidden" : ""}><span>Hosted checkout</span><button class="button button--dark" disabled>Continue by card</button></div>
-  <small class="pending-note">Preview only · checkout is not connected</small>
+  <div class="method-panel" data-panel="crypto" ${method === "card" ? "hidden" : ""}><span>${work.chain ? `${escapeHtml(work.chain)} · ${escapeHtml(work.edition)}` : "USDC · inventory hold"}</span><button class="button button--dark" disabled>Wallet path under review</button></div>
+  <div class="method-panel" data-panel="card" ${method !== "card" ? "hidden" : ""}><span>Secure hosted checkout</span><button class="button button--dark" type="button" data-start-card-checkout disabled>Checking checkout…</button></div>
+  <small class="pending-note" data-checkout-note>Apple Pay appears on eligible Apple devices. Applicable tax is added in secure checkout.</small>
 `;
 
 const openCollect = (slug, method) => {
@@ -363,6 +496,82 @@ const openCollect = (slug, method) => {
   collectDialog.dataset.workSlug = slug;
   collectContent.innerHTML = collectTemplate(work, method);
   collectDialog.showModal();
+  void loadAuthConfiguration().then((configuration) => {
+    if (collectDialog.dataset.workSlug !== slug) return;
+    const button = collectDialog.querySelector("[data-start-card-checkout]");
+    const note = collectDialog.querySelector("[data-checkout-note]");
+    const configured = Boolean(configuration.acquisition?.card?.configured) && work.saleEnabled === true;
+    if (button) {
+      button.disabled = !configured;
+      button.textContent = configured ? "Apple Pay or card" : "Checkout not available";
+    }
+    if (note && !configured) note.textContent = work.saleEnabled
+      ? "Checkout remains disabled until provider and tax review pass."
+      : "This work has not passed seller, rights, price, and inventory review for sale.";
+  });
+};
+
+const startCardCheckout = async (button) => {
+  const slug = collectDialog.dataset.workSlug;
+  if (!slug) return;
+  button.disabled = true;
+  button.textContent = "Opening secure checkout…";
+  const storageKey = `grove-checkout:${slug}`;
+  let idempotencyKey = sessionStorage.getItem(storageKey);
+  if (!idempotencyKey) {
+    idempotencyKey = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    sessionStorage.setItem(storageKey, idempotencyKey);
+  }
+
+  try {
+    const response = await fetch("/api/acquisitions", {
+      method: "POST",
+      headers: { Accept: "application/json", "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
+      body: JSON.stringify({ work_slug: slug, method: "card" })
+    });
+    const body = await response.json();
+    if (!response.ok) {
+      if (response.status < 500) sessionStorage.removeItem(storageKey);
+      throw new Error(body.error?.message || "Checkout is unavailable.");
+    }
+    if (!body.checkout_url) throw new Error("Checkout is unavailable.");
+    const checkoutUrl = new URL(body.checkout_url);
+    if (checkoutUrl.protocol !== "https:") throw new Error("Checkout returned an invalid URL.");
+    location.assign(checkoutUrl.href);
+  } catch (error) {
+    button.disabled = false;
+    button.textContent = "Apple Pay or card";
+    showToast(error.message || "Checkout is unavailable");
+  }
+};
+
+const handleCheckoutReturn = async () => {
+  if (checkoutReturnHandled) return;
+  checkoutReturnHandled = true;
+  const params = new URLSearchParams(location.search);
+  const state = params.get("checkout");
+  if (!state) return;
+
+  if (state === "cancelled") showToast("Checkout cancelled — the work will be released shortly");
+  if (state === "success") {
+    const sessionId = params.get("session_id");
+    try {
+      const response = await fetch(`/api/checkout-status?session_id=${encodeURIComponent(sessionId || "")}`, {
+        headers: { Accept: "application/json" }
+      });
+      const status = await response.json();
+      if (response.ok && status.state === "paid") {
+        const [, purchasedSlug] = route();
+        if (purchasedSlug) sessionStorage.removeItem(`grove-checkout:${purchasedSlug}`);
+        showToast("Payment received");
+      } else {
+        showToast("Payment confirmation is pending");
+      }
+    } catch {
+      showToast("Payment confirmation is pending");
+    }
+  }
+  history.replaceState(null, "", `${location.pathname}${location.hash}`);
 };
 
 const updateDiscoveryView = () => {
@@ -512,7 +721,7 @@ const render = () => {
   }
   if (root === "curator" && detail) void track("curator_viewed", { route: viewedRoute, entityType: "curator", entityId: detail });
   if (root === "exhibition" && detail) void track("exhibition_viewed", { route: viewedRoute, entityType: "exhibition", entityId: detail });
-  if (root === "bazaar") void track("bazaar_viewed", { route: "bazaar", entityType: "bazaar", entityId: "assembly-of-light" });
+  if (root === "bazaar") void track("bazaar_viewed", { route: "bazaar", entityType: "bazaar", entityId: bazaar.slug || null });
 };
 
 document.addEventListener("click", (event) => {
@@ -567,6 +776,9 @@ document.addEventListener("click", (event) => {
     return;
   }
 
+  const cardCheckout = event.target.closest("[data-start-card-checkout]");
+  if (cardCheckout) { void startCardCheckout(cardCheckout); return; }
+
   const method = event.target.closest("[data-method]");
   if (method) {
     collectDialog.querySelectorAll("[data-method]").forEach((button) => button.setAttribute("aria-selected", String(button.dataset.method === method.dataset.method)));
@@ -603,16 +815,28 @@ document.addEventListener("submit", (event) => {
 });
 
 const downloadCalendar = () => {
-  const file = ["BEGIN:VCALENDAR", "VERSION:2.0", "BEGIN:VEVENT", "DTSTART:20260912T160000Z", "DTEND:20260912T230000Z", `SUMMARY:${BRAND_NAME} · Assembly of Light`, "LOCATION:29 Nassau Avenue\\, Brooklyn\\, New York", "END:VEVENT", "END:VCALENDAR"].join("\r\n");
+  const startsAt = bazaar.startsAt || bazaar.date;
+  const endsAt = bazaar.endsAt || (startsAt ? new Date(new Date(startsAt).getTime() + 7 * 60 * 60_000).toISOString() : null);
+  if (bazaar.available === false || !startsAt || !endsAt) {
+    showToast("No bazaar date is published yet");
+    return;
+  }
+  const calendarTime = (value, fallback) => value
+    ? new Date(value).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z")
+    : fallback;
+  const calendarText = (value) => String(value || "").replaceAll("\\", "\\\\").replaceAll(",", "\\,").replaceAll(";", "\\;").replaceAll("\n", "\\n");
+  const file = ["BEGIN:VCALENDAR", "VERSION:2.0", "BEGIN:VEVENT", `DTSTART:${calendarTime(startsAt, "20260912T160000Z")}`, `DTEND:${calendarTime(endsAt, "20260912T230000Z")}`, `SUMMARY:${calendarText(`${BRAND_NAME} · ${bazaar.title}`)}`, `LOCATION:${calendarText(bazaar.address || "29 Nassau Avenue, Brooklyn, New York")}`, "END:VEVENT", "END:VCALENDAR"].join("\r\n");
   const url = URL.createObjectURL(new Blob([file], { type: "text/calendar" }));
   const link = Object.assign(document.createElement("a"), { href: url, download: "marketplace-auction-house-of-brooklyn-bazaar.ics" });
   link.click();
   URL.revokeObjectURL(url);
   showToast("Calendar ready");
-  void track("calendar_saved", { route: routeName(), entityType: "bazaar", entityId: "assembly-of-light" });
+  void track("calendar_saved", { route: routeName(), entityType: "bazaar", entityId: bazaar.slug || null });
 };
 
 collectDialog.addEventListener("click", (event) => { if (event.target === collectDialog) collectDialog.close(); });
 addEventListener("hashchange", render);
 trackClientErrors(routeName);
 render();
+void handleCheckoutReturn();
+void hydrateLiveCatalog();

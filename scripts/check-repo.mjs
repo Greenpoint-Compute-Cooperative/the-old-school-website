@@ -38,7 +38,7 @@ const [environment, vercel, analytics, metricsMigration, uptime, metricsWorkflow
   read("docs/ENVIRONMENTS.md")
 ]);
 
-for (const name of ["SUPABASE_SECRET_KEY", "GROVE_METRICS_ENABLED", "GROVE_METRICS_READ_TOKEN", "CRON_SECRET"]) {
+for (const name of ["SUPABASE_SECRET_KEY", "GROVE_METRICS_ENABLED", "GROVE_METRICS_READ_TOKEN", "CRON_SECRET", "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"]) {
   assert.match(environment, new RegExp(`^${name}=`, "m"), `${name} is documented`);
 }
 assert.match(vercel, /Content-Security-Policy/, "CSP is configured");

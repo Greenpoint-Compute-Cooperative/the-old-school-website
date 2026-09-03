@@ -3,7 +3,11 @@ node_modules/
 dist/
 .vercel
 supabase/.temp/
+contracts/cache/
+contracts/out/
+contracts/broadcast/
 .env
 .env.*
 !.env.example
 .env*.local
+.codex/

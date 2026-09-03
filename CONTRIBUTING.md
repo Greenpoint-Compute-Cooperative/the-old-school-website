@@ -5,10 +5,15 @@ Marketplace & Auction House of Brooklyn is curator-led, art-first, and intention
 ## Golden path
 
 ```sh
+git submodule update --init --recursive
 npm ci
 npm run dev
 npm run ci
 ```
+
+The complete suite requires Foundry `v1.3.2`.
+Commerce migration tests run in CI against disposable PostgreSQL 16. Locally, set `DATABASE_URL` to an empty disposable
+database and run `./scripts/test-commerce-sql.sh`; never point this command at a shared or production database.
 
 `npm run dev` serves the interface at `http://localhost:8013`. Use `vercel dev --listen 8013` after `vercel env pull .env.local --environment=development --yes` when testing API routes. Social OAuth and acquisition remain unavailable unless their documented flags and credentials are genuinely configured.
 

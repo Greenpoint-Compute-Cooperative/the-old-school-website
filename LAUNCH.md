@@ -4,7 +4,7 @@
 
 Marketplace & Auction House of Brooklyn is the curator-led market for physical work at 29 Nassau Avenue and born-digital work. A named curator sponsors every artist and piece. The monthly auditorium bazaar turns the catalog into a recurring in-person program.
 
-NFT acquisition is not deferred: verified existing tokens, new editions, and paired physical + NFT works belong in the first production launch. Crypto is the primary rail; hosted card checkout remains available.
+NFTs remain in the product, but the researched launch sequence starts with fixed-price physical sales through hosted card/Apple Pay checkout. New editions and paired physical + NFT works follow only after provider approval, contract audit, rights clearance, and Base Sepolia rehearsal. Crypto and English auctions are separate gated rails, not dependencies of the first live sale.
 
 ## Launchable MVP
 
@@ -30,7 +30,7 @@ The current interface labels the remaining boundaries honestly: links are not fe
 
 - One art-led catalog for **physical**, **digital / NFT**, and **paired** work.
 - Work pages with format, artist, sponsor, price, edition, medium, location, and network where relevant.
-- Crypto-first collection preview plus a secondary card path.
+- Fixed-price hosted card/Apple Pay checkout first, with crypto and mint delivery behind independent gates.
 - Curator profiles with the works they sponsor.
 
 ### NFT-connected acquisition
@@ -43,7 +43,7 @@ The production MVP should use one low-fee EVM network and audited, standard infr
 - durable media and metadata, explicit supply, rights, and preservation terms;
 - authoritative transaction/indexer state before the UI claims a mint or ownership change.
 
-The static prototype has no wallet provider, contract, RPC/indexer, inventory service, payment processor, webhook receiver, or identity system. Wallet and card buttons therefore remain disabled. It never invents addresses, signatures, token IDs, transaction hashes, holds, receipts, or success.
+The delivery branch now contains disabled-by-default inventory reservations, a hosted Stripe Checkout boundary, a signed webhook inbox, and testnet-candidate ERC-721/ERC-1155 mint contracts. Prototype works remain unsaleable and no provider, production address, mint relayer, RPC/indexer, or real identity is invented. Wallet and card paths stay disabled until their documented launch gates pass.
 
 ### Monthly bazaar
 

@@ -1,0 +1,27 @@
+#!/bin/sh
+set -eu
+
+: "${DATABASE_URL:?Set DATABASE_URL to a disposable PostgreSQL database.}"
+
+for role in anon authenticated service_role; do
+  if [ "$(psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -Atc "select count(*) from pg_roles where rolname = '$role'")" = "0" ]; then
+    psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "create role $role nologin" >/dev/null
+  fi
+done
+
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL' >/dev/null
+create schema if not exists extensions;
+create schema if not exists auth;
+create table if not exists auth.users (
+  id uuid primary key,
+  raw_user_meta_data jsonb not null default '{}'::jsonb,
+  raw_app_meta_data jsonb not null default '{}'::jsonb
+);
+create or replace function auth.uid() returns uuid language sql stable as 'select null::uuid';
+SQL
+
+for migration in supabase/migrations/*.sql; do
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$migration" >/dev/null
+done
+
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/live_commerce.sql

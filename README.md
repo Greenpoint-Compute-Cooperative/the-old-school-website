@@ -29,9 +29,12 @@ The repository uses dedicated production and preview Supabase projects in US Eas
 ## Run the interface
 
 ```sh
+git submodule update --init --recursive
 npm ci
 npm run dev
 ```
+
+The full validation suite also requires Foundry `v1.3.2`.
 
 Open [http://localhost:8013](http://localhost:8013). This static mode intentionally shows Instagram and X as not configured.
 
@@ -89,6 +92,10 @@ npm run live:check
 - [`docs/RUNBOOK.md`](docs/RUNBOOK.md) — deploy, rollback, incident, secret, and provider operations
 - [`docs/ENVIRONMENTS.md`](docs/ENVIRONMENTS.md) — isolated production, preview, and local setup
 - [`docs/PRODUCTION_BACKLOG.md`](docs/PRODUCTION_BACKLOG.md) — prioritized pilot, commerce, reliability, and growth work
+- [`docs/LIVE_MARKETPLACE_MASTER_PLAN.md`](docs/LIVE_MARKETPLACE_MASTER_PLAN.md) — researched contracts, payments,
+  Apple Pay, API, compliance, and staged launch plan
+- [`docs/COMMERCE_RUNBOOK.md`](docs/COMMERCE_RUNBOOK.md) — fail-closed Stripe Checkout operations and incident actions
+- [`contracts/README.md`](contracts/README.md) — testnet-only ERC-721/ERC-1155 candidates and verification gates
 - [`docs/GENERATED_ASSETS.md`](docs/GENERATED_ASSETS.md) — source and generated-asset disclosure
 
 ## Contribute
@@ -97,4 +104,4 @@ Start with [`CONTRIBUTING.md`](CONTRIBUTING.md). Pull requests run deterministic
 
 The code is available under the [MIT License](LICENSE). Tagged releases rebuild the app, rerun CI, and publish a checksummed static artifact.
 
-The supplied floating-school image is the marketplace’s primary mark. Catalog records are fictional prototype content. Wallet, contract, card, inventory, media retrieval, and RSVP integrations are not connected.
+The supplied floating-school image is the marketplace’s primary mark. Catalog records are fictional prototype content and cannot be sold. Card/Apple Pay and mint foundations are disabled until the master-plan gates pass; no live wallet, contract address, checkout credential, media pipeline, or RSVP provider is claimed.

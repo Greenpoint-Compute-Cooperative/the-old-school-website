@@ -427,6 +427,12 @@ h2 {
   background-size: 300% 200%;
 }
 
+img.art--live {
+  display: block;
+  object-fit: cover;
+  background-image: none;
+}
+
 .tag,
 .source-chip {
   display: inline-flex;

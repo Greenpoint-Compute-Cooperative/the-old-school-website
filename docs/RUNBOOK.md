@@ -19,6 +19,7 @@ Severity guide:
 ## Deploy
 
 ```sh
+git submodule update --init --recursive
 npm ci
 npm run ci
 vercel pull --yes --environment=production

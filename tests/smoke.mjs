@@ -53,13 +53,13 @@ for (const route of ["home", "discoverPage", "marketPage", "exhibitionPage", "wo
 }
 
 assert.match(app, /No fetch in preview/, "link intake does not imply scraping");
-assert.match(app, /Preview only · checkout is not connected/, "acquisition boundary is explicit");
+assert.match(app, /Apple Pay appears on eligible Apple devices/, "hosted checkout explains Apple Pay availability");
 assert.match(app, /Preview only · nothing is submitted/, "draft forms do not fake delivery");
 assert.match(app, /data-auth-provider="instagram"/, "Instagram is a join path");
 assert.match(app, /data-auth-provider="x"/, "X is a join path");
 assert.match(app, /No account was opened or imported/, "unconfigured OAuth is explicit");
-assert.match(app, /Connect wallet/, "crypto path is present");
-assert.match(app, /Continue by card/, "card path is present");
+assert.match(app, /Wallet path under review/, "crypto path stays fail closed");
+assert.match(app, /Apple Pay or card/, "hosted Apple Pay and card path is present");
 assert.match(css, /prefers-reduced-motion/, "reduced-motion behavior exists");
 assert.match(css, /:focus-visible/, "keyboard focus treatment exists");
 assert.match(css, /@media \(max-width: 760px\)/, "phone layout exists");
@@ -112,7 +112,7 @@ for (const exhibition of exhibitions) {
 
 assert.ok(Date.parse(bazaar.date), "bazaar date is machine-readable");
 assert.ok(bazaar.schedule.length >= 4, "bazaar has a useful program");
-assert.match(launch, /NFT acquisition is not deferred/, "roadmap keeps NFTs in launch scope");
+assert.match(launch, /NFTs remain in the product/, "roadmap keeps NFTs in the gated launch sequence");
 assert.match(launch, /Curator-first go-to-market/, "roadmap includes curator-first GTM");
 assert.match(launch, /Instagram chat intake/, "roadmap includes the constrained chat-intake concept");
 assert.match(launch, /no scraping/i, "roadmap prohibits scraping");

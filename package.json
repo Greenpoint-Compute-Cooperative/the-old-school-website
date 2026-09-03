@@ -1,6 +1,6 @@
 {
   "name": "brooklyn-marketplace-auction-house",
-  "version": "1.0.6",
+  "version": "1.1.0",
   "license": "MIT",
   "private": true,
   "type": "module",
@@ -8,13 +8,15 @@
     "dev": "node scripts/serve-static.mjs",
     "build": "npm run check && npm test && node scripts/build-static.mjs",
     "check": "find api lib scripts tests -type f \\( -name '*.js' -o -name '*.mjs' \\) -print0 | xargs -0 -n1 node --check && node --check app.js && node --check analytics.js && node --check catalog.js",
-    "ci": "npm run build && npm run repo:check",
+    "ci": "npm run build && npm run contracts:test && npm run repo:check",
     "config:check": "node scripts/check-config.mjs",
     "live:check": "node scripts/check-live.mjs",
     "metrics": "node --env-file-if-exists=.env.local scripts/metrics.mjs",
     "repo:check": "node scripts/check-repo.mjs",
     "seed:preview": "node scripts/seed-preview.mjs",
-    "test": "node tests/smoke.mjs && node tests/backend.mjs"
+    "test": "node tests/smoke.mjs && node tests/backend.mjs",
+    "contracts:build": "forge build --root contracts",
+    "contracts:test": "forge test --root contracts"
   },
   "engines": {
     "node": ">=24 <25"
@@ -22,6 +24,10 @@
   "dependencies": {
     "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.112.3",
-    "cookie": "^2.0.1"
+    "cookie": "^2.0.1",
+    "stripe": "22.6.1"
+  },
+  "devDependencies": {
+    "@openzeppelin/contracts": "5.6.1"
   }
 }
