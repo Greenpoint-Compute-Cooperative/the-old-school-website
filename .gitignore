@@ -6,6 +6,7 @@ supabase/.temp/
 contracts/cache/
 contracts/out/
 contracts/broadcast/
+/cache/
 .env
 .env.*
 !.env.example

@@ -4,7 +4,7 @@
 
 Marketplace & Auction House of Brooklyn is the curator-led market for physical work at 29 Nassau Avenue and born-digital work. A named curator sponsors every artist and piece. The monthly auditorium bazaar turns the catalog into a recurring in-person program.
 
-NFTs remain in the product, but the researched launch sequence starts with fixed-price physical sales through hosted card/Apple Pay checkout. New editions and paired physical + NFT works follow only after provider approval, contract audit, rights clearance, and Base Sepolia rehearsal. Crypto and English auctions are separate gated rails, not dependencies of the first live sale.
+The launch target represents every approved marketplace work by an NFT on Ethereum mainnet before its auction opens. Members join through social OAuth, control passkey-first Safe accounts, and pay no gas for the explicitly supported Grove actions. The first invited auction rail is offchain EIP-712 bidding with Stripe-hosted Apple Pay/card qualification and winner settlement. Crypto-only lots are a later, separate rail; v1 never mixes card and crypto bids in one auction.
 
 ## Launchable MVP
 
@@ -30,20 +30,20 @@ The current interface labels the remaining boundaries honestly: links are not fe
 
 - One art-led catalog for **physical**, **digital / NFT**, and **paired** work.
 - Work pages with format, artist, sponsor, price, edition, medium, location, and network where relevant.
-- Fixed-price hosted card/Apple Pay checkout first, with crypto and mint delivery behind independent gates.
+- NFT-first auctions with hosted Apple Pay/card qualification, signed offchain bids, and winner delivery to a member Safe.
 - Curator profiles with the works they sponsor.
 
 ### NFT-connected acquisition
 
-The production MVP should use one low-fee EVM network and audited, standard infrastructure:
+The production MVP uses Ethereum mainnet and audited, standard infrastructure:
 
 - ERC-721 for one-of-one works and ERC-1155 for editions;
 - read-only verification for existing tokens;
-- a source-verified launch contract for new work, administered by a multisig;
+- source-verified immutable collections for new work, administered by a 2-of-3 Safe with a separate inventory Safe;
 - durable media and metadata, explicit supply, rights, and preservation terms;
 - authoritative transaction/indexer state before the UI claims a mint or ownership change.
 
-The delivery branch now contains disabled-by-default inventory reservations, a hosted Stripe Checkout boundary, a signed webhook inbox, and testnet-candidate ERC-721/ERC-1155 mint contracts. Prototype works remain unsaleable and no provider, production address, mint relayer, RPC/indexer, or real identity is invented. Wallet and card paths stay disabled until their documented launch gates pass.
+The delivery branch now contains disabled-by-default auction/payment APIs, an EIP-712/ERC-1271 bid boundary, a signed Stripe event inbox, a row-locked auction ledger, and inventory-mint ERC-721/ERC-1155 contracts. Prototype works remain unsaleable and no provider, production address, paymaster, RPC, or real identity is invented. Wallet and auction paths stay disabled until their documented launch gates pass.
 
 ### Monthly bazaar
 
@@ -106,11 +106,11 @@ No bot, scraper, or chat integration is implemented in this repository.
 
 ## Phase two
 
-NFTs already exist in launch scope. Phase two deepens them:
+Phase two adds controlled extensions:
 
-- native in-site minting after hosted infrastructure is proven;
+- crypto-only lots through a pinned audited order protocol;
 - creator-controlled contracts and richer edition mechanics;
-- auctions with explicit reserve and settlement behavior;
+- an independently audited onchain English-auction rail if demand justifies it;
 - secondary-market aggregation without guaranteed-royalty claims;
 - collector preservation/download tools;
 - optional on-chain physical redemption with clear custody and recovery rules.
@@ -133,4 +133,4 @@ NFTs already exist in launch scope. Phase two deepens them:
 - `#curators` / `#curator/:id` — sponsor exploration.
 - `#bazaar` — monthly program and calendar export.
 
-The hash-routed gallery and trusted server/database boundary are deployment-ready. Live identity, publishing, link retrieval, and transactions still require the documented provider credentials, policy decisions, and reviews.
+The hash-routed gallery and fail-closed server/database foundation build cleanly. Live identity, publishing, link retrieval, and transactions still require the documented provider credentials, missing workers, policy decisions, rehearsals, and reviews.

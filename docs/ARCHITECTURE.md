@@ -1,58 +1,64 @@
 # Architecture
 
-The marketplace is a deliberately small web application with a strict trust boundary: the gallery can render without a backend, but identity, private curator state, metrics, and future acquisition state cross same-origin Vercel Functions before reaching Supabase.
+The marketplace is a small web application with explicit authorities for identity, auctions, payments, and Ethereum. The gallery renders without a backend; nothing financial or onchain can claim success from browser state.
 
 ```mermaid
 flowchart LR
-  B[Browser gallery] -->|same-origin JSON| V[Vercel Functions]
-  V -->|publishable key + user session| A[Supabase Auth and RLS]
-  V -->|server-only secret| M[Private product metrics]
-  A --> D[(Postgres)]
-  M --> D
-  V -->|hosted session| S[Stripe Checkout]
+  B[Browser gallery + passkey signer] -->|same-origin JSON| V[Vercel Functions]
+  V --> A[Supabase Auth]
+  V -->|service-only RPC| D[(Postgres auction ledger)]
+  V -->|SetupIntent / PaymentIntent| S[Stripe hosted Apple Pay/card]
   S -->|signed webhook| V
-  V -->|disabled-by-default service RPC| Q[(Commerce ledger / outbox)]
-  Q --> D
-  C[Vercel Cron] -->|CRON_SECRET| V
-  G[GitHub CI and uptime] -->|build / health only| V
+  V -->|read / ERC-1271| E[Ethereum mainnet RPC]
+  V -->|policy-approved UserOperation| P[Managed bundler/paymaster]
+  P --> EP[ERC-4337 EntryPoint]
+  EP --> U[Member Safe]
+  I[2-of-3 inventory Safe] --> N[Grove721 / Grove1155]
+  C[Reconciliation workers] --> D
+  C --> S
+  C --> E
 ```
 
 ## Runtime
 
-- `index.html`, `styles.css`, `catalog.js`, `analytics.js`, and `app.js` are a vanilla, hash-routed gallery copied into `dist/` by `scripts/build-static.mjs`.
-- `api/` uses Web `Request` and `Response` handlers on Vercel Functions.
-- `lib/server/` owns configuration validation, cookies, Supabase clients, and HTTP validation.
-- Supabase Auth holds provider identities and PKCE sessions. Postgres holds curator, discovery, sponsorship, work, bazaar, acquisition, and product-event records.
-- The browser gets only a publishable Supabase key indirectly through server clients. `SUPABASE_SECRET_KEY`, metrics read access, and cron authorization exist only in Vercel Functions.
+- The editorial storefront is vanilla HTML/CSS/ES modules. esbuild creates one exact-pinned browser-only Ethereum intent bundle; passkey private material stays in the authenticator.
+- Vercel Functions own request validation, social sessions, Stripe calls, ERC-1271 checks, sponsorship policy, and provider credentials.
+- Supabase Auth holds social-provider identities and PKCE sessions. Postgres owns auction order, payment state, NFT custody projections, and append-only events.
+- Ethereum mainnet owns NFT identity, inventory, member Safe state, transfers, and canonical receipts. Indexers are read models only.
+- A managed ERC-4337 bundler/paymaster is replaceable behind a Grove adapter. It never becomes auction or ownership authority.
 
 ## Data boundaries
 
 | Data | Visibility | Authority |
 |---|---|---|
-| Listed works and published bazaars | Public | Postgres + RLS |
-| Curator discoveries and sponsorship drafts | Owning curator | Supabase session + RLS |
-| Provider tokens and identities | Supabase Auth | Provider consent |
-| Product events | No browser read access | Server-only RPC |
-| Metrics summary | Bearer-protected operator API | Server-only aggregate RPC |
-| Inventory reservations and provider event inbox | Server-only, disabled by flag | Postgres row locks + service RPC |
-| Hosted card / Apple Pay checkout | Disabled by flag | Stripe signed webhook + Postgres order state |
-| Mints | Testnet candidate only | Audited contract event + reconciled order ledger |
+| Published work and auction projection | public | Postgres after reconciliation |
+| Social identity and provider tokens | private | Supabase Auth/provider consent |
+| Social-to-Safe association | owning member/operator only | one-time ERC-1271 link proof |
+| Passkey private material | never leaves authenticator | user-controlled Safe |
+| Credential commitment/recovery status | owning member/operator only | Postgres + Safe reconciliation |
+| Bid signature, mandate, payment attempt | bidder/operator only | Postgres + current chain/provider check |
+| Public bid feed | public pseudonymous projection | Postgres |
+| NFT ownership/finality | public | Ethereum mainnet |
+| Gas sponsorship | private audit log | policy decision + UserOperation receipt |
 
-The bundled catalog is editorial prototype content and is a visual fallback only when the backend is absent or unavailable.
-A successfully loaded, empty live catalog stays empty. The bundle is never an authoritative sale, token, or inventory ledger.
+OAuth subjects, handles, email, credential IDs, authenticator metadata, payment method IDs, signatures, and wallet links never enter NFT metadata or public tables.
 
-## Environments
+## Invariants
 
-- **Production:** stable Vercel alias and the dedicated US East Supabase project. First-party metrics may write only here.
-- **Preview:** dedicated US East Supabase project with synthetic records; OAuth, acquisition, and metrics stay disabled.
-- **Development:** static `npm run dev`, or `vercel dev --listen 8013` with the same synthetic preview project.
+- Every auctionable work is first finalized in the dedicated inventory Safe.
+- One work maps to one collection/token identity; an ERC-1155 cap is minted in full before sale.
+- One v1 auction has one settlement rail, high bid, winner, and settlement.
+- Bids are EIP-712 intents checked through ERC-1271 before row-locked acceptance and again at close.
+- Stripe redirects never authorize settlement. A payment mandate requires both current off-session SetupIntent success and accepted terms from its matching completed Checkout Session; settlement webhooks are reconciled against the one bound current PaymentIntent.
+- NFT release requires a cleared payment/crypto settlement, risk gate, idempotent delivery record, and finalized chain receipt.
+- Grove sponsors only allowlisted Ethereum actions; it never takes unilateral recovery control.
 
-Preview and Development never receive the production Supabase secret. Do not copy production rows into the preview project.
+## Environments and changes
 
-## Change rules
+- Production uses isolated Vercel, Supabase, Stripe, RPC, bundler, and paymaster resources. Preview/development use synthetic identities, payment methods, wallets, and NFTs.
+- Add timestamped migrations; never rewrite an applied production migration.
+- Every table has RLS and explicit grants. Server-only commerce mutation functions are unavailable to browser roles.
+- Keep wallet and auction flags false until code hashes, provider approval, tax, terms, recovery, audit, and reconciliation gates pass.
+- Never put service keys, provider tokens, RPC credentials, passkey material, Safe owner material, or deployer keys in static files, logs, screenshots, or CI artifacts.
 
-- Add a new timestamped migration; never rewrite one applied to production.
-- Every public table requires RLS and explicit grants. Server-only tables receive no `anon` or `authenticated` grants.
-- Keep integrations behind flags until callbacks, failure paths, revocation, and authoritative reconciliation pass.
-- Never enable card commerce unless automatic tax, provider approval, rights, seller terms, and inventory are configured.
-- Do not put provider secrets, service keys, or admin tokens in client modules, static files, screenshots, logs, or GitHub Actions.
+See [the master plan](LIVE_MARKETPLACE_MASTER_PLAN.md) for the complete lifecycle and gate checklist.

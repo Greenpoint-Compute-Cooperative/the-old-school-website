@@ -8,6 +8,14 @@ const acceptedEvents = new Set([
   "checkout.session.async_payment_succeeded",
   "checkout.session.async_payment_failed",
   "checkout.session.expired",
+  "setup_intent.succeeded",
+  "setup_intent.setup_failed",
+  "setup_intent.canceled",
+  "payment_intent.succeeded",
+  "payment_intent.processing",
+  "payment_intent.requires_action",
+  "payment_intent.payment_failed",
+  "payment_intent.canceled",
   "refund.created",
   "refund.updated",
   "refund.failed",
@@ -16,12 +24,24 @@ const acceptedEvents = new Set([
 ]);
 
 const checkoutEvents = new Set([...acceptedEvents].filter((type) => type.startsWith("checkout.session.")));
+const setupEvents = new Set([...acceptedEvents].filter((type) => type.startsWith("setup_intent.")));
+const paymentIntentEvents = new Set([...acceptedEvents].filter((type) => type.startsWith("payment_intent.")));
 
 const uuid = (value) => typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(value) ? value : null;
 const reference = (value) => typeof value === "string" ? value : value?.id || null;
-export const effectiveDisputeEventType = (status) => ["won", "lost", "warning_closed", "prevented"].includes(status)
-  ? "charge.dispute.closed"
-  : "charge.dispute.created";
+export const effectiveDisputeEventType = (status) => ({
+  lost: "charge.dispute.lost",
+  won: "charge.dispute.won",
+  warning_closed: "charge.dispute.warning_closed",
+  prevented: "charge.dispute.prevented"
+}[status] || "charge.dispute.created");
+export const effectivePaymentIntentEventType = (status) => ({
+  succeeded: "payment_intent.succeeded",
+  processing: "payment_intent.processing",
+  requires_action: "payment_intent.requires_action",
+  canceled: "payment_intent.canceled",
+  requires_payment_method: "payment_intent.payment_failed"
+}[status] || "payment_intent.payment_failed");
 
 export const POST = async (request) => {
   try {
@@ -43,6 +63,51 @@ export const POST = async (request) => {
     }
 
     if (!acceptedEvents.has(event.type)) return json({ received: true, ignored: true });
+    if (setupEvents.has(event.type)) {
+      const setupIntent = await stripe.setupIntents.retrieve(event.data.object.id);
+      const auctionId = uuid(setupIntent.metadata?.grove_auction_id);
+      const mandateId = uuid(setupIntent.metadata?.grove_mandate_id);
+      const customerId = reference(setupIntent.customer);
+      if (!auctionId && !mandateId) return json({ received: true, ignored: true });
+      if (!auctionId || !mandateId || !customerId) return problem(422, "mandate_missing", "Webhook mandate metadata is invalid.");
+      const service = createSupabaseServiceClient();
+      const { data: result, error } = await service.rpc("apply_stripe_auction_setup_event", {
+        stripe_event_id: event.id,
+        stripe_event_type: event.type,
+        auction_uuid: auctionId,
+        mandate_uuid: mandateId,
+        checkout_session_id: null,
+        setup_intent_id: setupIntent.id,
+        customer_id: customerId,
+        payment_method_id: reference(setupIntent.payment_method),
+        setup_status: setupIntent.status,
+        setup_usage_value: setupIntent.usage,
+        terms_acceptance_status: null,
+        event_payload: { id: event.id, type: event.type, created: event.created, livemode: event.livemode }
+      });
+      if (error) return problem(503, "webhook_processing_failed", "Webhook processing will be retried.");
+      return json({ received: true, result });
+    }
+    if (paymentIntentEvents.has(event.type)) {
+      const paymentIntent = await stripe.paymentIntents.retrieve(event.data.object.id);
+      const settlementId = uuid(paymentIntent.metadata?.grove_settlement_id);
+      if (!settlementId) return json({ received: true, ignored: true });
+      const effectiveType = effectivePaymentIntentEventType(paymentIntent.status);
+      const service = createSupabaseServiceClient();
+      const { data: result, error } = await service.rpc("apply_stripe_auction_payment_event", {
+        stripe_event_id: event.id,
+        stripe_event_type: effectiveType,
+        settlement_uuid: settlementId,
+        payment_intent_id: paymentIntent.id,
+        stripe_object_id: paymentIntent.id,
+        object_status: paymentIntent.last_payment_error?.code || paymentIntent.status,
+        object_amount: paymentIntent.amount,
+        object_currency: paymentIntent.currency,
+        event_payload: { id: event.id, type: event.type, effective_type: effectiveType, created: event.created, livemode: event.livemode }
+      });
+      if (error) return problem(503, "webhook_processing_failed", "Webhook processing will be retried.");
+      return json({ received: true, result });
+    }
     if (!checkoutEvents.has(event.type)) {
       const announcedObject = event.data.object;
       const currentObject = event.type.startsWith("refund.")
@@ -55,6 +120,26 @@ export const POST = async (request) => {
       }
       if (!paymentIntentId) return problem(422, "payment_missing", "Webhook payment metadata is invalid.");
       const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+      const settlementId = uuid(paymentIntent.metadata?.grove_settlement_id);
+      if (settlementId) {
+        const effectiveType = event.type.startsWith("charge.dispute.")
+          ? effectiveDisputeEventType(currentObject.status)
+          : event.type;
+        const service = createSupabaseServiceClient();
+        const { data: result, error } = await service.rpc("apply_stripe_auction_payment_event", {
+          stripe_event_id: event.id,
+          stripe_event_type: effectiveType,
+          settlement_uuid: settlementId,
+          payment_intent_id: paymentIntentId,
+          stripe_object_id: currentObject.id,
+          object_status: currentObject.status || null,
+          object_amount: currentObject.amount || paymentIntent.amount,
+          object_currency: currentObject.currency || paymentIntent.currency,
+          event_payload: { id: event.id, type: event.type, effective_type: effectiveType, created: event.created, livemode: event.livemode }
+        });
+        if (error) return problem(503, "webhook_processing_failed", "Webhook processing will be retried.");
+        return json({ received: true, result });
+      }
       const acquisitionId = uuid(paymentIntent.metadata?.grove_acquisition_id);
       if (!acquisitionId) return problem(422, "acquisition_missing", "Webhook acquisition metadata is invalid.");
       const effectiveType = event.type.startsWith("charge.dispute.")
@@ -87,6 +172,32 @@ export const POST = async (request) => {
 
     const announcedSession = event.data.object;
     const session = await stripe.checkout.sessions.retrieve(announcedSession.id);
+    if (session.metadata?.grove_flow === "auction-payment-setup") {
+      const setupIntentId = reference(session.setup_intent);
+      const setupIntent = setupIntentId ? await stripe.setupIntents.retrieve(setupIntentId) : null;
+      const auctionId = uuid(session.metadata?.grove_auction_id || setupIntent?.metadata?.grove_auction_id);
+      const mandateId = uuid(session.metadata?.grove_mandate_id || setupIntent?.metadata?.grove_mandate_id);
+      const customerId = reference(session.customer || setupIntent?.customer);
+      if (!auctionId || !mandateId || !customerId) return problem(422, "mandate_missing", "Webhook mandate metadata is invalid.");
+      const service = createSupabaseServiceClient();
+      const { data: result, error } = await service.rpc("apply_stripe_auction_setup_event", {
+        stripe_event_id: event.id,
+        stripe_event_type: event.type,
+        auction_uuid: auctionId,
+        mandate_uuid: mandateId,
+        checkout_session_id: session.id,
+        setup_intent_id: setupIntent?.id || null,
+        customer_id: customerId,
+        payment_method_id: reference(setupIntent?.payment_method),
+        setup_status: setupIntent?.status || session.status,
+        setup_usage_value: setupIntent?.usage || null,
+        terms_acceptance_status: session.consent?.terms_of_service || null,
+        event_payload: { id: event.id, type: event.type, created: event.created, livemode: event.livemode }
+      });
+      if (error) return problem(503, "webhook_processing_failed", "Webhook processing will be retried.");
+      return json({ received: true, result });
+    }
+    if (session.mode === "setup") return json({ received: true, ignored: true });
     const acquisitionId = uuid(session.metadata?.grove_acquisition_id || session.client_reference_id);
     if (!acquisitionId) return problem(422, "acquisition_missing", "Webhook acquisition metadata is invalid.");
 

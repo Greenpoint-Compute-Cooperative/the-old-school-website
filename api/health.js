@@ -19,6 +19,8 @@ export const GET = async (request) => {
       database: "reachable",
       providers: configuration.providers,
       acquisition: configuration.acquisition,
+      wallet: configuration.wallet,
+      auctions: configuration.auctions,
       metrics: configuration.metrics
     }, { headers: { ...Object.fromEntries(headers), "Cache-Control": "no-store" } });
   } catch (error) {

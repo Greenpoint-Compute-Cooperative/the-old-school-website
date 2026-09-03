@@ -10,41 +10,57 @@ import { ERC1155URIStorage } from "@openzeppelin/contracts/token/ERC1155/extensi
 import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 
 /// @title Grove1155
-/// @notice Immutable work records, hard edition caps, and idempotent delivery for curated editions.
-/// @dev Pausing stops mint delivery only. Collector transfers can never be frozen by the School.
+/// @notice Immutable work records, hard edition caps, and inventory-safe issuance for curated editions.
+/// @dev The full approved edition is minted to custody before sale. Pausing stops issuance only.
 contract Grove1155 is ERC1155Supply, ERC1155URIStorage, ERC2981, AccessControlDefaultAdminRules, Pausable {
     bytes32 public constant REGISTRAR_ROLE = keccak256("REGISTRAR_ROLE");
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
+    address public immutable inventorySafe;
     mapping(uint256 tokenId => uint256 supplyCap) public maxSupply;
-    mapping(bytes32 orderId => bool processed) public processedOrders;
+    mapping(uint256 tokenId => bytes32 workId) public workIdByToken;
+    mapping(bytes32 workId => uint256 tokenId) public tokenIdByWork;
+    mapping(bytes32 workId => bool registered) public registeredWork;
+    mapping(bytes32 issuanceId => bool processed) public processedIssuances;
 
     event WorkConfigured(
+        bytes32 indexed workId,
         uint256 indexed tokenId,
         uint256 maxSupply,
         string tokenUri,
         address indexed royaltyReceiver,
         uint96 royaltyFeeNumerator
     );
-    event OrderMinted(bytes32 indexed orderId, uint256 indexed tokenId, address indexed recipient, uint256 quantity);
+    event ApprovedEditionMinted(
+        bytes32 indexed issuanceId,
+        bytes32 indexed workId,
+        uint256 indexed tokenId,
+        address inventorySafe,
+        uint256 quantity
+    );
 
     error InvalidAddress();
-    error InvalidOrder();
+    error InvalidIssuance();
+    error InvalidWorkId();
     error InvalidQuantity();
     error InvalidTokenURI();
     error WorkAlreadyConfigured();
     error WorkNotConfigured();
-    error OrderAlreadyProcessed();
-    error SupplyCapExceeded();
+    error WorkAlreadyMinted();
+    error IssuanceAlreadyProcessed();
 
-    constructor(address admin, address registrar, address minter, address pauseGuardian)
+    constructor(address admin, address registrar, address minter, address pauseGuardian, address inventorySafe_)
         ERC1155("")
         AccessControlDefaultAdminRules(2 days, admin)
     {
-        if (admin == address(0) || registrar == address(0) || minter == address(0) || pauseGuardian == address(0)) {
+        if (
+            admin == address(0) || registrar == address(0) || minter == address(0) || pauseGuardian == address(0)
+                || inventorySafe_ == address(0)
+        ) {
             revert InvalidAddress();
         }
+        inventorySafe = inventorySafe_;
         _grantRole(REGISTRAR_ROLE, registrar);
         _grantRole(MINTER_ROLE, minter);
         _grantRole(PAUSER_ROLE, pauseGuardian);
@@ -52,39 +68,38 @@ contract Grove1155 is ERC1155Supply, ERC1155URIStorage, ERC2981, AccessControlDe
 
     /// @notice Permanently records an edition's metadata, cap, and royalty signal before sale.
     function configure(
+        bytes32 workId,
         uint256 tokenId,
         uint256 supplyCap,
         string calldata tokenUri,
         address royaltyReceiver,
         uint96 royaltyFeeNumerator
     ) external onlyRole(REGISTRAR_ROLE) {
+        if (workId == bytes32(0)) revert InvalidWorkId();
         if (royaltyReceiver == address(0)) revert InvalidAddress();
         if (supplyCap == 0) revert InvalidQuantity();
         if (!_isIpfsUri(tokenUri)) revert InvalidTokenURI();
-        if (maxSupply[tokenId] != 0) revert WorkAlreadyConfigured();
+        if (maxSupply[tokenId] != 0 || registeredWork[workId]) revert WorkAlreadyConfigured();
         maxSupply[tokenId] = supplyCap;
+        workIdByToken[tokenId] = workId;
+        tokenIdByWork[workId] = tokenId;
+        registeredWork[workId] = true;
         _setURI(tokenId, tokenUri);
         _setTokenRoyalty(tokenId, royaltyReceiver, royaltyFeeNumerator);
-        emit WorkConfigured(tokenId, supplyCap, tokenUri, royaltyReceiver, royaltyFeeNumerator);
+        emit WorkConfigured(workId, tokenId, supplyCap, tokenUri, royaltyReceiver, royaltyFeeNumerator);
     }
 
-    /// @notice Delivers configured editions after an authoritative offchain order settles.
-    /// @param orderId A PII-free hash domain-bound to chain, collection, acquisition line, token, recipient, and quantity.
-    function mint(bytes32 orderId, uint256 tokenId, address recipient, uint256 quantity)
-        external
-        onlyRole(MINTER_ROLE)
-        whenNotPaused
-    {
-        if (orderId == bytes32(0)) revert InvalidOrder();
-        if (recipient == address(0)) revert InvalidAddress();
-        if (quantity == 0) revert InvalidQuantity();
-        if (processedOrders[orderId]) revert OrderAlreadyProcessed();
+    /// @notice Mints the full approved edition to the immutable inventory Safe before bidding starts.
+    function mintApprovedEdition(bytes32 issuanceId, uint256 tokenId) external onlyRole(MINTER_ROLE) whenNotPaused {
+        if (issuanceId == bytes32(0)) revert InvalidIssuance();
+        if (processedIssuances[issuanceId]) revert IssuanceAlreadyProcessed();
         if (maxSupply[tokenId] == 0) revert WorkNotConfigured();
-        if (totalSupply(tokenId) + quantity > maxSupply[tokenId]) revert SupplyCapExceeded();
+        if (totalSupply(tokenId) != 0) revert WorkAlreadyMinted();
 
-        processedOrders[orderId] = true;
-        _mint(recipient, tokenId, quantity, "");
-        emit OrderMinted(orderId, tokenId, recipient, quantity);
+        uint256 quantity = maxSupply[tokenId];
+        processedIssuances[issuanceId] = true;
+        _mint(inventorySafe, tokenId, quantity, "");
+        emit ApprovedEditionMinted(issuanceId, workIdByToken[tokenId], tokenId, inventorySafe, quantity);
     }
 
     function pause() external onlyRole(PAUSER_ROLE) {

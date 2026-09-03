@@ -16,9 +16,11 @@ A curator-led marketplace for physical art in the School and born-digital work. 
 
 ## Architecture
 
-- Vanilla HTML, CSS, and ES modules keep the editorial storefront fast; the build copies only runtime assets into `dist/`.
+- Vanilla HTML, CSS, and ES modules keep the editorial storefront fast; esbuild isolates the exact-pinned Ethereum bid-intent bundle.
 - Vercel Functions in `api/` provide OAuth, session, profile, curator-workflow, catalog, and acquisition-state boundaries.
-- Supabase provides Auth and Postgres. The migration in `supabase/migrations/` creates curators, discoveries, sponsorships, works, bazaar events, and acquisitions with row-level security.
+- Supabase provides Auth and Postgres. Migrations add social-linked Safe accounts, NFT custody, auctions, signed bids, payment mandates, settlements, and chain delivery behind row-level security.
+- The gated production path pre-mints approved works as ERC-721/1155 inventory on Ethereum mainnet. Members will use passkey Safe accounts; Grove sponsorship is limited to allowlisted marketplace actions.
+- Card lots use Stripe-hosted Apple Pay/card setup and signed offchain bids. Crypto lots are a separate, gated rail; a v1 auction never mixes reversible card and irreversible crypto settlement.
 - First-party product events are session-scoped, server-validated, private by default, aggregated behind an operator token, and deleted after 180 days.
 - The bundled catalog remains available when the backend is absent. OAuth and checkout never claim success without real configuration.
 
@@ -82,6 +84,11 @@ npm run live:check
 - `POST /api/events` — same-origin, allowlisted, session-scoped product events
 - `GET /api/metrics?days=30` — bearer-protected aggregate operator feed
 - `/api/cron/metrics-retention` — Vercel-authenticated 180-day cleanup
+- `GET/POST /api/auctions/:id/bids` — privacy-safe feed and EIP-712/ERC-1271 bid acceptance
+- `POST /api/auctions/:id/payment-setup` — per-auction hosted Apple Pay/card mandate
+- `POST /api/wallet/challenge` and `/api/wallet/link` — one-time, origin-bound ERC-1271 social-to-Safe link
+- `POST /api/stripe/webhook` — signed fixed-price and auction payment events
+- `/api/cron/auction-close` — close-time ERC-1271 revalidation and idempotent winner selection
 
 ## Product notes
 
@@ -94,8 +101,8 @@ npm run live:check
 - [`docs/PRODUCTION_BACKLOG.md`](docs/PRODUCTION_BACKLOG.md) — prioritized pilot, commerce, reliability, and growth work
 - [`docs/LIVE_MARKETPLACE_MASTER_PLAN.md`](docs/LIVE_MARKETPLACE_MASTER_PLAN.md) — researched contracts, payments,
   Apple Pay, API, compliance, and staged launch plan
-- [`docs/COMMERCE_RUNBOOK.md`](docs/COMMERCE_RUNBOOK.md) — fail-closed Stripe Checkout operations and incident actions
-- [`contracts/README.md`](contracts/README.md) — testnet-only ERC-721/ERC-1155 candidates and verification gates
+- [`docs/COMMERCE_RUNBOOK.md`](docs/COMMERCE_RUNBOOK.md) — fail-closed Apple Pay/card auction operations and incident actions
+- [`contracts/README.md`](contracts/README.md) — inventory-mint ERC-721/ERC-1155 candidates and Ethereum gates
 - [`docs/GENERATED_ASSETS.md`](docs/GENERATED_ASSETS.md) — source and generated-asset disclosure
 
 ## Contribute
@@ -104,4 +111,4 @@ Start with [`CONTRIBUTING.md`](CONTRIBUTING.md). Pull requests run deterministic
 
 The code is available under the [MIT License](LICENSE). Tagged releases rebuild the app, rerun CI, and publish a checksummed static artifact.
 
-The supplied floating-school image is the marketplace’s primary mark. Catalog records are fictional prototype content and cannot be sold. Card/Apple Pay and mint foundations are disabled until the master-plan gates pass; no live wallet, contract address, checkout credential, media pipeline, or RSVP provider is claimed.
+The supplied floating-school image is the marketplace’s primary mark. Catalog records are fictional prototype content and cannot be sold. Wallet, auction, Apple Pay/card, and mainnet contract paths are disabled until the master-plan gates pass; no live wallet, contract address, checkout credential, paymaster, or production NFT is claimed.

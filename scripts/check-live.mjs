@@ -45,6 +45,8 @@ assert.equal(configuration.backend?.configured, true);
 assert.equal(configuration.providers?.instagram?.configured, false);
 assert.equal(configuration.providers?.x?.configured, false);
 assert.equal(configuration.acquisition?.configured, false);
+assert.equal(configuration.wallet?.configured, false);
+assert.equal(configuration.auctions?.configured, false);
 
 await fetchChecked("/api/catalog");
 await fetchChecked("/manifest.webmanifest");

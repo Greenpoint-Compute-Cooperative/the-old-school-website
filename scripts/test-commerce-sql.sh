@@ -24,4 +24,6 @@ for migration in supabase/migrations/*.sql; do
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$migration" >/dev/null
 done
 
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/live_commerce.sql
+for test_file in supabase/tests/*.sql; do
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$test_file"
+done

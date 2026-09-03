@@ -29,8 +29,8 @@ npm run ci
 
 ## Verification
 
-- Preview: database health is reachable, catalog returns only synthetic database records, and OAuth/acquisition/metrics flags remain false.
-- Production: `npm run live:check` walks the public page, security headers, database health, integration flags, catalog, manifest, robots, protected metrics, and cross-origin event rejection.
+- Preview: database health is reachable, catalog returns only synthetic database records, and OAuth/acquisition/wallet/auction/metrics flags remain false.
+- Production: `npm run live:check` walks the public page, security headers, database health, integration flags, catalog, manifest, robots, protected metrics, and cross-origin event rejection. Wallet and auction flags stay false until the master-plan gates pass.
 - Monitoring: GitHub runs the production check hourly and maintains one `ops:incident` issue while unhealthy. A private weekly workflow produces the 7/30/90-day aggregate product report.
 
 Never copy production rows into preview. Recreate representative states with synthetic records that are visibly labeled as preview data.

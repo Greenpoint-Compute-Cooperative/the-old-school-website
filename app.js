@@ -92,7 +92,13 @@ const money = (amountMinor, currency) => {
   }
 };
 
-const apiWork = (work, index) => ({
+const auctionMoney = (auction) => {
+  const amount = auction.current_bid_amount || auction.reserve_amount;
+  if (auction.bid_currency === "USD") return money(Number(amount), "USD");
+  return `${amount} ${auction.bid_currency} base units`;
+};
+
+const apiWork = (work, index, auction) => ({
   slug: work.slug,
   title: work.title,
   artist: work.artist_name,
@@ -102,13 +108,16 @@ const apiWork = (work, index) => ({
   medium: work.format === "digital" ? "Born-digital artwork" : work.format === "paired" ? "Physical work with digital edition" : "Physical artwork",
   dimensions: "See work details",
   location: work.location || "Fulfillment details at checkout",
-  price: money(work.price_minor, work.currency),
+  price: auction
+    ? auctionMoney(auction)
+    : money(work.price_minor, work.currency),
   cryptoPrice: work.crypto_amount && work.crypto_asset ? `${work.crypto_amount} ${work.crypto_asset}` : "",
-  availability: work.status === "sold" ? "Sold" : work.status === "reserved" ? "Reserved" : work.inventory_available > 0 ? "Available" : "Unavailable",
+  availability: auction ? ({ open: "Bidding open", scheduled: "Scheduled", "winner-selected": "Ended", settled: "Settled", "no-sale": "No sale" }[auction.state] || "Auction closed")
+    : work.status === "sold" ? "Sold" : work.status === "reserved" ? "Reserved" : work.inventory_available > 0 ? "Available" : "Unavailable",
   status: work.status,
   edition: work.format === "physical" ? "Physical work" : "Edition details in work record",
-  chain: work.chain,
-  tokenStandard: null,
+  chain: auction?.chain_id === 1 ? "Ethereum mainnet" : work.chain,
+  tokenStandard: auction?.nft_standard || null,
   contractStatus: work.contract_status,
   curatorId: work.curator_id || "grove-marketplace",
   collection: "Live catalog",
@@ -123,9 +132,15 @@ const apiWork = (work, index) => ({
   fulfillment: work.requires_shipping ? "Shipping address and tax are collected in secure checkout." : "Delivery details are confirmed after payment.",
   featured: false,
   mediaUrl: work.media_url,
-  termsUrl: work.buyer_terms_url,
+  termsUrl: auction?.terms_url || work.buyer_terms_url,
   licenseUrl: work.license_uri,
-  saleEnabled: work.checkout_ready === true
+  saleEnabled: work.checkout_ready === true,
+  auctionId: auction?.id || null,
+  auctionState: auction?.state || null,
+  auctionRail: auction?.settlement_rail || null,
+  auctionClosesAt: auction?.closes_at || null,
+  auctionMinimumIncrement: auction ? Number(auction.minimum_increment) : null,
+  auctionEnabled: auction?.state === "open"
 });
 
 const hydrateLiveCatalog = async () => {
@@ -142,7 +157,8 @@ const hydrateLiveCatalog = async () => {
     liveCurators.push({ id: "grove-marketplace", name: "The School", initials: "TS", role: "Marketplace", city: "Brooklyn, NY", bio: "", thesis: "", accent: "cobalt", rooms: [], joined: "" });
     curators.splice(0, curators.length, ...liveCurators);
 
-    const liveWorks = catalog.works.map(apiWork);
+    const auctionsByWork = new Map((Array.isArray(catalog.auctions) ? catalog.auctions : []).map((auction) => [auction.work_id, auction]));
+    const liveWorks = catalog.works.map((work, index) => apiWork(work, index, auctionsByWork.get(work.id)));
     const liveSlugs = new Set(liveWorks.map((work) => work.slug));
     works.splice(0, works.length, ...liveWorks);
     discoveries.splice(0, discoveries.length, ...discoveries.filter((item) => liveSlugs.has(item.workSlug)));
@@ -198,7 +214,7 @@ const workTile = (work) => {
         </div>
         <div class="work-tile__line">
           <span><strong>${escapeHtml(work.title)}</strong><small>${escapeHtml(work.artist)}</small></span>
-          <span class="tile-price">${escapeHtml(work.cryptoPrice || work.price)}</span>
+          <span class="tile-price">${escapeHtml(work.auctionId ? work.price : work.cryptoPrice || work.price)}</span>
         </div>
       </a>
       ${curatorPill(curator)}
@@ -236,7 +252,7 @@ const discoveryFilters = () => ["new", "saved", "sponsored"].map((state) => {
 
 const home = () => {
   const featuredDiscoveries = discoveries.slice(0, 3);
-  const saleReadyWorks = works.filter((work) => work.saleEnabled).slice(0, 3);
+  const saleReadyWorks = works.filter((work) => work.saleEnabled || work.auctionEnabled).slice(0, 3);
   const featuredWorks = saleReadyWorks.length
     ? saleReadyWorks
     : works.slice(0, 3);
@@ -338,8 +354,9 @@ const exhibitionPage = (exhibition) => {
 const workPage = (work) => {
   const curator = getCurator(work.curatorId);
   const related = works.filter((item) => item.slug !== work.slug && (item.curatorId === work.curatorId || item.type === work.type)).slice(0, 3);
-  const verb = work.type === "digital" ? "Collect" : work.type === "paired" ? "Acquire pair" : "Buy work";
-  const unavailable = ["reserved", "sold"].includes(work.status);
+  const verb = work.auctionId ? "Place bid" : work.type === "digital" ? "Collect" : work.type === "paired" ? "Acquire pair" : "Buy work";
+  const unavailable = work.auctionId ? work.auctionState !== "open" : ["reserved", "sold"].includes(work.status);
+  const closes = work.auctionClosesAt ? new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" }).format(new Date(work.auctionClosesAt)) : "";
   return `
     <div class="work-page">
       <a class="back-link work-page__back" href="#market">← Marketplace</a>
@@ -350,10 +367,12 @@ const workPage = (work) => {
           <h1>${escapeHtml(work.title)}</h1>
           <span class="artist-name">${escapeHtml(work.artist)}, ${work.year}</span>
           ${curatorPill(curator)}
-          <div class="work-price"><strong>${escapeHtml(work.cryptoPrice || work.price)}</strong><span>${escapeHtml(work.cryptoPrice ? `${work.price} card` : "Card / Apple Pay")}</span></div>
+          <div class="work-price"><strong>${escapeHtml(work.price)}</strong><span>${escapeHtml(work.auctionId ? `${work.auctionRail === "card" ? "Apple Pay / card" : work.auctionRail} auction${closes ? ` · closes ${closes}` : ""}` : work.cryptoPrice ? `${work.price} card` : "Card / Apple Pay")}</span></div>
           ${unavailable
             ? `<p class="pending-note" role="status">${escapeHtml(work.availability)} · checkout is unavailable</p>`
-            : `<button class="button button--blue" type="button" data-collect="${work.slug}" data-method="crypto">${verb}</button>
+            : work.auctionId
+              ? `<button class="button button--blue" type="button" data-collect="${work.slug}" data-method="${work.auctionRail}">${verb}</button>`
+              : `<button class="button button--blue" type="button" data-collect="${work.slug}" data-method="crypto">${verb}</button>
           <button class="text-button" type="button" data-collect="${work.slug}" data-method="card">Use card</button>`}
           <details class="work-details">
             <summary>Details</summary>
@@ -478,7 +497,14 @@ const bazaarPage = () => {
 
 const notFound = () => `<div class="page"><header class="page-title"><h1>Not found.</h1><a class="button button--dark" href="#home">Go home</a></header></div>`;
 
-const collectTemplate = (work, method) => `
+const collectTemplate = (work, method) => work.auctionId ? `
+  <div class="collect-work"><div>${art(work)}</div><span><small>Ethereum auction</small><h2 id="collect-title">${escapeHtml(work.title)}</h2><i>${escapeHtml(work.artist)}</i></span></div>
+  <div class="collect-price"><strong>${escapeHtml(work.price)}</strong><span>${escapeHtml(work.auctionRail === "card" ? "Apple Pay / card lot" : "Crypto lot")}</span></div>
+  ${work.auctionRail === "card" ? `<label>Maximum bid (USD)<input type="number" min="1" step="1" inputmode="numeric" data-auction-maximum required></label>
+  <div class="method-panel"><span>Save Apple Pay or a card for this auction</span><button class="button button--dark" type="button" data-start-auction-setup disabled>Checking auction…</button></div>`
+    : `<div class="method-panel"><span>WETH / USDC from your Safe</span><button class="button button--dark" disabled>Crypto lots are not enabled</button></div>`}
+  <small class="pending-note" data-checkout-note>Your passkey Safe signs each bid. Grove sponsors supported transaction gas; Apple Pay does not fund a wallet.</small>
+` : `
   <div class="collect-work"><div>${art(work)}</div><span><small>Preview</small><h2 id="collect-title">${escapeHtml(work.title)}</h2><i>${escapeHtml(work.artist)}</i></span></div>
   <div class="collect-price"><strong>${escapeHtml(work.cryptoPrice)}</strong><span>${escapeHtml(work.price)} card</span></div>
   <div class="method-tabs" role="tablist" aria-label="Payment method">
@@ -499,16 +525,59 @@ const openCollect = (slug, method) => {
   void loadAuthConfiguration().then((configuration) => {
     if (collectDialog.dataset.workSlug !== slug) return;
     const button = collectDialog.querySelector("[data-start-card-checkout]");
+    const auctionButton = collectDialog.querySelector("[data-start-auction-setup]");
     const note = collectDialog.querySelector("[data-checkout-note]");
     const configured = Boolean(configuration.acquisition?.card?.configured) && work.saleEnabled === true;
+    const auctionConfigured = Boolean(configuration.auctions?.configured) && work.auctionEnabled === true;
     if (button) {
       button.disabled = !configured;
       button.textContent = configured ? "Apple Pay or card" : "Checkout not available";
     }
-    if (note && !configured) note.textContent = work.saleEnabled
+    if (auctionButton) {
+      auctionButton.disabled = !auctionConfigured;
+      auctionButton.textContent = auctionConfigured ? "Set up Apple Pay or card" : "Auction setup not available";
+    }
+    if (note && !work.auctionId && !configured) note.textContent = work.saleEnabled
       ? "Checkout remains disabled until provider and tax review pass."
       : "This work has not passed seller, rights, price, and inventory review for sale.";
   });
+};
+
+const startAuctionPaymentSetup = async (button) => {
+  const work = getWork(collectDialog.dataset.workSlug);
+  const maximumInput = collectDialog.querySelector("[data-auction-maximum]");
+  const maximum = Number(maximumInput?.value);
+  if (!work?.auctionId || !Number.isSafeInteger(maximum) || maximum < 1) {
+    showToast("Enter a whole-dollar maximum bid");
+    return;
+  }
+  button.disabled = true;
+  button.textContent = "Opening secure setup…";
+  try {
+    const response = await fetch(`/api/auctions/${encodeURIComponent(work.auctionId)}/payment-setup`, {
+      method: "POST",
+      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      body: JSON.stringify({ maximum_hammer_minor: maximum * 100 })
+    });
+    const body = await response.json();
+    if (!response.ok) throw new Error(body.error?.message || "Payment setup is unavailable.");
+    if (body.state === "ready") {
+      collectDialog.close();
+      showToast("Payment method ready — sign your bid next");
+      return;
+    }
+    if (body.state === "processing") {
+      showToast("Payment setup is still confirming");
+      return;
+    }
+    const checkoutUrl = new URL(body.checkout_url);
+    if (checkoutUrl.protocol !== "https:") throw new Error("Payment setup returned an invalid URL.");
+    location.assign(checkoutUrl.href);
+  } catch (error) {
+    button.disabled = false;
+    button.textContent = "Set up Apple Pay or card";
+    showToast(error.message || "Payment setup is unavailable");
+  }
 };
 
 const startCardCheckout = async (button) => {
@@ -778,6 +847,9 @@ document.addEventListener("click", (event) => {
 
   const cardCheckout = event.target.closest("[data-start-card-checkout]");
   if (cardCheckout) { void startCardCheckout(cardCheckout); return; }
+
+  const auctionSetup = event.target.closest("[data-start-auction-setup]");
+  if (auctionSetup) { void startAuctionPaymentSetup(auctionSetup); return; }
 
   const method = event.target.closest("[data-method]");
   if (method) {

@@ -1,428 +1,336 @@
 # Live marketplace master plan
 
-**Audience:** owner, product, engineering, security, finance, operations, and retained counsel
-**Decision date:** September 2, 2026
-**Launch geography:** United States, operated from New York City
-**Code baseline:** `grove-marketplace/main` v1.0.6
-**Delivery branch:** `codex/live-marketplace`
+Status: implementation candidate, 2026-09-02. This document supersedes the earlier Base/fixed-price launch plan.
 
-## Executive decision
+## Product decision
 
-Launch a curator-led **fixed-price primary market** before adding English auctions or secondary NFT trading.
+Grove is a curated, primary-market auction house on Ethereum mainnet.
 
-- Keep the fast vanilla storefront, same-origin Vercel Functions, and Supabase/Postgres/RLS.
-- Make Postgres the single authority for rights, seller readiness, price, inventory, reservation, payment, and fulfillment.
-- Use Stripe-hosted Checkout for card payments. On eligible Apple devices, Checkout presents Apple Pay without a custom
-  Apple Pay UI or Apple merchant-certificate implementation. Apple Pay remains a normal card payment; it never funds a
-  wallet or buys crypto. [Stripe Apple Pay](https://docs.stripe.com/apple-pay)
-- Treat the School as disclosed merchant/seller of record under signed artist consignment for v1. Artist payouts use
-  ordinary accounts payable. If the legal model changes to independent sellers, migrate to Stripe Connect hosted
-  onboarding and separate charges/transfers rather than quietly changing the fund flow.
-- Use Base for new NFTs, with immutable OpenZeppelin-based ERC-721 and ERC-1155 collection contracts. Contracts deliver
-  a token only after an authoritative order settles; they do not take card payments, escrow physical art, hold buyer
-  funds, force transfers, guarantee royalties, or run a bespoke exchange.
-- Keep card checkout, minting, and later auctions behind separate fail-closed feature flags. No browser redirect can mark
-  an order paid or minted.
+- Every approved work has a canonical NFT before bidding opens: ERC-721 for a unique work, ERC-1155 for an edition.
+- The NFT is issued to a dedicated 2-of-3 Grove inventory Safe, then transferred to the winner's Safe after final payment clearance.
+- A member joins with approved social OAuth, then creates a user-controlled, passkey-first Safe smart account. The private social identity-to-wallet link lives in Postgres; raw handles, OAuth subjects, emails, and credential IDs never go onchain.
+- Grove pays gas for supported marketplace actions through an ERC-4337 paymaster. Members do not need ETH to create their Safe, sign bids, receive a work, or perform the supported marketplace actions. Product copy must say this precisely; the paymaster cannot fund bid principal, arbitrary wallet activity, or provider outages.
+- The default auction is offchain and authoritative in Postgres. Every bid is nevertheless an EIP-712 intent signed by the bidder's Safe and verified through ERC-1271.
+- Card auctions use Stripe-hosted Apple Pay/card setup, offchain bids, a winner-only charge attempt, an interactive cure when required, a risk hold, then NFT transfer.
+- Crypto auctions are a separate rail. A lot has exactly one immutable settlement rail in v1; card and crypto bids do not compete in the same auction.
 
-This plan preserves the launch catalog—physical work, new NFTs, editions, paired work, and verified existing tokens—while
-keeping the first commercial system small enough to rehearse, audit, and operate.
+The last rule is deliberate. Mixing reversible card money and irreversible crypto in one winner calculation creates unequal finality, chargeback, custody, tax, and cancellation behavior. A cross-rail English auction is a later, separately audited product.
 
-## What is already shipped on the delivery branch
-
-The branch contains a production-shaped, disabled-by-default foundation:
-
-- a forward Supabase migration for sellers, rights assertions, inventory, idempotent reservations, provider-event
-  inbox, refund ledger, dispute state, fulfillment records, commerce outbox, and append-only audit events;
-- a transactional `reserve_card_checkout` database boundary that locks inventory and refuses unpublished, auction,
-  NFT/paired, seller-incomplete, terms-incomplete, tax-incomplete, or rights-incomplete works;
-- an invited-member-only Stripe-hosted Checkout endpoint built from the server-authoritative physical-work price, with
-  buyer terms consent, card/Apple Pay only, automatic tax, and a safe 35-minute reservation window;
-- a raw-body, signed Stripe webhook receiver that remains active when new sales are disabled, retrieves current provider
-  state, and idempotently handles checkout, refund, and dispute events;
-- a ten-minute reconciliation endpoint for stale reservations and missed payment/expiry webhooks;
-- a checkout-status endpoint that reads the authenticated buyer's reconciled Postgres order, not a browser redirect or
-  Stripe session claim;
-- live catalog/curator/bazaar hydration from Postgres; fictional fixtures are used only when the backend is absent;
-- an Apple Pay/card storefront action that remains disabled unless the work and full server configuration are ready;
-- immutable-IPFS `Grove721` and capped `Grove1155` mint contracts, idempotent by domain-bound acquisition-order hash;
-- Foundry unit tests proving authorization, one-time configuration, order idempotency, supply caps, royalty signalling,
-  and that emergency mint pausing never freezes collector transfers;
-- pinned OpenZeppelin, Stripe SDK, Foundry test dependency, and CI contract execution;
-- migration of the Supabase X provider default from legacy `twitter` to current `x`.
-
-Nothing in this branch enables real money or deploys a contract. `GROVE_ACQUISITION_ENABLED` remains false by default,
-existing prototype works remain `sale_enabled = false`, and no production address or credential is invented.
-
-The implementation was verified with the full Node/build/Foundry CI suite, 1,000-run contract fuzz cases, a zero-finding
-production dependency audit, and a disposable-Postgres test—also installed as a dedicated CI job—that applies every migration and exercises idempotent
-reservation, strict paid-event validation/replay, full refund state, and archived-work expiry. This is engineering
-evidence, not a substitute for provider underwriting, legal/tax approval, real-device Apple Pay testing, static contract
-analysis, Base Sepolia rehearsal, or independent contract audit.
-
-## Product boundary
-
-The repository uses “Auction House” as identity but currently states “no auction countdown,” while its own launch plan
-places auctions in phase two. This plan therefore treats auction capability as a new financial subsystem, not a missing
-button.
-
-“Philanthropy” also needs an owner definition before money moves. The current product has curatorial sponsorship, not a
-charitable beneficiary, donation receipt, or donated-proceeds ledger. Choose exactly one model:
-
-1. ordinary mission-driven art commerce;
-2. a disclosed percentage of School proceeds donated after sale; or
-3. regulated charitable solicitation/payment to a named eligible nonprofit.
-
-Only model 1 is in the launch design. Models 2–3 require new pricing, accounting, receipt, beneficiary, Apple/provider,
-and charitable-solicitation review.
-
-## Target architecture
+## What “associated with social” means
 
 ```mermaid
-flowchart TD
-    B[Static storefront] -->|same-origin JSON| V[Vercel Functions]
-    A[Isolated operator app] -->|authenticated operator RPC| V
-    V -->|user session + RLS| S[Supabase Auth]
-    V -->|server secret| P[(Postgres authority)]
-    P --> Q[Commerce outbox / PGMQ]
-    V -->|create hosted session| ST[Stripe Checkout]
-    ST -->|signed raw webhook| V
-    Q --> F[Fulfillment + notification workers]
-    Q --> M[Mint relayer]
-    M --> C[Grove721 / Grove1155 on Base]
-    C --> I[RPC + indexer read projection]
-    I --> P
-    P --> O[Reconciliation and alerts]
+flowchart LR
+  O[Social OAuth account] -->|private auth identity| U[Supabase user]
+  U -->|one active verified link| S[Passkey Safe on Ethereum]
+  S -->|EIP-712 / ERC-1271| B[Bid intent]
+  W[Approved work] -->|canonical work ID| N[ERC-721 or ERC-1155]
+  N -->|pre-mint| I[Inventory Safe]
+  B --> A[Authoritative auction ledger]
+  A -->|winner cleared| T[NFT transfer to member Safe]
 ```
 
-Rules:
+Social OAuth is discovery, identity, and session context—not wallet custody. It must never be a signer, Safe owner, recovery key, gas authority, or public token attribute. Account recovery requires a second user-controlled passkey or a separately reviewed recovery module. Grove cannot unilaterally take over a member Safe.
 
-- `works`, `rights_assertions`, and inventory decide whether checkout may start.
-- One acquisition owns one inventory reservation; only one payment rail may settle it.
-- Stripe objects carry only internal UUIDs. Shipping and buyer data stay in Stripe or protected tables, never token
-  metadata or public event logs.
-- Signed webhooks enter a unique inbox before state changes. Duplicate and out-of-order delivery is normal and harmless.
-- Paid orders create outbox work. Fulfillment and minting are idempotent consumers, not synchronous webhook side effects.
-- Contract events are reconciled to the order ledger before the UI claims ownership or delivery.
-- Product analytics are not operational observability. Payments, queues, database calls, and chain reconciliation receive
-  structured logs, correlation IDs, traces, and alerts.
+No public “social identity NFT” is required. It would make revocation and privacy unnecessarily difficult. If a public badge is wanted later, use an opt-in revocable attestation containing only a salted, domain-separated commitment; never include a handle, OAuth subject, email, credential ID, or authenticator identifier.
 
-## Commercial state model
+## Trust and authority
 
-```mermaid
-stateDiagram-v2
-    [*] --> created
-    created --> checkout_pending: inventory reserved
-    checkout_pending --> paid: signed paid webhook
-    checkout_pending --> expired: session expiry
-    checkout_pending --> failed: provider failure
-    checkout_pending --> cancelled: operator/user cancellation
-    paid --> mint_pending: NFT fulfillment required
-    paid --> fulfilled: physical/digital delivery complete
-    mint_pending --> fulfilled: verified final mint
-    paid --> disputed: dispute opened
-    fulfilled --> disputed: dispute opened
-    paid --> refunded: approved refund
-    disputed --> refunded: dispute/refund resolution
+| Decision | Authority | Evidence before UI claims success |
+|---|---|---|
+| Social login | Supabase Auth | current provider session |
+| Social-to-Safe link | Postgres `wallet_links` | one-time origin-bound challenge + ERC-1271 at a recorded block |
+| Gas sponsorship | sponsorship policy service | approved decision + UserOperation hash + canonical receipt |
+| Work identity | `Grove721` / `Grove1155` | finalized Ethereum log, collection code hash, token ID, work ID |
+| NFT inventory | Ethereum mainnet | finalized owner/balance equals dedicated inventory Safe |
+| Auction order | Postgres | auction-row lock and append-only bid/event ledger |
+| Bid authorization | bidder Safe | EIP-712 hash + ERC-1271 magic value at recorded block |
+| Apple Pay/card readiness | Stripe + Postgres | current off-session SetupIntent `succeeded`, matching completed Checkout terms consent, saved method, unexpired per-lot mandate |
+| Winner | Postgres close transaction | close-time revalidation of winning ERC-1271 signature |
+| Card payment | Stripe + Postgres | current PaymentIntent `succeeded`, exact amount/currency/tax, signed webhook |
+| Crypto payment | canonical Ethereum receipt | correct asset/amount/recipient and finality |
+| NFT delivery | Ethereum mainnet | inventory Safe transfer receipt finalized and reorg checked |
+| Physical shipment | fulfillment operator | NFT delivery final plus recorded carrier evidence |
+
+Browser redirects, client clocks, cached indexers, screenshots, and Stripe event payload snapshots are never authoritative.
+
+## Minimal open-source stack
+
+| Capability | v1 choice | Boundary |
+|---|---|---|
+| Web/API | current static app + Vercel Functions | small same-origin surface |
+| Identity/data | Supabase Auth + Postgres/RLS | OAuth and commerce system of record |
+| NFT contracts | OpenZeppelin 5.6.1 + immutable Grove contracts | no proxy, auction, escrow, or forced transfer logic |
+| User account | Safe 1.4.1 | user-controlled smart account |
+| Account abstraction | Safe 4337 module 0.3.0 + canonical EntryPoint 0.7 | native ERC-4337 lane |
+| Passkeys | Safe Passkey 0.2.1-1 | primary signer; second factor/recovery required |
+| Browser Ethereum | exact-pinned viem 2.56.3, permissionless 0.4.0, ox 0.11.3 | isolated browser bundle |
+| Fiat/Apple Pay | Stripe-hosted Checkout/SetupIntent/PaymentIntent | no custom Apple Pay certificate UI |
+| Bundler/paymaster | managed provider behind a Grove adapter | operational vendor can change |
+| Self-hosting exit | Alto | GPL service isolated from the application; never run as a Vercel Function |
+| Future crypto order boundary | audited Seaport release | only when crypto lots are enabled |
+| Optional read model | Ponder | never commerce authority |
+
+ERC-4337 defines smart-account validation, UserOperations, bundlers, and paymasters without changing Ethereum consensus. [ERC-4337](https://eips.ethereum.org/EIPS/eip-4337) Safe publishes the relevant audited account and module components; exact deployed addresses and code hashes must be pinned and rehearsed. [Safe smart account](https://github.com/safe-global/safe-smart-account) · [Safe modules](https://github.com/safe-fndn/safe-modules) Alto is a practical self-hosted exit but needs a persistent service, node access, funded executors, simulation, monitoring, and 24/7 operations. [Alto](https://github.com/pimlicolabs/alto)
+
+Do not add ERC-6551, ERC-7579, upgradeable collection proxies, a custom card oracle, a custom paymaster contract, a custom exchange, or a custom hybrid-auction contract in v1.
+
+## NFT lifecycle
+
+1. Curator creates a work draft from a permitted source.
+2. Operator clears sale, media, mint, license, and—where applicable—physical-fulfillment rights.
+3. Operator freezes the work's canonical `bytes32 workId`, content-addressed metadata URI, license URI, royalty signal, collection, token ID, and edition cap.
+4. Registrar configures the immutable work record.
+5. Minter issues the one-of-one or entire edition cap to the dedicated inventory Safe.
+6. Reconciler checks chain ID 1, deployed collection code hash, mint log, token/work binding, URI, royalty, supply, inventory owner/balance, block hash, and finality.
+7. Only then does Postgres move the work to `nft_custody_state = inventory-safe` and permit an auction to open.
+8. After winner payment clearance and risk release, the inventory Safe transfers the correct quantity to the winner Safe.
+9. Reconciler records included/finalized/reorged state. Physical fulfillment starts only after final NFT delivery.
+
+The NFT and a physical object cannot move atomically. Terms must say what the token represents, what rights transfer, what happens after loss/damage/return, and whether possession of the token is merely provenance, a license, or a redemption claim. ERC-2981 is a royalty signal, not guaranteed enforcement.
+
+### Collection constraints
+
+`Grove721` and `Grove1155` are non-proxy contracts with:
+
+- one immutable inventory Safe;
+- a unique canonical work ID ↔ token ID binding;
+- immutable complete `ipfs://` metadata;
+- per-token ERC-2981 royalty information;
+- full ERC-1155 edition issuance up front;
+- domain-bound, idempotent issuance IDs;
+- registrar, minter, pause guardian, and delayed-admin roles separated;
+- pause affecting new inventory issuance only, never collector transfers;
+- no checkout, bid, escrow, recovery, upgrade, clawback, or royalty-enforcement logic.
+
+Deploy only on Sepolia (`11155111`) for rehearsal and Ethereum mainnet (`1`) for production. The exact release commit, compiler, optimizer, dependencies, constructor arguments, runtime bytecode, Safe owners/thresholds, roles, and explorer verification must be recorded.
+
+## Member wallet lifecycle
+
+1. Member authenticates through approved Instagram or X OAuth.
+2. In a secure browser origin, a WebAuthn credential is created; private material remains in the authenticator.
+3. The browser derives the expected Safe account using the pinned Safe proxy, singleton, fallback handler, 4337 module, shared WebAuthn signer, P-256 verifier, factory, and EntryPoint tuple. For the pinned Safe 4337 initializer, the module is also the fallback handler, so both configured addresses and runtime code hashes must be identical.
+4. `POST /api/wallet/sponsor` evaluates a narrowly allowed account-deployment UserOperation.
+5. Managed bundler submits it; the backend verifies canonical EntryPoint and Safe logs from its own mainnet RPC.
+6. The member signs an origin-, nonce-, chain-, expiry-, and account-bound link challenge. The backend code-hash attests the tuple; reads the Safe fallback slot, owners, threshold, and enabled module; verifies the per-Safe WebAuthn public-key commitment; verifies ERC-1271; and writes one protected wallet link.
+7. Before valuable bidding or delivery, the member adds a second passkey or approved user-controlled recovery configuration and completes a recovery drill.
+
+Deploy the Safe before bidding. Counterfactual signature support such as ERC-6492 is intentionally deferred because it adds factory-call and verifier complexity.
+
+Ethereum supports standardized P-256 verification, but the exact Safe/permissionless representation of the native verifier still needs compatibility testing. Begin with the audited Safe-supported verifier path, benchmark gas on a mainnet fork, and do not cast an address-shaped field into an unchecked packed verifier value. [EIP-7951](https://eips.ethereum.org/EIPS/eip-7951)
+
+### Sponsorship policy
+
+The sponsorship service allows only:
+
+- chain ID 1 and the pinned EntryPoint, Safe factory, module, verifier, and code hashes;
+- verified account deployment, recovery management, bid cancellation, and explicitly allowlisted marketplace transfers;
+- zero ETH call value by default;
+- bounded call gas, verification gas, pre-verification gas, priority fee, total fee, validity, and retry count;
+- per-member, per-account, per-IP, daily, and global spend budgets;
+- exact allowlisted target/selector pairs; no arbitrary approvals, transfers, delegatecalls, fallback calls, or unknown targets.
+
+Every approval and rejection records policy version, request key, user/account, normalized policy input, quote, provider, UserOperation hash, transaction hash, actual cost, and rejection code. Provider credentials remain server-only. A global circuit breaker stops new sponsorship without blocking receipt reconciliation.
+
+## Bid protocol
+
+An offchain bid is real crypto authorization even though it does not move funds. The browser signs this EIP-712 structure:
+
+```text
+BidIntent(
+  bytes32 auctionId,
+  bytes32 workId,
+  address bidderSafe,
+  uint256 amount,
+  bytes32 currency,
+  uint256 nonce,
+  uint64 validAfter,
+  uint64 validUntil,
+  bytes32 termsHash,
+  uint8 settlementRail,
+  bytes32 origin
+)
 ```
 
-Never transition from browser success, client-supplied price, a submitted transaction hash, or an indexer callback alone.
-Every transition records actor, reason, source event, and previous/new state.
+The domain is `name = Grove Marketplace`, `version = 1`, `chainId = 1`. Auction UUID and browser origin are domain-separated hashes. Amounts are integers: cents for USD, token base units for USDC/WETH. EIP-712 supplies typed, domain-separated signing; ERC-1271 verifies contract-account signatures. [EIP-712](https://eips.ethereum.org/EIPS/eip-712) · [ERC-1271](https://eips.ethereum.org/EIPS/eip-1271)
 
-## Apple Pay and card checkout
+Bid acceptance performs:
 
-### Fixed-price launch flow
+1. same-origin request, authenticated active member, request-size and format validation;
+2. finalized, recovery-ready Safe linked to that member;
+3. NFT finalized in the inventory Safe;
+4. auction open at the server clock, correct rail/currency/terms, valid signature window;
+5. current ERC-1271 check at a recorded block;
+6. current card mandate or crypto-order eligibility;
+7. unique intent hash, per-account nonce, and idempotency key;
+8. auction-row lock, minimum increment, maximum bid, and deterministic anti-sniping extension;
+9. append-only bid/audit event and exactly one current high bid.
 
-1. The browser requests a card checkout using a per-attempt idempotency key.
-2. A database function locks the work row, checks the active seller, current seller terms, buyer terms/license, unexpired
-   seller-bound rights assertions, tax code, fixed-price physical format, server price, and inventory, then decrements one unit.
-3. The server creates one card-only Stripe-hosted Checkout Session using that reservation. It collects a US shipping
-   address, requires terms consent, and calculates tax automatically.
-4. Checkout presents Apple Pay when the buyer, device, browser, region, and account are eligible. Hosted Checkout needs
-   no custom Apple Pay button or certificate integration. [Stripe hosted Checkout](https://docs.stripe.com/payments/checkout)
-5. A signed `checkout.session.*` webhook retrieves the current Session and idempotently marks the acquisition paid,
-   failed, or expired. Refund and dispute events update the ledger/state; the success URL is informational only.
-   [Stripe webhooks](https://docs.stripe.com/webhooks)
-6. A paid event creates fulfillment work. Inventory returns only once on failure/expiry; a paid one-of-one becomes sold.
-7. Reconciliation compares open database reservations to provider sessions and retries or alerts without creating a
-   second charge.
+At close, the worker locks the auction, rereads the canonical block, and revalidates the winning ERC-1271 signature because Safe owners can change after bid acceptance. It then selects zero or one winner and creates zero or one settlement. Close and retry are idempotent.
 
-The platform uses a platform charge under the v1 consignment assumption. It does **not** call money held before artist
-payment “escrow.” If independent sellers become the legal sellers, use Connect hosted onboarding and separate
-charges/transfers when funds must be split or delayed; the platform remains responsible for indirect-charge fees,
-refunds, disputes, and negative balances. [Stripe Connect charge types](https://docs.stripe.com/connect/charges)
+## Apple Pay/card auction
 
-### Card auctions later
+“Bid with Apple Pay” means Apple Pay/card establishes payment eligibility; it is not the bid ledger, crypto wallet, or gas source.
 
-Do not authorize each bid. Online authorizations usually expire in five to seven days, so a long-running auction cannot
-rely on a durable card hold. [Stripe authorization windows](https://docs.stripe.com/payments/place-a-hold-on-a-payment-method)
+1. Before the first bid on a card lot, Stripe-hosted Checkout runs in setup mode for that specific auction.
+2. The member explicitly accepts the auction terms and a disclosed maximum hammer amount. Checkout can show Apple Pay on eligible devices and save the resulting payment method for off-session use.
+3. A retrieved-current SetupIntent must be `succeeded` for `off_session` use, and the matching completed Checkout Session must carry accepted terms. Neither event alone makes the mandate ready; a redirect never does.
+4. Bids remain signed EIP-712 intents in Postgres. Grove does not authorize every bid and does not place a long-lived card hold for each bid.
+5. At close, calculate current tax/shipping and freeze the total. Create one unconfirmed PaymentIntent with a stable idempotency key, atomically bind it as the settlement's current generation, then confirm it off-session. A replacement generation is allowed only after Stripe is retrieved-current and reports the named prior generation `canceled`; an intent that failed or awaits customer action must first be completed or canceled.
+6. `requires_action` or decline moves the settlement to an interactive cure window using fresh hosted Checkout. It does not silently charge another method.
+7. Only a signed, retrieved-current PaymentIntent `succeeded` event with exact amount/currency/tax enters `paid-risk-hold`.
+8. After fraud review, configured risk hold, no open refund/dispute, and an operator release policy, queue the inventory Safe transfer.
+9. A dispute after delivery becomes `disputed-post-mint`; the contract does not pretend the NFT can be clawed back.
 
-The phase-two flow is:
+Do not authorize each bid. Ordinary online card authorizations are commonly measured in days, so they are not a durable auction escrow. [Stripe authorization holds](https://docs.stripe.com/payments/place-a-hold-on-a-payment-method) Off-session payment requires explicit consent and may still need customer action. [Stripe SetupIntents](https://docs.stripe.com/payments/setup-intents) · [Apple Pay recurring/off-session](https://docs.stripe.com/apple-pay/apple-pay-recurring)
 
-- before a first bid, use hosted setup mode to save a payment method with explicit consent for an off-session,
-  variable winning-bid charge;
-- store the accepted auction-terms version, timestamp, IP, maximum-bid consent, and payment-mandate reference;
-- accept bids through one serializable database function with server time, minimum increment, idempotency, and a defined
-  anti-sniping rule;
-- at close, lock the lot, determine the winner, create one order, and enqueue one off-session charge;
-- if authentication or a decline blocks payment, issue a short cure Checkout where Apple Pay can be authorized again;
-- auction terms decide the cure period and whether default goes to the underbidder or relisting.
+Stripe's public restricted-business list requires approval for first-party NFT minting/sales and restricts secondary NFT sales and some auction models. Written approval for Grove's exact art, primary NFT, high-value auction, Apple Pay, off-session, refund, chargeback, tax, and merchant-of-record facts is a release blocker. [Stripe restricted businesses](https://stripe.com/legal/restricted-businesses)
 
-This flow requires written Stripe/Apple approval for the actual auction and deferred Apple Pay model before implementation.
+Apple Pay does not buy gas, top up a wallet, or convert the member's card bid into an onchain bid.
 
-## Smart contracts
+### Settlement state machine
 
-### Production candidates
+```text
+winner-selected
+  → tax-pending
+  → charge-pending
+  → processing | requires-action | payment-failed
+  → paid-risk-hold
+  → release-ready
+  → nft-submitted
+  → nft-finalized
+  → fulfilled
 
-`Grove721` is a non-proxy ERC-721 + ERC-2981 collection for one-of-one work. `Grove1155` is a non-proxy ERC-1155 +
-ERC-1155 Supply + ERC-2981 collection for editions.
+Any state → exception
+Before NFT release → refunded
+After NFT release → disputed-post-mint
+```
 
-Both contracts:
+`paid-risk-hold` requires current payment success, exact total/currency, tax bound to that total, no provider review or dispute, a verified winner wallet, and a non-null hold deadline. The NFT worker accepts only `release-ready` rows.
 
-- permanently configure token URI, royalty receiver, and royalty basis points before sale;
-- domain-bind a PII-free `orderId` to chain, collection, acquisition line, token, recipient, and quantity, then refuse
-  to process it twice;
-- separate registrar, minter, pause, and delayed default-admin roles;
-- let an incident guardian pause mint delivery while only the admin Safe may unpause;
-- never let the platform pause or seize collector transfers;
-- contain no payable purchase function, oracle, proxy, forced transfer, denylist, public burn, or token rescue;
-- emit `WorkConfigured` and `OrderMinted` records for reconciliation.
+## Crypto auction rail
 
-ERC-2981 is a royalty signal, not enforcement; its specification says payment is voluntary. Product and artist terms must
-not claim guaranteed secondary royalties. [EIP-2981](https://eips.ethereum.org/EIPS/eip-2981)
+Crypto lots are disabled in the first invited beta. When enabled, prefer a pinned audited Seaport release for WETH or Ethereum-mainnet USDC orders rather than a home-grown exchange. [Seaport](https://github.com/ProjectOpenSea/seaport) Circle publishes the canonical Ethereum USDC address and supported contract behavior; pin it by address and code hash at launch. [Circle USDC contract addresses](https://developers.circle.com/stablecoins/usdc-contract-addresses)
 
-### Network and key model
+For v1 crypto lots:
 
-- Base Sepolia: rehearsal, chain ID `84532`.
-- Base mainnet: production candidate, chain ID `8453`, only after approvals and audit.
-- Default admin: dedicated 2-of-3 Safe with three named people/devices and hardware-backed keys.
-- Treasury: separate 2-of-3 Safe; never reuse contract-admin signers.
-- Minter: KMS/HSM-backed relayer with only `MINTER_ROLE` and minimal ETH.
-- Pause guardian: separate incident key; it can pause minting but cannot unpause or administer.
-- Deployer: no enduring role after source verification and role handoff.
+- one lot is `crypto` from scheduling onward and cannot accept card bids;
+- bidder Safe signs the same Grove bid intent plus the rail-specific audited order/allowance needed for settlement;
+- Grove can sponsor supported transaction gas, but the bidder supplies WETH/USDC principal;
+- close-time checks simulate ownership, balance, allowance, order status, Safe signature, expiry, counter, fees, and recipient;
+- chain settlement must finalize before the inventory NFT transfers;
+- ownership/recovery changes require explicit order cancellation; they do not automatically cancel old orders.
 
-Base distinguishes quick L2 inclusion from L1 batching/finality. The UI must expose meaningful submitted/included/final
-states, and high-value physical release waits for the business-approved stronger finality threshold.
-[Base transaction finality](https://docs.base.org/base-chain/network-information/transaction-finality)
+A strict onchain English-auction contract is a later option only after an independent specification and audit. It must never be bolted into the card auction.
 
-### Crypto payment boundary
+## API and worker inventory
 
-For v1, the lowest-custom-code option is an expiring server order and a buyer transfer of Circle-native Base USDC to a
-separate merchant treasury Safe, subject to provider/legal approval. A verifier checks the expected chain, canonical
-token address, sender, recipient, exact amount, receipt success, transfer log index, uniqueness, and finality through
-independent RPC/indexer paths. It then enqueues mint or fulfillment. The platform never asks for a seed phrase or holds a
-buyer private key.
-
-Do not deploy a custom exchange or bid-escrow contract for launch. If secondary orders later become lawful and approved,
-evaluate the MIT-licensed, audited Seaport protocol rather than inventing a general exchange. Seaport still does not
-solve English-auction bidding, fiat reversibility, physical fulfillment, tax, or custody.
-[Seaport](https://github.com/ProjectOpenSea/seaport)
-
-## Server and API inventory
-
-| Boundary | Status | Purpose and authority |
+| Route / worker | Purpose | v1 status |
 |---|---|---|
-| `GET /api/config` | implemented | Browser-safe flags; never reveals secrets. |
-| `GET /api/catalog` | implemented | Postgres-backed works/curators/bazaars hydrate the UI; add cursor pagination and FTS before scale. |
-| `POST /api/acquisitions` | implemented, disabled | Authenticated invited-member physical reservation and hosted Checkout from server price. |
-| `GET /api/acquisitions` | existing | Authenticated buyer-facing acquisition projection. |
-| `POST /api/stripe/webhook` | implemented | Signed, current-provider-state checkout/refund/dispute ingestion; survives sales kill switch. |
-| `GET /api/checkout-status` | implemented | Authenticated minimal reconciled order state; no fulfillment claim or PII. |
-| `GET /api/cron/commerce-reconcile` | implemented | Cron-authenticated stale reservation/provider reconciliation every ten minutes. |
-| `POST /api/orders/:id/cancel` | next | Release only eligible unpaid reservations; expire provider session first. |
-| `POST /api/operator/orders/:id/refund` | next | Operator-authorized refund with provider idempotency and ledger event. |
-| `POST /api/operator/orders/:id/fulfill` | next | Physical/digital completion evidence and notification. |
-| `POST /api/operator/works/:id/publish` | next | Atomic rights, price, inventory, media, seller, and contract readiness gate. |
-| `POST /api/crypto/orders` | gated | Expiring USDC quote/reservation from server-authoritative price. |
-| `POST /api/crypto/orders/:id/submit` | gated | Record one transaction hash; never assert success. |
-| chain reconciliation worker | gated | Verify canonical USDC transfer, finality, uniqueness, and rail exclusivity. |
-| mint worker | gated | Idempotent KMS/HSM relayer; reconcile `OrderMinted` before fulfillment. |
-| `POST /api/sellers/connect*` | conditional | Add only if independent-seller/Stripe Connect model is approved. |
-| `POST /api/bidders/payment-setup` | phase two | Hosted consented setup for future auction winner charge. |
-| `POST /api/auctions/:id/bids` | phase two | Serializable bid acceptance, append-only events, rate/abuse limits. |
-| auction close/cure worker | phase two | One winner/order/payment attempt, then defined cure/default behavior. |
+| `GET /api/config` | public capability flags only | implemented, fail closed |
+| social OAuth routes | member session | implemented; provider-gated |
+| `POST /api/wallet/challenge` | one-time wallet-link challenge | implemented, disabled by gates |
+| `POST /api/wallet/link` | ERC-1271 wallet link | implemented, disabled by gates |
+| `POST /api/wallet/sponsor` | policy-check and forward UserOperation | provider adapter gate |
+| `GET /api/auctions/:id/bids` | privacy-safe public bid feed | implemented |
+| `POST /api/auctions/:id/payment-setup` | per-auction Stripe setup session | implemented, disabled by gates |
+| `POST /api/auctions/:id/bids` | verify Safe signature and atomically accept bid | implemented, disabled by gates |
+| `POST /api/stripe/webhook` | signed setup/payment/refund/dispute inbox | implemented foundation |
+| auction close worker | revalidate signature and select winner once | implemented, disabled by gates |
+| tax/charge worker | calculate total and attempt winner payment | pending provider rehearsal |
+| payment-cure endpoint | fresh hosted winner checkout | pending provider rehearsal |
+| NFT inventory reconciler | prove mint/custody/finality/reorg state | pending mainnet provider selection |
+| NFT release worker | 2-of-3 Safe transfer after release gate | pending custody runbook/audit |
+| sponsorship reconciler | verify UserOperation receipt and spend | pending provider selection |
+| financial reconciler | compare Stripe, ledger, tax, refund, dispute | fixed-price foundation exists; auction extension pending |
 
-Operator mutations require a real operator identity, role-separated RLS/RPC authorization, recent re-authentication for
-finance actions, reason fields, append-only audit events, and two-person approval for high-value refund/payout/mint repair.
-Do not reuse the metrics bearer token as an operator credential.
+“Implemented” does not mean enabled in production. The server helpers permit gated preview rehearsal, but production wallet/auction mutation routes hard-fail independently of their public flags until a reviewed release changes the deliberately false `liveReady` attestation after every environment, provider, contract, legal, and operational gate is satisfied.
 
-## Data and worker backlog
+## Data model
 
-The shipped migration is the safe minimum. Add these forward-only migrations before their matching feature turns on:
+The `20260904000000_hybrid_auction_foundation.sql` migration adds:
 
-- `media_assets`: private quarantine, SHA-256, detected type/size, rights, derivatives, alt text, retention, replacement;
-- `inventory_units`: per-object serial, condition, location, consignment, reservation, paired token, fulfillment owner;
-- richer `payment_attempts`, refunds, and dispute-case records around the shipped provider inbox and refund ledger;
-- `shipping_quotes`, `fulfillments`, and return records for physical work;
-- `token_deliveries` with expected chain/contract/token/order and submitted/included/finalized/reconciled states;
-- `notifications` plus a durable PGMQ/commerce-outbox consumer;
-- later `auctions`, `bids`, `bidder_payment_mandates`, `auction_events`, and `settlements`.
+- `smart_accounts`, private credential commitments, wallet links, and sponsorship decisions;
+- collection deployment/code-hash records and canonical NFT identity/custody fields on works;
+- auctions, private mandates, append-only signed bids, auction events, settlements, payment attempts, and chain deliveries;
+- provider-event links for auction setup and settlement;
+- row-locked, idempotent bid acceptance and close primitives;
+- privacy-safe public auction/bid projections;
+- RLS and explicit read-only grants for a member's own sensitive state; browsers cannot mutate the commerce ledger directly.
 
-Use PGMQ/Supabase Queues for email, media-scan dispatch, reservation expiry, webhook reconciliation, mint delivery, and
-chain reconciliation. Consumers delete only after success and make every external effect idempotent. Supabase Cron is a
-trigger, not a durable queue. [Supabase Queues](https://supabase.com/docs/guides/queues)
+Private tables never expose social identifiers beside wallet addresses to public roles. Public bid aliases are deterministic only within one auction, deliberately change across auctions, and are not identity claims.
 
-## Open-source and managed component policy
+## Reconciliation and reorg policy
 
-| Need | Launch choice | License / boundary |
-|---|---|---|
-| Database, auth, RLS, API, realtime, storage | Supabase/Postgres | OSS components around one Postgres authority; managed operations. |
-| Search | Postgres weighted FTS + GIN | PostgreSQL License; defer a second search index until measured need. |
-| Durable jobs | PGMQ/Supabase Queues + bounded consumers | Postgres-native; business effects still idempotent. |
-| Contracts | OpenZeppelin 5.6.1 + Foundry | MIT; pin exact releases and audit custom code. |
-| Admin UI | React-admin in an isolated bundle | MIT; Postgres roles remain authoritative. |
-| Email templates | React Email | MIT; buy SES/Postmark/Resend delivery instead of operating SMTP. |
-| Telemetry | OpenTelemetry | Apache-2.0; buy a hosted error/trace backend. |
-| Browser tests | Playwright | Validate pinned package license; test Chromium/WebKit/Firefox. |
-| Load tests | k6 | AGPL-3.0; use unmodified tooling and review redistribution policy. |
-| Media | Supabase Storage + isolated scanner | Private quarantine; buy scanner operations or isolate ClamAV. |
-| NFT publication | redundant IPFS remote pins | IPFS is not durable without pinning; publish approved public assets only. |
-| Secondary orders | Seaport, only if later approved | MIT and audited; not a launch or English-auction dependency. |
-| Chain projection | Ponder, conditional | MIT; require backfill/reorg/restore soak before adopting. |
+- Read canonical receipts/logs from at least one production Ethereum RPC; a second provider is the outage/corruption cross-check.
+- Record transaction hash, block number, block hash, expected log identity, confirmation count, and finalization time.
+- `included` is not `finalized`. UI uses distinct labels.
+- If an included mint or transfer disappears or its block hash changes, mark `reorged`, stop related auction/release work, and reconcile before retry.
+- Never let an indexer decide payment, ownership, finality, or inventory correctness.
+- Reconcile inventory Safe balances against every `inventory-safe` work and edition quantity at least daily and before each open/close/release.
+- Reconcile paymaster spend to policy decisions and receipts; stop sponsorship at daily/global budget thresholds.
 
-Do not replatform to Medusa or Saleor at launch. The current art-domain workflow already exists, while either platform
-would add a second commercial source of truth and significant synchronization/operations work. Add Meilisearch, Novu,
-GrowthBook, Redis, or a persistent worker only after production measurements justify them.
+## Security invariants
 
-## Security and verification gates
+- One approved work ID maps to one collection/token tuple.
+- No auction opens without finalized inventory custody.
+- One lot has one immutable settlement rail.
+- One bid intent hash and bidder nonce can be accepted once.
+- One auction has at most one high bid, winner, and settlement.
+- No card mandate permits a bid above its disclosed maximum.
+- No payment success is inferred from a redirect or stale event snapshot.
+- No NFT leaves inventory without `release-ready` and an idempotent delivery record.
+- No platform key can recover a user Safe alone.
+- No social credential, payment credential, passkey secret, or raw provider token reaches public tables, logs, token metadata, or static assets.
+- Collection pause cannot freeze collector transfers.
+- Provider and chain retries cannot double-mint, double-charge, double-close, or double-transfer.
 
-### Application and payments
+The release threat-model suite must cover cross-origin requests, forged and stale signatures, ERC-1271 ownership rotation, nonce replay, amount/currency/terms mismatch, anti-sniping races, duplicate/out-of-order webhooks, SetupIntent/PaymentIntent retrieval disagreement, chargeback after mint, paymaster budget exhaustion, malicious UserOperation targets/selectors/value, RPC disagreement, chain reorg, Safe recovery rotation, and full-edition supply. The repository currently automates the schema/contract subset; provider and end-to-end cases remain launch gates.
 
-- Separate production, preview, and local Supabase/Stripe environments; previews contain synthetic data and no commerce.
-- Keep all provider mutations behind deterministic idempotency keys. Stripe recommends idempotency for every POST and
-  retains v1 results for at least 24 hours. [Stripe idempotency](https://docs.stripe.com/error-low-level)
-- Verify webhook signatures over the unmodified raw body; treat retries, duplicates, and out-of-order events as normal.
-- Enforce same-origin checkout creation, request-size limits, server-side catalog price, tax, inventory row lock, and
-  feature flag.
-- Add rate limits and bot/fraud controls to reservation and future bid routes without allowing rate-limit state to become
-  the inventory authority.
-- Reconcile stale reservations/provider sessions every ten minutes; reconcile paid orders, refunds, disputes, outbox
-  depth, payouts, and fulfillment daily.
-- Redact shipping, identity, payment, and wallet data from logs; define retention and deletion by data class.
-- Enable PITR/backups, execute a restore drill, and name incident/data-request owners.
+## Delivery plan
 
-### Contracts
+### Gate 0 — approvals and product terms
 
-- Unit and fuzz every role, zero value/address, token ID, quantity, cap, order ID, receiver, and transition.
-- Stateful invariants: one order mints once; supply never exceeds cap; only configured work mints; metadata/cap/royalty
-  cannot change; paused minting never blocks collector transfer.
-- Add adversarial receiver/reentrancy, smart-contract-wallet, duplicate job, wrong-chain, and indexer-disagreement tests.
-- Run Slither/static analysis, reproducible compilation, gas snapshots, full custom-branch coverage, and Base Sepolia
-  rehearsals.
-- Commission an independent audit of the exact commit and bytecode. Launch with zero unresolved critical/high findings.
-- Publish source, compiler settings, constructor args, ABI, chain ID, addresses, bytecode hash, metadata CIDs, audit
-  report, and final role holders.
+- Written Stripe approval for the exact primary NFT and auction flow.
+- Counsel confirms merchant/seller-of-record, auction rules, NY and destination tax, refunds, chargebacks, sanctions/KYC thresholds, physical/NFT pairing, custody, and token/license language.
+- Insurance/risk owner accepts the possibility of post-mint card disputes.
+- Product signs the second-passkey/recovery experience and the precise sponsored-gas promise.
 
-## Legal, tax, provider, and rights gates
+### Gate 1 — Sepolia closed system
 
-These are release dependencies, not footnotes:
+- Pin Safe 1.4.1, 4337 module 0.3.0, Passkey 0.2.1-1, EntryPoint 0.7, the proxy/singleton/factory/shared-signer/verifier addresses, and every runtime code hash; require the 4337 module to be the fallback handler.
+- Complete passkey account creation, second recovery signer, rotation, lost-device drill, ERC-1271 bid signing, and provider-neutral paymaster adapter.
+- Deploy exact Grove contracts to Sepolia with separate 2-of-3 admin and inventory Safes.
+- Exercise configure → pre-mint → custody proof → bid → close → synthetic pay → transfer → finality/reorg recovery.
+- Run mainnet-fork gas benchmarks and set per-user/day/global sponsorship budgets.
 
-1. Obtain written Stripe approval for high-value art, fixed-price primary NFTs, paired works, Apple Pay, maximum values,
-   fraud/refund model, and the chosen merchant/seller-of-record structure. Stripe publicly restricts primary NFT and
-   high-value-goods activity and prohibits secondary NFT sales.
-   [Stripe restricted businesses](https://stripe.com/legal/restricted-businesses)
-2. Obtain a New York Certificate of Authority and configure collection/remittance before physical sales. New York says a
-   marketplace that provides the forum and collects receipts must collect tax on taxable tangible personal property,
-   including physical art. [NYS marketplace providers](https://www.tax.ny.gov/pubs_and_bulls/publications/sales/marketplace.htm)
-3. Have New York counsel approve consignment/seller terms, returns, authenticity, physical fulfillment, reserve and bid
-   rules, buyer premium, seller bidding, failed-payment cure, and any secondhand-dealer license obligation.
-4. Determine Form 1099 reporting for artist payouts and 1099-DA/broker status for any digital-asset sale. The 2026 IRS
-   instructions expressly address specified NFTs. [IRS 1099-DA](https://www.irs.gov/instructions/i1099da)
-5. Keep crypto noncustodial and obtain NYDFS/FinCEN/OFAC advice before the platform holds, routes, exchanges, or controls
-   customer value. [NYDFS virtual-currency licensing](https://www.dfs.ny.gov/apps_and_licensing/virtual_currency_businesses)
-6. For every work, record seller authority, provenance, media permission, sale right, mint authorization where relevant,
-   edition/cap, price, tax class, license, condition/location, fulfillment owner, refund treatment, and sanctions review.
-7. Never imply that an NFT transfers copyright. Publish per-work rights terms and a durable license reference.
-   [USPTO/USCO NFT study](https://www.copyright.gov/policy/nft-study/)
+### Gate 2 — Stripe sandbox and operations rehearsal
 
-## Delivery sequence
+- Apply all migrations to isolated preview; use synthetic members, work, cards, wallets, and addresses.
+- Test eligible Apple Pay devices, saved method, off-session success, decline, `requires_action`, cure, tax/shipping, refund, dispute, duplicate/out-of-order events, provider outage, and manual review.
+- Complete operator dashboards, alerts, reconciliation, incident controls, key rotation, and data deletion/export.
+- Independent smart-contract audit and application security review close with no critical/high findings.
 
-### Gate 0 — owner decisions and approvals (target: 1–2 weeks)
+### Gate 3 — invited Ethereum mainnet beta
 
-- Define philanthropy, legal seller/merchant of record, primary versus secondary inventory, return policy, artist split,
-  buyer premium, supported countries, maximum order value, and physical-release rules.
-- Name legal/tax, finance, editorial, security, incident, data-request, and fulfillment owners.
-- Obtain preliminary Stripe underwriting response and New York tax/licensing advice.
-- Choose production domain, monitoring provider, Supabase PITR tier, Safe signers, RPC/indexer providers, and audit budget.
+- Deploy and verify exact audited collections; register code hashes and Safe custody.
+- Pre-mint only a small rights-cleared catalog to inventory.
+- Enable card auctions for a capped invited cohort, low maximum hammer, conservative risk hold, daily human release, and global kill switches.
+- Keep crypto lots, automated NFT release, secondary sales, public attestations, and physical redemption disabled.
 
-**Exit:** signed decision record; no unresolved contradiction in money flow, rights, or product claims.
+### Gate 4 — controlled automation
 
-### Gate 1 — invited commerce pilot (target: 2–4 weeks after Gate 0)
+- Automate release only after enough reconciled, dispute-free production history.
+- Enable crypto-only lots behind separate Seaport/code-hash/simulation gates.
+- Expand limits gradually based on authorization, fraud, dispute, support, paymaster, mainnet gas, and reorg metrics.
 
-- Apply the commerce migration to isolated preview, seed only synthetic seller/rights/inventory data, and race-test the
-  reservation RPC.
-- Build the operator publish/rights/inventory/fulfillment/refund views and role matrix.
-- Configure Stripe sandbox, automatic tax, signed webhook, event replay, refund/dispute tests, and synthetic reconciliation.
-- Add private media quarantine/scanning and Postgres FTS/pagination.
-- Run WebKit/Safari/device checks for Apple Pay eligibility and honest fallback behavior.
+## Production blockers as of this plan
 
-**Exit:** 100 repeated and concurrent test purchases with zero double reservation, duplicate effect, or false success;
-refund/expiry/provider-outage drills pass.
+1. Written Stripe approval for this exact NFT/auction/deferred-charge model has not been supplied.
+2. Exact Safe/module/passkey/EntryPoint mainnet addresses and code hashes are not registered or integration-tested.
+3. A managed bundler/paymaster provider and provider-neutral adapter are not selected/rehearsed.
+4. Wallet provisioning/sponsor routes, recovery UX, charge/cure/release workers, and reorg-aware reconcilers remain to be implemented.
+5. The modified Grove inventory-mint contracts require independent audit and Sepolia rehearsal.
+6. Production contract addresses, inventory/admin Safe owners, role holders, RPCs, keys, tax policy, risk hold, maximum bid, and catalog rights records are intentionally unset.
+7. The current storefront still needs the signed-bid/payment-setup UI and real-device accessibility testing.
 
-### Gate 2 — live fixed-price physical market (target: 1–2 weeks after Gate 1)
-
-- Publish a small rights-cleared consignment catalog and cap order values.
-- Enable card checkout only for approved physical works; run staffed manual fulfillment and daily reconciliation.
-- Start with invited buyers, then widen gradually under explicit error/chargeback/support thresholds.
-
-**Exit:** 30 days with no inventory incident, unreconciled payment, material tax defect, or missed high-severity alert.
-
-### Gate 3 — primary NFT and paired delivery (audit schedule dependent)
-
-- Rehearse exact contracts on Base Sepolia; finalize metadata/license/pinning and relayer security.
-- Audit the exact release, deploy from reproducible settings, verify source/bytecode, transfer roles to Safes, and publish
-  addresses only after reconciliation.
-- Add paid-order mint outbox, relayer, redundant RPC/indexer verification, and paired physical hold/release workflow.
-- Enable a few capped primary works after written provider/legal approval; no secondary sales.
-
-**Exit:** every mint maps one-to-one to a paid acquisition, supply matches, and all ten wrong-network/retry/sold-out/paired
-failure rehearsals pass.
-
-### Gate 4 — auction subsystem (only after stable fixed-price operation)
-
-- Approve auction terms and payment mandate with provider/counsel.
-- Add append-only bids, serializable acceptance RPC, abuse controls, deterministic close, winner charge, cure/default,
-  refunds/disputes, and operator reconciliation.
-- Run high-concurrency close tests and moderated bidder usability sessions.
-
-**Exit:** no ambiguous winner, duplicate charge, stale authorization assumption, bid-retraction defect, or inventory drift.
-
-## Reliability targets
-
-- Public reads: 99.9% monthly; authenticated writes: 99.5% during pilot.
-- Zero false paid/minted/fulfilled claims, duplicate mints, supply drift, or double-sold physical works.
-- Webhook acknowledgement under provider timeout; all slow work deferred to a durable queue.
-- Open reservation/provider mismatch alert within five minutes; live-bazaar SEV-1 acknowledgement within 15 minutes.
-- Commerce kill switch invoked immediately for provider, ledger, tax, inventory, or chain disagreement.
-- Every deploy reproducible from a reviewed commit; every schema change forward-only; every provider has a kill switch.
-
-## Decision and evidence gap matrix
-
-| Decision | Current answer | Confidence | Remaining gap / owner |
-|---|---|---:|---|
-| Core platform | Keep Vercel + Supabase/Postgres | High | PITR tier, monitoring, incident owner |
-| First sale mode | Fixed-price primary | High | Owner must accept auction deferral |
-| Apple Pay | Stripe-hosted Checkout | High technically | Written Stripe eligibility and real-device test |
-| Seller model | School merchant under consignment | Medium | Counsel, finance, artist agreement |
-| Payment splits | Ordinary AP in v1; Connect if independent sellers | High conditionally | Final legal seller model |
-| Tax | Stripe automatic tax plus NY registration | High for physical works | Digital/paired classification and filing owner |
-| NFTs | Immutable mint-only ERC-721/1155 on Base | High technically | Provider/legal approval, audit, metadata rights |
-| Existing tokens | Read-only verification / primary inventory only | Medium | Define whether any are secondary sales |
-| Crypto pay | Exact native USDC to merchant Safe, gated | Medium | Custody/licensing opinion and provider choice |
-| Secondary market | Not in v1 | High | Stripe prohibits secondary NFT processing |
-| English auctions | Phase two, offchain bids first | High | Terms, mandate approval, cure/default policy |
-| Philanthropy | Undefined; excluded from money flow | High as a gap | Owner/nonprofit/legal definition |
-| Admin keys | 2-of-3 admin Safe + separate treasury/relayer/guardian | High | Named signers/devices and recovery drill |
-| Media | Private Storage quarantine + scan; redundant public IPFS pins | High | Scanner, retention, pinning SLA |
-
-## Immediate owner checklist
-
-- [ ] Define philanthropy in one sentence and choose whether it changes checkout, accounting, or receipts.
-- [ ] Confirm School-as-merchant consignment or choose independent sellers/Connect.
-- [ ] Confirm that launch NFTs are primary artist inventory only.
-- [ ] Submit the complete business model to Stripe and obtain written approval.
-- [ ] Engage New York marketplace/auction/payments/digital-asset and tax counsel.
-- [ ] Register for New York sales tax and select filing/remittance ownership.
-- [ ] Name the six operating owners and three Safe signers.
-- [ ] Fund independent contract audit and Base Sepolia rehearsal.
-- [ ] Provide a rights-cleared seed catalog; prototype records cannot be sold.
-- [ ] Approve the staged launch gates; do not turn on `GROVE_ACQUISITION_ENABLED` early.
+No production deploy, contract broadcast, provider mutation, real charge, or mainnet mint is authorized by this document.

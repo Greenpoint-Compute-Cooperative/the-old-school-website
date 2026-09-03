@@ -48,8 +48,9 @@ const readyWorkIds = async (works) => {
 
 export const GET = async (request) => {
   try {
+    const config = getRuntimeConfig();
     const { supabase, headers } = createSupabaseRequestClient(request);
-    const [worksResult, bazaarsResult, curatorsResult] = await Promise.all([
+    const [worksResult, bazaarsResult, curatorsResult, auctionsResult] = await Promise.all([
       supabase
         .from("works")
         .select("id,slug,title,artist_name,description,format,media_url,price_minor,currency,crypto_amount,crypto_asset,chain,contract_address,token_id,contract_status,location,status,curator_id,seller_id,sale_enabled,sale_kind,inventory_available,requires_shipping,stripe_tax_code,stripe_shipping_rate_id,buyer_terms_url,buyer_terms_version,license_uri,listed_at")
@@ -63,10 +64,16 @@ export const GET = async (request) => {
       supabase
         .from("curators")
         .select("id,display_name,handle,avatar_url,bio,focus,status,created_at")
-        .eq("status", "active")
+        .eq("status", "active"),
+      config.auctions.liveReady
+        ? createSupabaseServiceClient()
+          .from("public_auctions")
+          .select("id,work_id,slug,quantity,settlement_rail,bid_currency,state,opens_at,closes_at,reserve_amount,minimum_increment,current_bid_amount,terms_url,terms_version,nft_token_id,nft_standard,nft_contract_address,chain_id")
+          .order("closes_at", { ascending: true })
+        : Promise.resolve({ data: [], error: null })
     ]);
 
-    if (worksResult.error || bazaarsResult.error || curatorsResult.error) {
+    if (worksResult.error || bazaarsResult.error || curatorsResult.error || auctionsResult.error) {
       return problem(502, "catalog_unavailable", "The live catalog could not be loaded.", headers);
     }
     const checkoutReady = await readyWorkIds(worksResult.data);
@@ -74,7 +81,7 @@ export const GET = async (request) => {
       const { seller_id, stripe_tax_code, stripe_shipping_rate_id, ...publicWork } = work;
       return { ...publicWork, checkout_ready: checkoutReady.has(work.id) };
     });
-    return json({ works, bazaars: bazaarsResult.data, curators: curatorsResult.data }, { headers });
+    return json({ works, auctions: auctionsResult.data, bazaars: bazaarsResult.data, curators: curatorsResult.data }, { headers });
   } catch (error) {
     if (error instanceof ConfigurationError) return problem(503, "backend_not_configured", "The live catalog is not configured.");
     return problem(500, "unexpected_error", "The live catalog could not be loaded.");

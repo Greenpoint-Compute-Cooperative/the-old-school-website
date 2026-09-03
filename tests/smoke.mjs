@@ -112,7 +112,7 @@ for (const exhibition of exhibitions) {
 
 assert.ok(Date.parse(bazaar.date), "bazaar date is machine-readable");
 assert.ok(bazaar.schedule.length >= 4, "bazaar has a useful program");
-assert.match(launch, /NFTs remain in the product/, "roadmap keeps NFTs in the gated launch sequence");
+assert.match(launch, /launch target represents every approved marketplace work by an NFT on Ethereum mainnet/i, "roadmap makes approved works NFT-first");
 assert.match(launch, /Curator-first go-to-market/, "roadmap includes curator-first GTM");
 assert.match(launch, /Instagram chat intake/, "roadmap includes the constrained chat-intake concept");
 assert.match(launch, /no scraping/i, "roadmap prohibits scraping");

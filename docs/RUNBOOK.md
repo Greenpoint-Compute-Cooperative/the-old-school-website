@@ -71,9 +71,12 @@ Confirm RLS, grants, indexes, retention, and least-privilege access before deplo
 
 ## Acquisition incident
 
-- Keep `GROVE_ACQUISITION_ENABLED=false` until wallet/card providers, signed webhooks, and authoritative inventory exist.
-- For a future incident, stop new acquisitions first; do not invent confirmations, hashes, ownership, refunds, or inventory state.
+- Keep `GROVE_ACQUISITION_ENABLED=false`, `GROVE_WALLET_ENABLED=false`, and `GROVE_AUCTIONS_ENABLED=false` until their independent gates pass.
+- For an auction incident, stop new payment setup, bids, closes, charges, sponsorship, and NFT release while leaving signed-event and chain reconciliation active.
+- Never invent confirmations, signatures, hashes, ownership, refunds, gas sponsorship, or inventory state.
 - Reconcile provider, chain, database, and physical inventory records before resuming.
+
+Use the dedicated [auction commerce runbook](COMMERCE_RUNBOOK.md) for close, Apple Pay/card, paymaster, Safe, reorg, and post-mint dispute response.
 
 ## Data or rights request
 

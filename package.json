@@ -1,6 +1,6 @@
 {
   "name": "brooklyn-marketplace-auction-house",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "license": "MIT",
   "private": true,
   "type": "module",
@@ -25,9 +25,13 @@
     "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.112.3",
     "cookie": "^2.0.1",
-    "stripe": "22.6.1"
+    "ox": "0.11.3",
+    "permissionless": "0.4.0",
+    "stripe": "22.6.1",
+    "viem": "2.56.3"
   },
   "devDependencies": {
-    "@openzeppelin/contracts": "5.6.1"
+    "@openzeppelin/contracts": "5.6.1",
+    "esbuild": "0.28.2"
   }
 }

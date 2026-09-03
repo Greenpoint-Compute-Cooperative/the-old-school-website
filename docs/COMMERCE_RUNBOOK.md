@@ -1,74 +1,108 @@
-# Fixed-price commerce runbook
+# NFT auction and card settlement runbook
 
-The live card path is disabled by default and is intended for Stripe-hosted Checkout. Hosted Checkout can present Apple
-Pay on eligible Apple devices without a custom Apple Pay UI. Provider approval, tax registration, rights-cleared catalog
-data, and production rehearsals remain mandatory.
+The auction lane is disabled by default. It uses Stripe-hosted Checkout to establish an Apple Pay/card mandate, signed offchain bids, winner-only settlement, a risk hold, then transfer of an already-minted NFT from the inventory Safe.
 
 ## Required production configuration
 
+All existing Supabase, Stripe webhook, automatic-tax, canonical-site, cron, and social-provider values remain required. The auction lane additionally requires:
+
 ```text
-SUPABASE_URL
-SUPABASE_PUBLISHABLE_KEY
-SUPABASE_SECRET_KEY
-GROVE_SITE_URL
-GROVE_ACQUISITION_ENABLED=true
-GROVE_SELLER_TERMS_VERSION=2026-09
-GROVE_BUYER_TERMS_URL=https://marketplace.example/terms
-GROVE_BUYER_TERMS_VERSION=2026-09
-GROVE_MAX_ITEM_PRICE_MINOR=1000000
-STRIPE_SECRET_KEY
-STRIPE_WEBHOOK_SECRET
+GROVE_WALLET_ENABLED=true
+GROVE_AUCTIONS_ENABLED=true
+GROVE_ETHEREUM_CHAIN_ID=1
+GROVE_ETHEREUM_RPC_URL=https://...
+GROVE_ENTRY_POINT_ADDRESS=0x...
+GROVE_SAFE_FACTORY_ADDRESS=0x...
+GROVE_SAFE_SINGLETON_ADDRESS=0x...
+GROVE_SAFE_FALLBACK_HANDLER_ADDRESS=0x...
+GROVE_SAFE_WEBAUTHN_SHARED_SIGNER_ADDRESS=0x...
+GROVE_SAFE_4337_MODULE_ADDRESS=0x...
+GROVE_SAFE_PASSKEY_VERIFIER_ADDRESS=0x...
+GROVE_ENTRY_POINT_CODE_HASH=0x...
+GROVE_SAFE_FACTORY_CODE_HASH=0x...
+GROVE_SAFE_PROXY_CODE_HASH=0x...
+GROVE_SAFE_SINGLETON_CODE_HASH=0x...
+GROVE_SAFE_FALLBACK_HANDLER_CODE_HASH=0x...
+GROVE_SAFE_WEBAUTHN_SHARED_SIGNER_CODE_HASH=0x...
+GROVE_SAFE_4337_MODULE_CODE_HASH=0x...
+GROVE_SAFE_PASSKEY_VERIFIER_CODE_HASH=0x...
+GROVE_BUNDLER_URL=https://...
+GROVE_PAYMASTER_URL=https://...
+GROVE_PAYMASTER_API_TOKEN=...
+GROVE_SPONSOR_POLICY_VERSION=...
+GROVE_STRIPE_NFT_APPROVAL_REF=...
+GROVE_AUCTION_TERMS_URL=https://...
+GROVE_AUCTION_TERMS_VERSION=...
+GROVE_AUCTION_TERMS_HASH=0x...
+GROVE_MAX_FIAT_HAMMER_MINOR=...
+GROVE_AUCTION_MANDATE_HOURS=168
+GROVE_AUCTION_RISK_HOLD_HOURS=168
+STRIPE_SECRET_KEY=...
+STRIPE_WEBHOOK_SECRET=...
 GROVE_STRIPE_AUTOMATIC_TAX=true
-GROVE_CHECKOUT_RESERVATION_MINUTES=35
-CRON_SECRET=<at-least-32-random-bytes>
+CRON_SECRET=...
 ```
 
-Use distinct Stripe and Supabase resources for production and preview. Never enable acquisition on a pull-request
-preview or seed production with prototype records. `GROVE_MAX_ITEM_PRICE_MINOR` caps the work subtotal before tax and
-shipping; set shipping rates and Stripe's account/payment-method limits so the resulting gross charge remains supported.
+Addresses must be lower-case and code-hash verified. Secrets are server-only. The Stripe approval reference must point to written approval for this exact primary-NFT, auction, Apple Pay, off-session, value, refund/chargeback, and merchant model.
 
 ## Enablement sequence
 
-1. Obtain written Stripe approval for the exact art/NFT, value, refund, and merchant model.
-2. Register and configure tax, product tax codes, supported shipping countries, receipts, statement descriptor, support
-   contacts, refund policy, and Apple Pay in Stripe. Configure Stripe Checkout's account terms URL to exactly
-   `GROVE_BUYER_TERMS_URL`; that version must incorporate each work's linked license.
-3. Apply `20260903000000_live_commerce_foundation.sql` to the isolated preview project, rehearse, then production.
-4. Insert the seller, accepted terms, and required cleared rights assertions for each real work.
-5. Set accurate inventory, shipping requirement/rate, tax code, price, currency, HTTPS buyer-terms URL/version, durable
-   license URI, and finally `sale_enabled = true` on approved fixed-price physical works. Prototype data must stay disabled.
-6. Register `POST /api/stripe/webhook` and subscribe to:
-   - `checkout.session.completed`
-   - `checkout.session.async_payment_succeeded`
-   - `checkout.session.async_payment_failed`
-   - `checkout.session.expired`
-   - `refund.created`
-   - `refund.updated`
-   - `refund.failed`
-   - `charge.dispute.created`
-   - `charge.dispute.closed`
-7. Replay duplicates and out-of-order sandbox events. Verify one reservation decrement, one state transition, and one
-   outbox record.
-8. Verify `/api/cron/commerce-reconcile` runs every ten minutes with `CRON_SECRET`; it expires a provider Session still
-   open five minutes after the database hold, and returns 503 on any item error or unresolved stale state. Alert on every
-   failed run. Run expiry, refund, dispute, provider-timeout, database-timeout, sold-out, and concurrent-checkout rehearsals.
-9. Enable the environment flag for invited users only, then monitor reservations, provider events, paid orders, outbox,
-   fulfillment, and support.
+1. Close legal/provider/product Gate 0 in the master plan. Do not infer approval from a working Stripe test request.
+2. Pin and verify Safe 1.4.1, Safe 4337 module 0.3.0, Safe Passkey 0.2.1-1, EntryPoint 0.7, proxy/singleton/factory/shared-signer/verifier addresses, and runtime code hashes. Require the Safe 4337 module address and code hash to exactly equal the fallback handler address and code hash.
+3. Apply all migrations in preview, then production only after the SQL suite passes on a fresh Postgres 16 database.
+4. Deploy the exact audited collection release to Sepolia. Verify separate 2-of-3 admin and inventory Safes and distinct registrar/minter/pause roles.
+5. Rehearse social login → primary passkey → sponsored Safe deployment → second recovery signer → wallet link → recovery rotation.
+6. For every real work, clear rights and freeze the work ID, token identity, immutable metadata/license, royalty, edition cap, and physical pairing terms.
+7. Mint the one-of-one or full edition to inventory. Record and reconcile transaction/block hashes, collection code hash, owner/balance, URI, supply, and finality before setting `inventory-safe`.
+8. Register `POST /api/stripe/webhook` for checkout, setup-intent, payment-intent, refund, and dispute events documented in the master plan. Replay duplicates and out-of-order events.
+9. Rehearse Apple Pay on real eligible devices, SetupIntent failure/cancel/success, bid replay and races, off-session winner success/decline/action, interactive cure, tax/shipping, provider review, refund, dispute, and post-mint dispute.
+10. Rehearse paymaster rejection, malicious targets/selectors/value, budget exhaustion, bundler/RPC outage, inclusion timeout, Safe owner rotation, mainnet reorg, and inventory mismatch.
+11. Start with invited members, low maximum bids, manual close/release, a conservative risk hold, and daily reconciliation. Expand only from evidence.
+
+## Opening an auction
+
+An operator must prove:
+
+- auction rail and currency are immutable and match (`card/USD` or later `crypto/USDC|WETH`);
+- work and all rights are approved;
+- collection address/code hash and work/token binding match the audited release;
+- NFT owner/balance is the inventory Safe at a finalized block;
+- terms URL/version/hash, reserve, increment, close time, anti-sniping rules, maximum hammer, tax code, shipping, and cure/risk windows are frozen;
+- kill switches, provider health, paymaster budgets, alerting, and on-call ownership are active.
+
+Do not open based on an indexer alone.
+
+## Closing a card auction
+
+1. Close worker locks the auction after the server close time and rereads the winning bid.
+2. Revalidate the winner's Safe, ownership/recovery state, EIP-712 payload, ERC-1271 signature, nonce, terms, and card mandate.
+3. Select the winner exactly once. If reserve is not met or proof is stale, record no-sale/exception rather than guessing.
+4. Calculate tax/shipping using current provider data; freeze the exact total and set the risk-hold deadline.
+5. Create one unconfirmed winner PaymentIntent with a stable generation idempotency key, atomically bind it as the settlement's current intent, then confirm it off-session. Never create or confirm a replacement until Stripe is retrieved-current and reports the named prior generation `canceled`; complete or cancel a failed/action-required intent before replacement.
+6. On `requires_action`/decline, issue a short-lived hosted cure flow. If the cure expires, follow the published default/no-sale policy.
+7. A signed webhook must retrieve the current PaymentIntent and match settlement, total, currency, and status.
+8. Keep `paid-risk-hold` until the deadline, fraud/provider review is clear, no refund/dispute is open, and a human or reviewed policy releases it.
+9. Queue one inventory Safe transfer. Confirm expected event, block/transaction hash, owner/balance, and finality before fulfillment.
 
 ## Incident actions
 
-- **Inventory mismatch, false status, tax/config error, or webhook disagreement:** set
-  `GROVE_ACQUISITION_ENABLED=false`, then enumerate every `checkout-pending` acquisition with an attached provider
-  Session. Expire each open Session through Stripe, verify the provider reports it expired, and only then release the
-  matching reservation. Keep the flag off, preserve evidence, and reconcile all pending rows before re-enabling.
-- **Checkout session exists but database attachment failed:** do not release inventory until the provider session is
-  confirmed expired. The endpoint preserves the reservation when expiry cannot be proven.
-- **Webhook delivery fails:** Stripe retries. Fix the receiver, then replay events; unique event IDs prevent duplicate
-  business effects. Keep `STRIPE_*` and the Supabase server configuration present even while
-  `GROVE_ACQUISITION_ENABLED=false`; the sales kill switch must not disable event ingestion.
-- **Paid but not fulfilled:** do not refund or mint ad hoc. Use the operator workflow and append reason/evidence to the
-  ledger/audit log.
-- **Contract or chain disagreement:** pause mint delivery only. Collector transfers remain live.
+- **Any false catalog/payment/NFT state:** set `GROVE_AUCTIONS_ENABLED=false`. Keep signed webhook and reconciliation ingestion on. Stop new setup/bids/close/charge/release, preserve evidence, enumerate every nonterminal mandate/auction/settlement/delivery, and reconcile from authoritative providers.
+- **NFT not actually in inventory:** cancel or suspend the auction before close. Never substitute another token. If already paid, stop release and use the disclosed refund/exception process.
+- **Signature or Safe ownership changed:** reject the bid or close to exception/no-sale. Require a newly signed intent; never reuse an earlier successful ERC-1271 result.
+- **Setup session exists but database attachment is uncertain:** do not create an unbounded series of sessions. Retry the same mandate/idempotency key, retrieve current Stripe state, then attach or expire it.
+- **Payment succeeded but state differs:** do not retry the charge. Retrieve current PaymentIntent, tax, refund/dispute, and provider review; replay the signed event after fixing the transition.
+- **Payment requires action:** start only the explicit cure path. Do not transfer the NFT while action is outstanding.
+- **Dispute/refund before NFT release:** freeze delivery and follow settlement policy. **After release:** record `disputed-post-mint`; the contracts have no clawback.
+- **Bundler/paymaster failure:** stop sponsorship, not receipt reconciliation. Users should not be told an action completed until a canonical receipt is verified.
+- **Reorg/RPC disagreement:** mark delivery `reorged`, stop dependent shipment/release, cross-check a second RPC, and reconcile the canonical block before resubmission.
+- **Inventory/admin Safe compromise:** pause new collection issuance, disable auctions and sponsorship, preserve collector transfers, convene the Safe incident quorum, and do not improvise a contract upgrade or clawback.
 
-Browser success URLs never authorize fulfillment. A signed paid webhook plus the authoritative database state is the
-minimum card-payment evidence.
+## Daily reconciliation
+
+- Stripe mandates, PaymentIntents, refunds, disputes, reviews, balances, and ledger totals versus Postgres.
+- Every auction high bid/winner/settlement uniqueness and all close/cure deadlines.
+- Ethereum collection code hashes, inventory Safe owner/balance, mint/delivery receipts, block hashes, confirmation/finality, and reorg markers.
+- Paymaster quotes/actual spend, rejected policy actions, per-member/day/global budgets, bundler inclusion latency, and funded executor health.
+- Outbox age, webhook retry age, exception rows, manual overrides, and unfulfilled paid settlements.
+
+Browser redirects, support screenshots, or indexer pages never authorize money movement, NFT delivery, or shipment.
