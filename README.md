@@ -6,7 +6,9 @@
 
 A curator-led marketplace for physical art in the School and born-digital work. The primary loop is discovery → save → sponsor → publish; the monthly auditorium bazaar brings the catalog into New York.
 
-**Live:** [the-school-omega.vercel.app](https://the-school-omega.vercel.app)
+**Production:** [the-school-omega.vercel.app](https://the-school-omega.vercel.app)
+
+**Staging:** [the-school-sepolia.vercel.app](https://the-school-sepolia.vercel.app)
 
 ![Marketplace & Auction House of Brooklyn home page](docs/screenshot-desktop.jpg)
 
@@ -24,9 +26,9 @@ A curator-led marketplace for physical art in the School and born-digital work. 
 - First-party product events are session-scoped, server-validated, private by default, aggregated behind an operator token, and deleted after 180 days.
 - The bundled catalog remains available when the backend is absent. OAuth and checkout never claim success without real configuration.
 
-See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for trust boundaries and [`docs/ENVIRONMENTS.md`](docs/ENVIRONMENTS.md) for production/preview isolation.
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for trust boundaries and [`docs/ENVIRONMENTS.md`](docs/ENVIRONMENTS.md) for staging/production isolation.
 
-The repository uses dedicated production and preview Supabase projects in US East plus the `dmarzzzs-projects/the-school` Vercel project. Database migrations are applied independently, and Preview/Development receive synthetic data only. Instagram and X remain visibly disabled until their dedicated provider apps, policy URLs, and credentials are approved.
+The Vercel project has a dedicated `staging` target and a separate `production` target. Staging and ephemeral Preview deployments use the synthetic Supabase project; Production uses a different Supabase project. Database migrations and credentials are managed independently. Instagram and X remain visibly disabled until their dedicated provider apps, policy URLs, and credentials are approved.
 
 ## Run the interface
 
@@ -61,6 +63,18 @@ Open [http://localhost:8013](http://localhost:8013). This static mode intentiona
    ```
 
 5. Run `vercel dev` only after local variables are present. Deploy a preview, complete provider review and end-to-end OAuth checks, then promote deliberately.
+
+Staging deployments must come from `codex/live-marketplace`; Production candidates must come from a clean, version-tagged `main` commit whose exact SHA is explicitly approved:
+
+```sh
+npm run deploy:staging
+npm run staging:check
+
+GROVE_PRODUCTION_APPROVED_SHA="$(git rev-parse HEAD)" npm run deploy:production:candidate
+npm run production:check
+```
+
+The Production candidate command uses `--skip-domain`; it cannot move public Production traffic until a separate promotion step.
 
 ## Validate
 

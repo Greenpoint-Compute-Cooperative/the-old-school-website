@@ -21,7 +21,7 @@ flowchart LR
 
 ## Runtime
 
-- The editorial storefront is vanilla HTML/CSS/ES modules. esbuild creates one exact-pinned browser-only Ethereum intent bundle. In a fully configured Sepolia Preview, that bundle asks the user's discoverable passkey to sign a server-canonical bid with the attested Safe configuration; passkey private material and raw credential IDs stay in the authenticator/browser boundary.
+- The editorial storefront is vanilla HTML/CSS/ES modules. esbuild creates one exact-pinned browser-only Ethereum intent bundle. In fully configured Sepolia staging, that bundle asks the user's discoverable passkey to sign a server-canonical bid with the attested Safe configuration; passkey private material and raw credential IDs stay in the authenticator/browser boundary.
 - Vercel Functions own request validation, social sessions, Stripe calls, ERC-1271 checks, sponsorship policy, and provider credentials. The auction workers select the winner, freeze one provider-calculated total, and bind one off-session PaymentIntent; an authenticated hosted cure can replace it only after the retrieved-current prior intent is canceled.
 - Supabase Auth holds social-provider identities and PKCE sessions. Postgres owns auction order, payment state, NFT custody projections, and append-only events.
 - Ethereum mainnet owns NFT identity, inventory, member Safe state, transfers, and canonical receipts. Indexers are read models only.
@@ -55,10 +55,10 @@ OAuth subjects, handles, email, credential IDs, authenticator metadata, payment 
 
 ## Environments and changes
 
-- Production uses isolated Vercel, Supabase, Stripe, RPC, bundler, and paymaster resources. Preview/development use synthetic identities, payment methods, wallets, and NFTs.
+- Vercel `staging` and `production` are distinct deployment targets. Staging and ephemeral Preview deployments use the synthetic Supabase project and Sepolia; Production uses an independent Supabase project and, after launch approval, independent live Stripe, RPC, bundler, and paymaster resources.
 - Add timestamped migrations; never rewrite an applied production migration.
 - Every table has RLS and explicit grants. Server-only commerce mutation functions are unavailable to browser roles.
-- Production wallet/auction readiness stays deliberately false until code hashes, provider approval, tax, terms, recovery, audit, and reconciliation gates pass. A complete Sepolia configuration may expose the narrowly labeled Preview rehearsal without changing either production attestation.
+- Production wallet/auction readiness stays deliberately false until code hashes, provider approval, tax, terms, recovery, audit, and reconciliation gates pass. A complete Sepolia configuration may expose the narrowly labeled staging rehearsal without changing either production attestation.
 - Never put service keys, provider tokens, RPC credentials, passkey material, Safe owner material, or deployer keys in static files, logs, screenshots, or CI artifacts.
 
 See [the master plan](LIVE_MARKETPLACE_MASTER_PLAN.md) for the complete lifecycle and gate checklist.

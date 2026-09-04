@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 
-const siteUrl = String(process.env.GROVE_SITE_URL || "https://the-school-omega.vercel.app").replace(/\/$/, "");
+const siteUrl = String(process.env.GROVE_SITE_URL || "https://the-school-sepolia.vercel.app").replace(/\/$/, "");
 const checks = [];
 
 const fetchChecked = async (path, options = {}, expectedStatus = 200) => {
@@ -9,21 +9,19 @@ const fetchChecked = async (path, options = {}, expectedStatus = 200) => {
     ...options,
     headers: {
       Accept: "application/json, text/html;q=0.9, */*;q=0.8",
-      "User-Agent": "brooklyn-marketplace-production-check/1.0",
+      "User-Agent": "brooklyn-marketplace-staging-check/1.0",
       ...options.headers
     },
     signal: AbortSignal.timeout(8_000)
   });
-  const durationMs = Math.round(performance.now() - startedAt);
+  checks.push({ path, status: response.status, duration_ms: Math.round(performance.now() - startedAt) });
   assert.equal(response.status, expectedStatus, `${path} returned ${response.status}; expected ${expectedStatus}`);
-  checks.push({ path, status: response.status, duration_ms: durationMs });
   return response;
 };
 
 const home = await fetchChecked("/");
 const homeText = await home.text();
 assert.match(homeText, /Marketplace &amp; Auction House of Brooklyn/);
-assert.doesNotMatch(homeText, /Marketplace &amp; Auction House of Brooklyn New York/);
 for (const header of [
   "content-security-policy",
   "cross-origin-opener-policy",
@@ -33,25 +31,26 @@ for (const header of [
   "strict-transport-security",
   "x-content-type-options",
   "x-frame-options"
-]) assert.ok(home.headers.get(header), `Missing live security header: ${header}`);
+]) assert.ok(home.headers.get(header), `Missing staging security header: ${header}`);
 
 const health = await (await fetchChecked("/api/health")).json();
 assert.equal(health.status, "ok");
-assert.equal(health.runtime?.environment, "production", "The production check must never validate a staging target.");
+assert.equal(health.runtime?.environment, "staging", "The staging alias must resolve to the staging target.");
+assert.equal(health.runtime?.platformEnvironment, "preview");
 assert.equal(health.database, "reachable");
-assert.equal(health.metrics?.configured, true);
+assert.equal(health.metrics?.configured, false, "Staging must not write production product metrics.");
 
 const configuration = await (await fetchChecked("/api/config")).json();
 assert.equal(configuration.backend?.configured, true);
-assert.equal(configuration.providers?.instagram?.configured, false);
-assert.equal(configuration.providers?.x?.configured, false);
-assert.equal(configuration.acquisition?.configured, false);
-assert.equal(configuration.wallet?.configured ?? false, false);
-assert.equal(configuration.auctions?.configured ?? false, false);
 
-await fetchChecked("/api/catalog");
-await fetchChecked("/manifest.webmanifest");
-await fetchChecked("/robots.txt", { headers: { Accept: "text/plain" } });
+const catalog = await (await fetchChecked("/api/catalog")).json();
+assert.ok(Array.isArray(catalog.works) && catalog.works.length > 0, "Staging needs synthetic catalog records.");
+for (const work of catalog.works) {
+  assert.notEqual(work.chain, "ethereum-mainnet", `Staging work ${work.slug} points at mainnet.`);
+  assert.match(`${work.title} ${work.description}`, /preview|rehearsal|synthetic/i,
+    `Staging work ${work.slug} is not visibly synthetic.`);
+}
+
 await fetchChecked("/api/metrics", {}, 401);
 await fetchChecked("/api/events", {
   method: "POST",
@@ -60,4 +59,4 @@ await fetchChecked("/api/events", {
 }, 403);
 
 console.table(checks);
-console.log(`Live production checks passed for ${siteUrl}.`);
+console.log(`Staging checks passed for ${siteUrl}.`);

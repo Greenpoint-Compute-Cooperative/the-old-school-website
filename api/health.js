@@ -1,4 +1,4 @@
-import { ConfigurationError, publicConfiguration } from "../lib/server/config.js";
+import { ConfigurationError, deploymentEnvironment, publicConfiguration } from "../lib/server/config.js";
 import { json, problem } from "../lib/server/http.js";
 import { createSupabaseRequestClient } from "../lib/server/supabase.js";
 
@@ -13,7 +13,8 @@ export const GET = async (request) => {
       status: "ok",
       service: "Marketplace & Auction House of Brooklyn",
       runtime: {
-        environment: process.env.VERCEL_ENV || "local",
+        environment: deploymentEnvironment(),
+        platformEnvironment: process.env.VERCEL_ENV || "local",
         region: process.env.VERCEL_REGION || "local"
       },
       database: "reachable",

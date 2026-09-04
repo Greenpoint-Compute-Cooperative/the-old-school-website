@@ -5,10 +5,12 @@ const url = String(process.env.SUPABASE_URL || "").trim();
 const secret = String(process.env.SUPABASE_SECRET_KEY || "").trim();
 const previewRef = String(process.env.GROVE_PREVIEW_PROJECT_REF || "").trim();
 const seedTarget = String(process.env.GROVE_SEED_TARGET || "").trim();
+const deploymentTarget = String(process.env.VERCEL_TARGET_ENV || process.env.VERCEL_ENV || "local").trim();
 
 assert.equal(seedTarget, "preview", "Set GROVE_SEED_TARGET=preview explicitly.");
 assert.ok(url && secret && previewRef, "Preview URL, project ref, and server secret are required.");
 assert.equal(new URL(url).hostname, `${previewRef}.supabase.co`, "The URL must match the named preview project.");
+assert.notEqual(deploymentTarget, "production", "Preview seed refuses a production target.");
 assert.notEqual(process.env.VERCEL_ENV, "production", "Preview seed refuses a production runtime.");
 
 const client = createClient(url, secret, {

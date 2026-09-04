@@ -42,6 +42,7 @@ import { bidIntentFromContext } from "../lib/browser/wallet-intents.js";
 
 const envNames = [
   "VERCEL_ENV",
+  "VERCEL_TARGET_ENV",
   "SUPABASE_URL",
   "SUPABASE_PUBLISHABLE_KEY",
   "SUPABASE_ANON_KEY",
@@ -506,18 +507,25 @@ assert.equal(configurationReport().missing.includes("GROVE_INVENTORY_SAFE_SINGLE
 process.env.GROVE_INVENTORY_SAFE_SINGLETON_CODE_HASH = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 process.env.GROVE_ETHEREUM_CHAIN_ID = "11155111";
 process.env.VERCEL_ENV = "preview";
+process.env.VERCEL_TARGET_ENV = "staging";
 assert.equal(configurationReport().missing.some((item) => item.includes("GROVE_ETHEREUM_CHAIN_ID")), false, "Sepolia is accepted for preview rehearsal");
 const previewAuction = await (await getConfig()).json();
-assert.equal(previewAuction.wallet.configured, true, "a complete Sepolia wallet is visible only in Preview");
+assert.equal(previewAuction.wallet.configured, true, "a complete Sepolia wallet is visible in the staging target");
 assert.equal(previewAuction.wallet.environment, "sepolia-rehearsal");
 assert.equal(previewAuction.wallet.gas, "not-used-for-offchain-bids", "the preview does not claim an unshipped sponsorship submission path");
 assert.equal(previewAuction.auctions.configured, true, "a complete Sepolia auction is visible only in Preview");
 assert.equal(previewAuction.auctions.environment, "sepolia-rehearsal");
 process.env.GROVE_ETHEREUM_CHAIN_ID = "1";
+assert.equal(configurationReport().missing.includes("GROVE_ETHEREUM_CHAIN_ID=11155111"), true,
+  "the staging target refuses mainnet configuration");
+assert.throws(() => requireAuctionConfig(), /not configured/i, "staging auction mutations cannot target mainnet");
+assert.throws(() => requireWalletConfig(), /not configured/i, "staging wallet mutations cannot target mainnet");
 process.env.VERCEL_ENV = "production";
+process.env.VERCEL_TARGET_ENV = "production";
 assert.throws(() => requireAuctionConfig(), /not configured/i, "production auction mutations remain hard-disabled");
 assert.throws(() => requireWalletConfig(), /not configured/i, "production wallet mutations remain hard-disabled");
 delete process.env.VERCEL_ENV;
+delete process.env.VERCEL_TARGET_ENV;
 
 const crossOriginCheckout = await createAcquisition(new Request("https://marketplace.example/api/acquisitions", {
   method: "POST",

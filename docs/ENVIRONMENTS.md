@@ -1,13 +1,21 @@
 # Environments
 
-The marketplace separates public production data from pull-request and local-development writes. Project references are identifiers, not credentials; keys remain in Supabase, Vercel, GitHub Actions secrets, or the operator password manager.
+The marketplace separates public Production from a persistent staging release target, ephemeral pull-request previews, and local development. Project references are identifiers, not credentials; keys remain in Supabase, Vercel, GitHub Actions secrets, or the operator password manager.
 
-| Surface | Vercel scope | Supabase project | Data | Metrics | Integrations |
+| Surface | Vercel target | Source | Supabase project | Chain/data | Integrations |
 |---|---|---|---|---|---|
-| Production | Production | `xscysuvqragqwhxuhivv` · US East | Real, approved records only | Enabled; 180-day retention | Fail closed until approved |
-| Pull requests | Preview | `nlvxepkzrctbjafcgffk` · US East | Synthetic records only | Disabled | Disabled |
-| Local API work | Development | Same `nlvxepkzrctbjafcgffk` preview project | Synthetic records only | Disabled | Disabled |
-| Static local UI | None | None | Bundled prototype catalog | Disabled | Disabled |
+| Production | `production` | `main`, version tag, explicit approved SHA | `xscysuvqragqwhxuhivv` · US East | Mainnet/real records only after approval | Independent live credentials; currently fail closed |
+| Staging | `staging` | `codex/live-marketplace` | `nlvxepkzrctbjafcgffk` · US East | Sepolia/synthetic records only | Staging-only credentials; incomplete rails fail closed |
+| Pull requests | `preview` | Other non-production branches | `nlvxepkzrctbjafcgffk` · US East | Synthetic records only | Disabled unless explicitly branch-scoped |
+| Local API work | `development` | Working tree | `nlvxepkzrctbjafcgffk` · US East | Synthetic records only | Disabled by default |
+| Static local UI | None | Working tree | None | Bundled prototype catalog | Disabled |
+
+The persistent aliases are:
+
+- Staging: `https://the-school-sepolia.vercel.app`
+- Production: `https://the-school-omega.vercel.app`
+
+`VERCEL_TARGET_ENV` is the application authority for the custom staging target. `VERCEL_ENV=production` remains an independent, fail-safe Production signal; either value identifying Production blocks Sepolia rehearsal behavior.
 
 ## Safe setup order
 
@@ -18,21 +26,28 @@ The marketplace separates public production data from pull-request and local-dev
 5. Apply the reviewed migration to production immediately before the production deployment.
 
 ```sh
-vercel pull --yes --environment=preview
+vercel target ls
+vercel pull --yes --environment=staging
 supabase migration list --linked
 supabase db push --dry-run --linked
 supabase db push --linked --yes
 npm run ci
+npm run deploy:staging
+npm run staging:check
 ```
 
-`npm run seed:preview` has three independent guards: `GROVE_SEED_TARGET=preview`, a URL/project-ref match, and a production-runtime refusal. It must be supplied a preview server key through the operator environment and never through source control.
+`npm run seed:preview` has four independent guards: `GROVE_SEED_TARGET=preview`, a URL/project-ref match, a Production-target refusal, and a Production-runtime refusal. It must be supplied a staging server key through the operator environment and never through source control.
 
 The optional `npm run seed:sepolia-auction` path applies the same guards and creates exactly one card-settlement rehearsal lot. It additionally refuses to write until the supplied Sepolia deployment and mint receipts are successful and finalized, the collection runtime code hash matches, the token's registered work ID matches, and finalized ERC-721 ownership or ERC-1155 balance is held by the declared inventory Safe. The operator supplies the public chain evidence and auction window through the `GROVE_PREVIEW_NFT_*` and `GROVE_PREVIEW_AUCTION_*` variables listed in `.env.example`; reruns validate existing immutable identity instead of replacing it.
 
 ## Verification
 
-- Preview: database health is reachable and the catalog returns only synthetic database records. Wallet and auction UI advertise readiness only when the full gated stack is configured on Sepolia; the seeded rehearsal still requires an active OAuth member with an already deployed, recovery-ready Safe whose discoverable passkey was created for the preview relying-party origin. A browser bid proves authentication, Safe/WebAuthn signing, ERC-1271 verification, and transactional bid acceptance. It does not prove account provisioning, winner charging, or NFT delivery.
-- Production: `npm run live:check` walks the public page, security headers, database health, integration flags, catalog, manifest, robots, protected metrics, and cross-origin event rejection. Wallet and auction flags stay false until the master-plan gates pass.
+- Staging: `npm run staging:check` requires the stable alias to report the `staging` target, the Preview-class Vercel runtime, a reachable database, disabled product metrics, security headers, and visibly synthetic/non-mainnet catalog data. Wallet and auction UI advertise readiness only when the full gated stack is configured on Sepolia. A browser bid proves authentication, Safe/WebAuthn signing, ERC-1271 verification, and transactional bid acceptance. It does not prove account provisioning, winner charging, or NFT delivery.
+- Production: `npm run production:check` requires the stable alias to report `production`, then walks the public page, security headers, database health, integration flags, catalog, manifest, robots, protected metrics, and cross-origin event rejection. Wallet and auction flags stay false until the master-plan gates pass.
+
+Staging and Production deployments are deliberately separate builds because server and build-time variables differ. A staging-tested commit may become a Production candidate only from clean, version-tagged `main` with `GROVE_PRODUCTION_APPROVED_SHA` equal to the exact commit. The candidate deploy uses `--skip-domain`; a separate operator promotion is required to move Production traffic. Vercel Cron remains Production-only, so staging auction workers require an external authenticated scheduler.
+
+`npm run deploy:staging` verifies the protected, immutable staging candidate through `vercel curl` before moving `the-school-sepolia.vercel.app`, then `npm run staging:check` verifies the stable alias. The branch matcher will also create staging candidates after `codex/live-marketplace` exists on the connected remote, but a candidate does not become the stable staging release until the explicit alias step succeeds.
 - Monitoring: GitHub runs the production check hourly and maintains one `ops:incident` issue while unhealthy. A private weekly workflow produces the 7/30/90-day aggregate product report.
 
 Never copy production rows into preview. Recreate representative states with synthetic records that are visibly labeled as preview data.

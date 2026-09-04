@@ -13,6 +13,7 @@ const required = [
   ".github/workflows/ci.yml",
   ".github/workflows/product-metrics.yml",
   ".github/workflows/release.yml",
+  ".github/workflows/staging-health.yml",
   ".github/workflows/uptime.yml",
   "CONTRIBUTING.md",
   "LICENSE",
@@ -27,18 +28,22 @@ const required = [
 
 await Promise.all(required.map(async (path) => assert.ok((await read(path)).trim(), `${path} is required`)));
 
-const [environment, vercel, analytics, metricsMigration, uptime, metricsWorkflow, releaseWorkflow, ciWorkflow, previewSeed, sepoliaAuctionSeed, environments] = await Promise.all([
+const [environment, vercel, analytics, metricsMigration, uptime, stagingUptime, metricsWorkflow, releaseWorkflow, ciWorkflow, previewSeed, sepoliaAuctionSeed, environments, stagingCheck, stagingDeploy, productionCheck] = await Promise.all([
   read(".env.example"),
   read("vercel.json"),
   read("analytics.js"),
   read("supabase/migrations/20260824010000_product_observability.sql"),
   read(".github/workflows/uptime.yml"),
+  read(".github/workflows/staging-health.yml"),
   read(".github/workflows/product-metrics.yml"),
   read(".github/workflows/release.yml"),
   read(".github/workflows/ci.yml"),
   read("scripts/seed-preview.mjs"),
   read("scripts/seed-sepolia-auction.mjs"),
-  read("docs/ENVIRONMENTS.md")
+  read("docs/ENVIRONMENTS.md"),
+  read("scripts/check-staging.mjs"),
+  read("scripts/deploy-staging.mjs"),
+  read("scripts/check-live.mjs")
 ]);
 
 for (const name of ["SUPABASE_SECRET_KEY", "GROVE_METRICS_ENABLED", "GROVE_METRICS_READ_TOKEN", "CRON_SECRET", "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"]) {
@@ -54,17 +59,24 @@ assert.match(metricsMigration, /enable row level security/, "metrics data has RL
 assert.match(metricsMigration, /revoke all on public\.product_events/, "metrics data is not public");
 assert.match(uptime, /scripts\/check-live\.mjs/, "live monitoring uses the full-story check");
 assert.match(uptime, /ops:incident/, "live monitoring manages one incident label");
+assert.match(stagingUptime, /npm run staging:check/, "staging monitoring uses the isolated environment check");
 assert.match(metricsWorkflow, /secrets\.GROVE_METRICS_READ_TOKEN/, "scheduled metrics use a GitHub secret");
 assert.match(releaseWorkflow, /SHA256SUMS\.txt/, "tagged releases include a checksum");
-for (const workflow of [uptime, metricsWorkflow, releaseWorkflow, ciWorkflow]) {
+for (const workflow of [uptime, stagingUptime, metricsWorkflow, releaseWorkflow, ciWorkflow]) {
   assert.doesNotMatch(workflow, /uses:\s+[^\s]+@(v\d+|main|master)\b/, "GitHub Actions are pinned to immutable commits");
 }
 assert.match(previewSeed, /GROVE_SEED_TARGET/, "preview seeding requires an explicit target");
+assert.match(previewSeed, /VERCEL_TARGET_ENV/, "preview seeding refuses the Production target as well as runtime");
 assert.match(previewSeed, /assert\.notEqual\(process\.env\.VERCEL_ENV, "production"/, "preview seeding refuses production");
 assert.match(sepoliaAuctionSeed, /getTransactionReceipt/, "Sepolia auction seeding verifies chain receipts");
 assert.match(sepoliaAuctionSeed, /blockTag: "finalized"/, "Sepolia auction seeding requires finality");
 assert.match(sepoliaAuctionSeed, /verifyFinalizedInventoryCustody/, "Sepolia auction seeding verifies inventory custody");
 assert.doesNotMatch(sepoliaAuctionSeed, /privateKey|SECRET_KEY\s*=/i, "Sepolia auction seed contains no signing key material");
 assert.match(environments, /nlvxepkzrctbjafcgffk/, "the isolated preview project is documented");
+assert.match(environments, /xscysuvqragqwhxuhivv/, "the isolated production project is documented");
+assert.match(environments, /VERCEL_TARGET_ENV/, "the custom staging target authority is documented");
+assert.match(stagingCheck, /runtime\?\.environment, "staging"/, "the staging check rejects a non-staging alias");
+assert.match(stagingDeploy, /vercel.*curl[\s\S]*vercel.*alias/s, "staging is verified before its stable alias moves");
+assert.match(productionCheck, /runtime\?\.environment, "production"/, "the production check rejects a non-production alias");
 
 console.log(`Repository checks passed: ${required.length} contributor and operations files.`);

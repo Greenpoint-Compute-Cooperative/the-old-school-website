@@ -18,18 +18,32 @@ Severity guide:
 
 ## Deploy
 
+### Staging
+
+```sh
+vercel target ls
+vercel pull --yes --environment=staging
+npm run deploy:staging
+npm run staging:check
+```
+
+The deployment guard requires a clean `codex/live-marketplace` working tree. The deploy script checks the immutable candidate with authenticated `vercel curl` before moving the stable staging alias; the separate staging check then verifies that alias. Also verify function logs, synthetic Supabase data, and Sepolia receipts. Vercel does not schedule custom-environment cron jobs; use only a separately authenticated staging scheduler. The staging-health GitHub schedule becomes active only after its workflow is present on the repository default branch.
+
+### Production candidate
+
 ```sh
 git submodule update --init --recursive
 npm ci
 npm run ci
 vercel pull --yes --environment=production
-vercel build --prod
-vercel deploy --prebuilt --prod --yes
+GROVE_PRODUCTION_APPROVED_SHA="$(git rev-parse HEAD)" npm run deploy:production:candidate
 ```
+
+The deployment guard requires a clean, version-tagged `main` commit and an exact approved SHA. The candidate uses Production variables but `--skip-domain`, so it does not receive public Production traffic. Run `npm run production:check` against the candidate through the protected-deployment tooling, then promote that exact deployment deliberately.
 
 After deployment, verify home, `/api/health`, `/api/config`, `/api/catalog`, rejected email auth, disabled providers, security headers, and Vercel error logs. Check the live page visually on desktop and phone.
 
-Run `npm run live:check` against the stable alias. Do not tag a release until this passes.
+After promotion, run `npm run production:check` against the stable alias. Do not announce a release until this passes.
 
 ## Roll back
 
