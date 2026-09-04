@@ -52,8 +52,13 @@ assert.equal(configuration.secondary?.configured ?? false, false);
 assert.equal(configuration.openSea?.configured ?? false, false);
 
 await fetchChecked("/api/catalog");
-const resales = await (await fetchChecked("/api/resales")).json();
-assert.deepEqual(resales.orders, [], "Production cannot expose secondary listings before mainnet activation.");
+// Keep the monitor compatible with the still-active pre-secondary Production
+// release during a staging-only rollout. Once Production exposes the capability
+// object, the resale route becomes part of the required fail-closed contract.
+if (Object.hasOwn(configuration, "secondary")) {
+  const resales = await (await fetchChecked("/api/resales")).json();
+  assert.deepEqual(resales.orders, [], "Production cannot expose secondary listings before mainnet activation.");
+}
 await fetchChecked("/manifest.webmanifest");
 await fetchChecked("/robots.txt", { headers: { Accept: "text/plain" } });
 await fetchChecked("/api/metrics", {}, 401);
