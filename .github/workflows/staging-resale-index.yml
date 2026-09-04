@@ -22,8 +22,8 @@ jobs:
       - name: Reconcile finalized Sepolia ownership
         run: |
           if [ -z "$GROVE_STAGING_CRON_SECRET" ]; then
-            echo "GROVE_STAGING_CRON_SECRET is not configured; staging index is intentionally skipped."
-            exit 0
+            echo "GROVE_STAGING_CRON_SECRET is required for staging reconciliation."
+            exit 1
           fi
           curl --fail-with-body --silent --show-error --retry 2 \
             --header "Authorization: Bearer $GROVE_STAGING_CRON_SECRET" \
@@ -32,8 +32,8 @@ jobs:
         if: ${{ vars.GROVE_STAGING_SPONSOR_RECONCILE_ENABLED == 'true' }}
         run: |
           if [ -z "$GROVE_STAGING_CRON_SECRET" ]; then
-            echo "GROVE_STAGING_CRON_SECRET is not configured; sponsorship reconciliation is intentionally skipped."
-            exit 0
+            echo "GROVE_STAGING_CRON_SECRET is required for sponsorship reconciliation."
+            exit 1
           fi
           curl --fail-with-body --silent --show-error --retry 2 \
             --header "Authorization: Bearer $GROVE_STAGING_CRON_SECRET" \

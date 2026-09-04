@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { getAddress } from "viem";
 import { ConfigurationError, requireSecondaryConfig } from "../../../lib/server/config.js";
 import { json, problem, requestFailure } from "../../../lib/server/http.js";
@@ -8,6 +9,7 @@ import {
   getAuthenticatedCurator
 } from "../../../lib/server/supabase.js";
 import { attestSmartAccountProfile } from "../../../lib/server/wallet.js";
+import { usdcApprovalCall } from "../../../lib/shared/secondary-actions.js";
 
 const uuid = (input) => typeof input === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input)
   ? input.toLowerCase()
@@ -38,6 +40,9 @@ export const GET = async (request) => {
     }
     if (!buyer || buyer.state !== "recovery-ready" || !buyer.recovery_ready || !buyer.finalized_at) {
       return problem(409, "wallet_not_ready", "Finish passkey recovery setup before buying an NFT.", headers);
+    }
+    if (order.seller_smart_account_id === buyer.id) {
+      return problem(409, "self_purchase_rejected", "A seller cannot buy their own listing.", headers);
     }
     const [workResult, collectionResult, sellerResult, credentialResult] = await Promise.all([
       service.from("works").select("id,format,nft_collection_id,nft_token_id,nft_quantity,contract_status").eq("id", order.work_id).single(),
@@ -70,11 +75,35 @@ export const GET = async (request) => {
       signature,
       buyerAddress: buyer.account_address
     });
+    const allowance = BigInt(funds.allowance);
+    const gross = BigInt(listingVerification.grossAmount);
+    let nextAction;
+    if (allowance !== 0n && allowance !== gross) {
+      const call = usdcApprovalCall({
+        usdcAddress: config.secondary.usdcAddress,
+        protocolAddress: config.secondary.protocolAddress,
+        amount: gross,
+        revoke: true
+      });
+      nextAction = { action: "resale-revoke-usdc", expected_call: { ...call, value: "0" } };
+    } else if (allowance === 0n) {
+      nextAction = { action: "resale-approve-usdc", expected_call: fulfillment.approvals[0] };
+    } else {
+      nextAction = { action: "resale-fulfill", expected_call: fulfillment.fulfillment };
+    }
+    nextAction.request_key = randomUUID();
+    nextAction.sponsor_request = {
+      stage: "prepare",
+      request_key: nextAction.request_key,
+      action: nextAction.action,
+      listing_id: order.id
+    };
     return json({
       listing: { id: order.id, order_hash: order.order_hash, gross_amount: listingVerification.grossAmount, currency: "USDC" },
       buyer: { account_address: getAddress(buyer.account_address), balance: funds.balance, allowance: funds.allowance },
       actions: fulfillment,
-      sponsorship: { required: true, policy_actions: ["resale-approve-usdc", "resale-fulfill"] }
+      next_action: nextAction,
+      sponsorship: { required: true, policy_actions: ["resale-revoke-usdc", "resale-approve-usdc", "resale-fulfill"] }
     }, { headers: { ...Object.fromEntries(headers), "Cache-Control": "private, no-store" } });
   } catch (error) {
     if (error instanceof ConfigurationError) return problem(503, "secondary_not_configured", "Secondary sales are not available.");

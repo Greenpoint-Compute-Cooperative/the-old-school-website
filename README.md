@@ -110,7 +110,9 @@ npm run live:check
 - `GET/POST /api/resales` — public Seaport order book and authenticated, chain-verified listing publication
 - `POST /api/resales/context` — canonical fixed-price ERC-721/USDC order and exact-token approval context
 - `GET /api/resales/:id/fulfillment-context` — current buyer Safe, USDC, and exact Seaport fulfillment checks
+- `POST /api/wallet/sponsor` — passkey-signed, policy-bound gas sponsorship for exact secondary actions
 - `/api/cron/resale-index` — finalized ERC-721 ownership projection (externally scheduled for staging)
+- `/api/cron/sponsorship-reconcile` — durable UserOperation receipt, finality, and gas-budget reconciliation
 - `/api/cron/opensea-publish` — Production-only durable OpenSea publication outbox
 
 ## Product notes

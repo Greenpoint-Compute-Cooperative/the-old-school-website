@@ -818,6 +818,41 @@ const usdcBaseUnits = (input) => {
   return (BigInt(whole) * 1_000_000n + BigInt(fraction.padEnd(6, "0") || "0")).toString();
 };
 
+const submitSponsoredSecondaryAction = async (action) => {
+  if (!action?.sponsor_request || !action?.expected_call) {
+    throw new Error("The sponsored action context is incomplete.");
+  }
+  const preparedResponse = await fetch("/api/wallet/sponsor", {
+    method: "POST",
+    headers: { Accept: "application/json", "Content-Type": "application/json" },
+    body: JSON.stringify(action.sponsor_request)
+  });
+  const prepared = await preparedResponse.json();
+  if (!preparedResponse.ok) throw new Error(prepared.error?.message || "Gas sponsorship is unavailable.");
+  const preparedCall = prepared.policy?.expected_call;
+  if (prepared.stage !== "prepared" || prepared.action !== action.action
+    || prepared.request_key !== action.request_key || preparedCall?.to?.toLowerCase() !== action.expected_call.to.toLowerCase()
+    || preparedCall?.data?.toLowerCase() !== action.expected_call.data.toLowerCase()
+    || String(preparedCall?.value) !== String(action.expected_call.value)) {
+    throw new Error("The sponsored action did not match the marketplace request.");
+  }
+  const { signSponsoredSecondaryUserOperation } = await import("./wallet-intents.js");
+  const signed = await signSponsoredSecondaryUserOperation({ context: prepared });
+  const submittedResponse = await fetch("/api/wallet/sponsor", {
+    method: "POST",
+    headers: { Accept: "application/json", "Content-Type": "application/json" },
+    body: JSON.stringify(signed.body)
+  });
+  const submitted = await submittedResponse.json();
+  if (!submittedResponse.ok) throw new Error(submitted.error?.message || "The sponsored action was not submitted.");
+  if (submitted.stage !== "submitted" || !["submission-pending", "submitted", "finalized"].includes(submitted.state)
+    || submitted.action !== action.action || submitted.request_key !== action.request_key
+    || !/^0x[0-9a-f]{64}$/i.test(submitted.userop_hash || "")) {
+    throw new Error("The sponsor did not return matching submission evidence.");
+  }
+  return submitted;
+};
+
 const startResaleListing = async (slug) => {
   const work = getWork(slug);
   if (!work?.id) return;
@@ -839,7 +874,9 @@ const startResaleListing = async (slug) => {
     const context = await contextResponse.json();
     if (!contextResponse.ok) throw new Error(context.error?.message || "The resale listing is unavailable.");
     if (context.listing?.approval?.required) {
-      throw new Error("The sponsored exact-token approval must finalize before the listing can be signed.");
+      await submitSponsoredSecondaryAction(context.listing.approval.action);
+      showToast("Exact-token approval submitted; after finality, choose Sell again to sign the listing");
+      return;
     }
     const { signResaleOrderWithPasskey } = await import("./wallet-intents.js");
     const signed = await signResaleOrderWithPasskey({ context });
@@ -868,8 +905,17 @@ const prepareResalePurchase = async (button) => {
     });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error?.message || "The gasless purchase is unavailable.");
-    button.textContent = "Safe purchase prepared";
-    showToast("Safe purchase prepared for sponsored execution");
+    const action = result.next_action;
+    if (!action) throw new Error("The next purchase action is unavailable.");
+    button.textContent = action.action === "resale-fulfill" ? "Confirm with passkey…" : "Confirm USDC permission…";
+    await submitSponsoredSecondaryAction(action);
+    if (action.action === "resale-fulfill") {
+      button.textContent = "Purchase awaiting finality";
+      showToast("Purchase submitted; ownership updates only after finalized chain evidence");
+    } else {
+      button.textContent = "Permission awaiting finality";
+      showToast("USDC permission submitted; after finality, choose Buy again to continue");
+    }
   } catch (error) {
     button.disabled = false;
     button.textContent = "Prepare gasless Safe purchase";
@@ -898,33 +944,7 @@ const runResaleSellerAction = async (button, kind) => {
       await hydrateLiveCatalog();
       return;
     }
-    const preparedResponse = await fetch("/api/wallet/sponsor", {
-      method: "POST",
-      headers: { Accept: "application/json", "Content-Type": "application/json" },
-      body: JSON.stringify(action.sponsor_request)
-    });
-    const prepared = await preparedResponse.json();
-    if (!preparedResponse.ok) throw new Error(prepared.error?.message || "Gas sponsorship is unavailable.");
-    const preparedCall = prepared.policy?.expected_call;
-    if (prepared.stage !== "prepared" || prepared.action !== action.action
-      || prepared.request_key !== action.request_key || preparedCall?.to?.toLowerCase() !== action.expected_call.to.toLowerCase()
-      || preparedCall?.data?.toLowerCase() !== action.expected_call.data.toLowerCase()
-      || String(preparedCall?.value) !== String(action.expected_call.value)) {
-      throw new Error("The sponsored action did not match the seller request.");
-    }
-    const { signSponsoredSecondaryUserOperation } = await import("./lib/browser/sponsored-userop.js");
-    const signed = await signSponsoredSecondaryUserOperation({ context: prepared });
-    const submittedResponse = await fetch("/api/wallet/sponsor", {
-      method: "POST",
-      headers: { Accept: "application/json", "Content-Type": "application/json" },
-      body: JSON.stringify(signed.body)
-    });
-    const submitted = await submittedResponse.json();
-    if (!submittedResponse.ok) throw new Error(submitted.error?.message || "The sponsored action was not submitted.");
-    if (submitted.stage !== "submitted" || submitted.state !== "submitted"
-      || !/^0x[0-9a-f]{64}$/i.test(submitted.userop_hash || "")) {
-      throw new Error("The sponsor did not return submission evidence.");
-    }
+    await submitSponsoredSecondaryAction(action);
     showToast(kind === "cancel" ? "Cancellation submitted; awaiting finality" : "Approval revocation submitted; awaiting finality");
     await hydrateLiveCatalog();
   } catch (error) {
@@ -1100,12 +1120,13 @@ const render = () => {
 
   const viewedRoute = [root, detail].filter(Boolean).join("/");
   void track("page_view", { route: routeName() });
-  if (root === "work" && detail) {
+  const viewedWork = root === "work" && detail ? getWork(detail) : null;
+  if (viewedWork) {
     void track("work_viewed", {
       route: viewedRoute,
       entityType: "work",
       entityId: detail,
-      properties: { format: getWork(detail).type }
+      properties: { format: viewedWork.type }
     });
   }
   if (root === "curator" && detail) void track("curator_viewed", { route: viewedRoute, entityType: "curator", entityId: detail });

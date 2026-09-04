@@ -112,7 +112,9 @@ Deploy only on Sepolia (`11155111`) for rehearsal and Ethereum mainnet (`1`) for
 1. Member authenticates through approved Instagram or X OAuth.
 2. In a secure browser origin, a WebAuthn credential is created; private material remains in the authenticator.
 3. The browser derives the expected Safe account using the pinned Safe proxy, singleton, fallback handler, 4337 module, shared WebAuthn signer, P-256 verifier, factory, and EntryPoint tuple. For the pinned Safe 4337 initializer, the module is also the fallback handler, so both configured addresses and runtime code hashes must be identical.
-4. `POST /api/wallet/sponsor` evaluates a narrowly allowed account-deployment UserOperation.
+4. A separately release-gated provisioning sponsor evaluates the narrowly allowed account-deployment UserOperation.
+   The implemented `POST /api/wallet/sponsor` route currently accepts only exact secondary-market calls from an
+   already deployed, recovery-ready Safe.
 5. Managed bundler submits it; the backend verifies canonical EntryPoint and Safe logs from its own mainnet RPC.
 6. The member signs an origin-, nonce-, chain-, expiry-, and account-bound link challenge. The backend code-hash attests the tuple; reads the Safe fallback slot, owners, threshold, and enabled module; verifies the per-Safe WebAuthn public-key commitment; verifies ERC-1271; and writes one protected wallet link.
 7. Before valuable bidding or delivery, the member adds a second passkey or approved user-controlled recovery configuration and completes a recovery drill.
@@ -254,7 +256,7 @@ cancellation, metadata, and release gates live in [Secondary-market release poli
 | social OAuth routes | member session | implemented; provider-gated |
 | `POST /api/wallet/challenge` | one-time wallet-link challenge | implemented, disabled by gates |
 | `POST /api/wallet/link` | ERC-1271 wallet link | implemented, disabled by gates |
-| `POST /api/wallet/sponsor` | policy-check and forward UserOperation | provider adapter gate |
+| `POST /api/wallet/sponsor` | prepare, passkey-sign, durably submit, and inspect an exact UserOperation | implemented, provider-attestation gate |
 | `GET /api/auctions/:id/bids` | privacy-safe public bid feed | implemented |
 | `GET /api/auctions/:id/bid-context` | authenticated canonical Safe/WebAuthn bid context | implemented for pre-provisioned recovery-ready Safes |
 | `POST /api/auctions/:id/payment-setup` | per-auction Stripe setup session | implemented, disabled by gates |
@@ -265,7 +267,7 @@ cancellation, metadata, and release gates live in [Secondary-market release poli
 | payment-cure endpoint | cancel the current failed/action-required intent and bind one fresh hosted winner checkout | implemented, disabled by gates; pending provider rehearsal |
 | NFT inventory reconciler | prove mint/custody/finality/reorg state | pending mainnet provider selection |
 | NFT release worker | 2-of-3 Safe transfer after release gate | pending custody runbook/audit |
-| sponsorship reconciler | verify UserOperation receipt and spend | pending provider selection |
+| sponsorship reconciler | verify UserOperation receipt, finality, action evidence, and spend | implemented, provider-attestation gate |
 | financial reconciler | compare Stripe, ledger, tax, refund, dispute | fixed-price foundation exists; auction extension pending |
 
 “Implemented” does not mean enabled in production. The server helpers permit gated preview rehearsal, but production wallet/auction mutation routes hard-fail independently of their public flags until a reviewed release changes the deliberately false `liveReady` attestation after every environment, provider, contract, legal, and operational gate is satisfied.

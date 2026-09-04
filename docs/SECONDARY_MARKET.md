@@ -45,12 +45,15 @@ verification, current ownership/approval/balance checks, simulation, and durable
 1. The authenticated seller selects an owned, finalized, allowlisted Grove ERC-721.
 2. The server returns canonical order components from a pinned Seaport and USDC configuration. The browser may not
    substitute contract addresses, fees, recipients, or order type.
-3. The seller Safe grants only the required token approval and signs the exact Seaport order. Contract-wallet
-   signatures are verified against the current Safe before publication.
+3. If needed, the seller passkey signs a sponsored Safe UserOperation granting only the exact-token approval. After
+   finalized approval evidence, the seller signs the exact Seaport order. Contract-wallet signatures are verified
+   against the current Safe before publication.
 4. Before fulfillment, Grove rereads order status, counter, time window, owner, token approval, buyer USDC balance and
    allowance, fee recipients, and expected consideration; it then simulates the exact transaction.
-5. The buyer fulfills the fixed-price order with USDC. Grove records the submitted transaction but does not mark the
-   sale complete from a browser redirect or optimistic provider response.
+5. The buyer passkey signs one sponsored Safe action at a time: normalize or grant the exact Seaport USDC allowance,
+   then fulfill the fixed-price order. The buyer supplies the USDC principal; Grove supplies only allowlisted gas.
+   Grove records the signed operation durably before provider submission and does not mark the sale complete from an
+   optimistic provider response.
 6. The reconciler verifies the canonical receipt, Seaport event, NFT transfer, USDC transfers, block hash, and
    finality. A reorg returns the order to reconciliation.
 
@@ -72,8 +75,10 @@ because a later reapproval could make that order fillable again. Revocation is u
 approval is already absent, and impossible from the seller Safe after it no longer owns the token.
 
 Both endpoints return policy-bound action intents with an exact `expected_call`, zero call value, target and selector,
-calldata hash, chain, Safe, token/order identity, stable request key, and the server-derived prepare request for the
-shared `/api/wallet/sponsor` pipeline. They intentionally return no UserOperation hash or submission result. The public
+calldata hash, chain, Safe, token/order identity, a fresh server-issued client request key, and the server-derived
+prepare request for the shared `/api/wallet/sponsor` pipeline. The browser submits that exact intent to the sponsor,
+checks that the returned call is byte-for-byte identical, and signs the prepared UserOperation with the Safe passkey.
+The public
 feed annotates only the current authenticated seller's rows as `seller_managed` via base-table RLS; a separate
 `managed_orders` list contains only that seller's order ID, work ID, and state so approval cleanup remains available
 after a cancelled or expired order leaves the public view. Neither response returns seller user IDs. The work page
@@ -125,6 +130,7 @@ counter invalidation; disabling Grove's UI is not cancellation.
 
 Current release blockers are the independent contract/application security review, durable metadata pinning,
 server-side OpenSea API credentials for production, exact mainnet collection and token evidence, pinned Seaport and
-USDC infrastructure, Safe ERC-1271/order interoperability rehearsal, complete cancellation/fill/reorg reconciliation,
-and sanctions/tax/legal review for secondary trading. Stripe approval for primary sales cannot clear any of these
-secondary-market gates.
+USDC infrastructure, a real bundler/paymaster provider attestation, signed Safe UserOperation and Seaport E2E,
+mainnet-fork rehearsal, and sanctions/tax/legal review for secondary trading. The cancellation/fill/reorg and
+sponsorship reconcilers are implemented and remain fail-closed until those rehearsals pass. Stripe approval for
+primary sales cannot clear any of these secondary-market gates.

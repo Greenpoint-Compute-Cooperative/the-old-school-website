@@ -3,7 +3,8 @@ import { getAddress } from "viem";
 import {
   buildFixedPriceResaleOrder,
   buildResaleFulfillment,
-  openSeaAssetUrl
+  openSeaAssetUrl,
+  publishOpenSeaListing
 } from "../lib/server/resale.js";
 import {
   SEAPORT_1_6_ADDRESS,
@@ -88,5 +89,35 @@ assert.throws(() => buildFixedPriceResaleOrder({
   config, offerer: order.offerer, collectionAddress: order.offer[0].token, tokenId: "7", grossAmount: "999999",
   durationSeconds: 86_400, counter: "9", royaltyReceiver: order.consideration[1].recipient, royaltyAmount: "0", salt: "43"
 }), /RESALE_POLICY_REJECTED/);
+
+const originalFetch = globalThis.fetch;
+const publishedRequests = [];
+globalThis.fetch = async (url, options = {}) => {
+  publishedRequests.push({ url: String(url), options });
+  return new Response(JSON.stringify({ order_hash: resaleOrderHash(order) }), {
+    status: 200,
+    headers: { "Content-Type": "application/json" }
+  });
+};
+try {
+  const result = await publishOpenSeaListing({
+    config: {
+      ...config,
+      wallet: { chainId: 1 },
+      openSea: { liveReady: true, apiKey: "server-only-test-key" }
+    },
+    order,
+    signature
+  });
+  assert.equal(result.order_hash, resaleOrderHash(order));
+  assert.equal(publishedRequests.length, 1);
+  assert.equal(publishedRequests[0].url, "https://api.opensea.io/api/v2/orders/ethereum/seaport/listings");
+  assert.equal(publishedRequests[0].options.headers["X-API-KEY"], "server-only-test-key");
+  const body = JSON.parse(publishedRequests[0].options.body);
+  assert.equal(body.protocol_address, SEAPORT_1_6_ADDRESS);
+  assert.equal(body.parameters.offerer, order.offerer);
+} finally {
+  globalThis.fetch = originalFetch;
+}
 
 console.log("Secondary market tests passed: fixed-price ERC-721/USDC policy, hashes, fees, fulfillment, and OpenSea boundary.");

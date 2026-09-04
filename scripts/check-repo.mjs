@@ -31,7 +31,7 @@ const required = [
 
 await Promise.all(required.map(async (path) => assert.ok((await read(path)).trim(), `${path} is required`)));
 
-const [environment, vercel, analytics, metricsMigration, uptime, stagingUptime, stagingResaleIndex, metricsWorkflow, releaseWorkflow, ciWorkflow, previewSeed, sepoliaAuctionSeed, environments, stagingCheck, stagingDeploy, productionCheck, resaleMigration, resaleApi, openSeaWorker, secondaryDocs] = await Promise.all([
+const [environment, vercel, analytics, metricsMigration, uptime, stagingUptime, stagingResaleIndex, metricsWorkflow, releaseWorkflow, ciWorkflow, previewSeed, sepoliaAuctionSeed, environments, stagingCheck, stagingDeploy, productionCheck, resaleMigration, openSeaLeaseMigration, resaleApi, openSeaWorker, secondaryDocs] = await Promise.all([
   read(".env.example"),
   read("vercel.json"),
   read("analytics.js"),
@@ -49,6 +49,7 @@ const [environment, vercel, analytics, metricsMigration, uptime, stagingUptime, 
   read("scripts/deploy-staging.mjs"),
   read("scripts/check-live.mjs"),
   read("supabase/migrations/20260908000000_secondary_market.sql"),
+  read("supabase/migrations/20260908020000_opensea_publication_leases.sql"),
   read("api/resales.js"),
   read("api/cron/opensea-publish.js"),
   read("docs/SECONDARY_MARKET.md")
@@ -66,6 +67,10 @@ assert.match(vercel, /auction-close/, "auction close is scheduled");
 assert.match(vercel, /auction-settle/, "auction settlement is scheduled");
 assert.match(vercel, /opensea-publish/, "OpenSea publication outbox is scheduled");
 assert.match(vercel, /resale-index/, "secondary ownership reconciliation is scheduled");
+assert.match(openSeaLeaseMigration, /for update skip locked/i, "OpenSea outbox claims are concurrency-safe");
+assert.match(openSeaLeaseMigration, /lease_expires_at/, "OpenSea outbox claims recover after a bounded lease");
+assert.match(openSeaWorker, /verifyPublishableResaleOrder/, "OpenSea orders are revalidated immediately before publication");
+assert.match(openSeaWorker, /claim_opensea_publications/, "OpenSea workers atomically claim queue rows");
 assert.match(analytics, /sessionStorage/, "analytics is session-scoped");
 assert.doesNotMatch(analytics, /localStorage|fingerprint|document\.cookie/, "analytics avoids persistent browser identity");
 assert.match(metricsMigration, /enable row level security/, "metrics data has RLS");

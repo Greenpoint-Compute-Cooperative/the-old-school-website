@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { ConfigurationError } from "../../../lib/server/config.js";
 import { json, problem, requestFailure } from "../../../lib/server/http.js";
 import { loadAuthenticatedResaleSellerAction } from "../../../lib/server/resale-seller-actions.js";
@@ -19,11 +20,13 @@ export const POST = async (request) => {
       return problem(409, "seller_not_token_owner", "The seller Safe no longer owns this token.", headers);
     }
     const action = inspection.revocation.action;
+    const requestKey = action ? randomUUID() : null;
     const actions = action ? [{
       ...action,
+      request_key: requestKey,
       sponsor_request: {
         stage: "prepare",
-        request_key: action.request_key,
+        request_key: requestKey,
         action: action.action,
         work_id: order.work_id
       }

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { getAddress } from "viem";
 import { ConfigurationError, requireSecondaryConfig } from "../../lib/server/config.js";
 import { json, problem, readJson, requestFailure } from "../../lib/server/http.js";
@@ -59,6 +60,21 @@ export const POST = async (request) => {
     }
     const attestation = await attestSmartAccountProfile({ config, account, credentials });
     const context = await prepareResaleOrderContext({ config, account, collection, work, grossAmount, durationSeconds });
+    const approvalRequestKey = context.approval.required ? randomUUID() : null;
+    const approval = {
+      ...context.approval,
+      action: context.approval.required ? {
+        action: "resale-approve-token",
+        request_key: approvalRequestKey,
+        expected_call: context.approval.transaction,
+        sponsor_request: {
+          stage: "prepare",
+          request_key: approvalRequestKey,
+          action: "resale-approve-token",
+          work_id: work.id
+        }
+      } : null
+    };
     return json({
       listing: {
         work_id: work.id,
@@ -73,7 +89,7 @@ export const POST = async (request) => {
         order: context.order,
         typed_data: context.typedData,
         evidence: context.evidence,
-        approval: context.approval
+        approval
       },
       wallet: {
         account_address: getAddress(account.account_address),

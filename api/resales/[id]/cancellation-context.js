@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { ConfigurationError } from "../../../lib/server/config.js";
 import { json, problem, requestFailure } from "../../../lib/server/http.js";
 import { loadAuthenticatedResaleSellerAction } from "../../../lib/server/resale-seller-actions.js";
@@ -8,11 +9,13 @@ export const POST = async (request) => {
     if (loaded.response) return loaded.response;
     const { headers, order, inspection } = loaded;
     const action = inspection.cancellation.action;
+    const requestKey = action ? randomUUID() : null;
     const actions = action ? [{
       ...action,
+      request_key: requestKey,
       sponsor_request: {
         stage: "prepare",
-        request_key: action.request_key,
+        request_key: requestKey,
         action: action.action,
         listing_id: order.id
       }
