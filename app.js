@@ -123,7 +123,7 @@ const tokenLinks = (chainId, contractAddress, tokenId, minted, openSeaEnabled = 
   };
 };
 
-const apiWork = (work, index, auction, resale) => ({
+const apiWork = (work, index, auction, resale, managedResale) => ({
   slug: work.slug,
   title: work.title,
   artist: work.artist_name,
@@ -174,7 +174,8 @@ const apiWork = (work, index, auction, resale) => ({
   auctionEnabled: auction?.state === "open",
   resaleId: resale?.id || null,
   resaleEnabled: resale?.state === "open",
-  resaleSellerManaged: resale?.seller_managed === true,
+  resaleSellerManaged: Boolean(managedResale) || resale?.seller_managed === true,
+  resaleManagedId: managedResale?.id || (resale?.seller_managed === true ? resale.id : null),
   resaleProtocol: resale ? "Seaport 1.6" : null,
   resaleCurrency: resale?.currency || null,
   ...tokenLinks(
@@ -213,7 +214,13 @@ const hydrateLiveCatalog = async () => {
     const auctionsByWork = new Map((Array.isArray(catalog.auctions) ? catalog.auctions : []).map((auction) => [auction.work_id, auction]));
     const resalesByWork = new Map((Array.isArray(resales.orders) ? resales.orders : []).filter((order) => order.state === "open")
       .map((order) => [order.work_id, order]));
-    const liveWorks = catalog.works.map((work, index) => apiWork(work, index, auctionsByWork.get(work.id), resalesByWork.get(work.id)));
+    const managedResalesByWork = new Map();
+    for (const order of Array.isArray(resales.managed_orders) ? resales.managed_orders : []) {
+      if (!managedResalesByWork.has(order.work_id)) managedResalesByWork.set(order.work_id, order);
+    }
+    const liveWorks = catalog.works.map((work, index) => apiWork(
+      work, index, auctionsByWork.get(work.id), resalesByWork.get(work.id), managedResalesByWork.get(work.id)
+    ));
     const liveSlugs = new Set(liveWorks.map((work) => work.slug));
     works.splice(0, works.length, ...liveWorks);
     discoveries.splice(0, discoveries.length, ...discoveries.filter((item) => liveSlugs.has(item.workSlug)));
@@ -434,8 +441,8 @@ const workPage = (work) => {
               : `<button class="button button--blue" type="button" data-collect="${work.slug}" data-method="crypto">${verb}</button>
           <button class="text-button" type="button" data-collect="${work.slug}" data-method="card">Use card</button>`}
           ${resellableToken && !work.resaleId ? `<button class="text-button" type="button" data-start-resale="${work.slug}">Sell this NFT</button>` : ""}
-          ${work.resaleId && work.resaleSellerManaged ? `<button class="text-button" type="button" data-cancel-resale="${work.slug}">Cancel my listing</button>
-          <button class="text-button" type="button" data-revoke-resale-approval="${work.slug}">Revoke Seaport approval</button>` : ""}
+          ${work.resaleId && work.resaleSellerManaged ? `<button class="text-button" type="button" data-cancel-resale="${work.slug}">Cancel my listing</button>` : ""}
+          ${work.resaleManagedId && work.resaleSellerManaged ? `<button class="text-button" type="button" data-revoke-resale-approval="${work.slug}">Revoke Seaport approval</button>` : ""}
           ${safeDocumentUrl(work.openSeaUrl) ? `<a class="text-button" href="${escapeHtml(safeDocumentUrl(work.openSeaUrl))}" target="_blank" rel="noopener">View on OpenSea ↗</a>` : ""}
           ${work.chainId === 11155111 && work.contractStatus === "minted" ? `<p class="pending-note">Sepolia rehearsal · OpenSea retired all testnet support.</p>` : ""}
           <details class="work-details">
@@ -872,14 +879,14 @@ const prepareResalePurchase = async (button) => {
 
 const runResaleSellerAction = async (button, kind) => {
   const work = getWork(button.dataset[kind === "cancel" ? "cancelResale" : "revokeResaleApproval"]);
-  if (!work?.resaleId || !work.resaleSellerManaged) return;
+  if (!work?.resaleManagedId || !work.resaleSellerManaged || (kind === "cancel" && !work.resaleId)) return;
   const routeName = kind === "cancel" ? "cancellation-context" : "approval-revocation-context";
   const pendingLabel = kind === "cancel" ? "Checking cancellation…" : "Checking approval…";
   const originalLabel = button.textContent;
   button.disabled = true;
   button.textContent = pendingLabel;
   try {
-    const contextResponse = await fetch(`/api/resales/${encodeURIComponent(work.resaleId)}/${routeName}`, {
+    const contextResponse = await fetch(`/api/resales/${encodeURIComponent(work.resaleManagedId)}/${routeName}`, {
       method: "POST",
       headers: { Accept: "application/json" }
     });

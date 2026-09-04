@@ -92,12 +92,15 @@ assert.doesNotMatch(cancellationRoute + revocationRoute, /\.from\("resale_orders
 assert.match(cancellationRoute, /listing_id: order\.id/, "cancellation intent targets the sponsor route by listing id");
 assert.match(revocationRoute, /work_id: order\.work_id/, "revocation intent targets the sponsor route by work id");
 assert.match(resaleRoute, /seller_managed: managedIds\.has\(order\.id\)/, "the feed marks only RLS-visible seller listings");
+assert.match(resaleRoute, /managed_orders: managedOrders/, "private order references preserve approval cleanup after cancellation");
+assert.match(resaleRoute, /select\("id,work_id,state"\)/, "managed listing metadata omits seller identity and order payloads");
 assert.match(resaleRoute, /"Cache-Control": "private, no-store"/, "seller annotations cannot enter a shared cache");
 const listingContextSource = resaleServer.match(/export const prepareResaleOrderContext[\s\S]+?export const verifyPublishableResaleOrder/)?.[0] || "";
 for (const code of ["SEAPORT_CODE_HASH_MISMATCH", "USDC_CODE_HASH_MISMATCH", "COLLECTION_CODE_HASH_MISMATCH"]) {
   assert.match(listingContextSource, new RegExp(code), `listing preparation checks ${code}`);
 }
 assert.match(app, /data-cancel-resale/, "owned listings expose a cancellation control");
+assert.match(app, /work\.resaleManagedId/, "approval cleanup survives removal from the public order view");
 assert.match(app, /signSponsoredSecondaryUserOperation/, "seller controls use the real shared signing pipeline");
 assert.match(app, /submitted\.stage !== "submitted"[\s\S]+submitted\.userop_hash/, "UI requires provider submission evidence before reporting success");
 

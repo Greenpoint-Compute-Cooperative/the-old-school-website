@@ -42,15 +42,20 @@ export const GET = async (request) => {
       .order("published_at", { ascending: false }).limit(100);
     if (error) return problem(502, "resales_unavailable", "Secondary listings could not be loaded.", headers);
     const managedIds = new Set();
-    if (data.length) {
-      // Base-table RLS returns only rows owned by the current authenticated user.
-      // Anonymous grant errors are intentionally treated as an empty ownership set.
-      const managed = await supabase.from("resale_orders").select("id").in("id", data.map((order) => order.id));
-      if (!managed.error) for (const order of managed.data || []) managedIds.add(order.id);
+    let managedOrders = [];
+    // Base-table RLS returns only rows owned by the current authenticated user.
+    // Anonymous grant errors are intentionally treated as an empty ownership set.
+    const managed = await supabase.from("resale_orders").select("id,work_id,state")
+      .in("state", ["open", "cancel-requested", "cancelled", "expired", "invalidated", "reorged", "exception"])
+      .order("created_at", { ascending: false }).limit(100);
+    if (!managed.error) {
+      managedOrders = managed.data || [];
+      for (const order of managedOrders) managedIds.add(order.id);
     }
     return json({
       configured: true,
       orders: data.map((order) => ({ ...publicOrder(order), seller_managed: managedIds.has(order.id) })),
+      managed_orders: managedOrders,
       protocol: "seaport-1.6",
       open_sea: runtime.openSea.liveReady ? "mainnet" : runtime.wallet.chainId === 11155111 ? "unsupported-on-testnets" : "disabled"
     }, { headers: { ...Object.fromEntries(headers), "Cache-Control": "private, no-store" } });

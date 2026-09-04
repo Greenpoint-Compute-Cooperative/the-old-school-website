@@ -74,8 +74,10 @@ approval is already absent, and impossible from the seller Safe after it no long
 Both endpoints return policy-bound action intents with an exact `expected_call`, zero call value, target and selector,
 calldata hash, chain, Safe, token/order identity, stable request key, and the server-derived prepare request for the
 shared `/api/wallet/sponsor` pipeline. They intentionally return no UserOperation hash or submission result. The public
-feed annotates only the current authenticated seller's rows as `seller_managed` via base-table RLS; it never returns
-seller user IDs. The work page renders seller controls only for that private annotation.
+feed annotates only the current authenticated seller's rows as `seller_managed` via base-table RLS; a separate
+`managed_orders` list contains only that seller's order ID, work ID, and state so approval cleanup remains available
+after a cancelled or expired order leaves the public view. Neither response returns seller user IDs. The work page
+renders seller controls only from those private annotations.
 
 ## OpenSea production gates
 
