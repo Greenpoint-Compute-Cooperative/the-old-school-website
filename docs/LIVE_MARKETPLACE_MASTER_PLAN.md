@@ -72,6 +72,9 @@ Browser redirects, client clocks, cached indexers, screenshots, and Stripe event
 | Self-hosting exit | Alto | GPL service isolated from the application; never run as a Vercel Function |
 | Secondary crypto order boundary | exact-pinned Seaport.js + audited Seaport release + server-only OpenSea HTTP adapter | fixed-price ERC-721/USDC first; no provider package in browser/request bundles |
 | Optional read model | Ponder | never commerce authority |
+| Artwork delivery | Vercel Image Optimization + content-addressed Supabase Storage | bounded AVIF/WebP display variants; immutable IPFS remains token authority |
+| Public market stats | Postgres finalized snapshot | returns syncing instead of incomplete/stale totals |
+| Instagram intake | signed Meta webhook + private Postgres inbox | explicit commands create rights-unverified drafts only |
 
 ERC-4337 defines smart-account validation, UserOperations, bundlers, and paymasters without changing Ethereum consensus. [ERC-4337](https://eips.ethereum.org/EIPS/eip-4337) Safe publishes the relevant audited account and module components; exact deployed addresses and code hashes must be pinned and rehearsed. [Safe smart account](https://github.com/safe-global/safe-smart-account) · [Safe modules](https://github.com/safe-fndn/safe-modules) Alto is a practical self-hosted exit but needs a persistent service, node access, funded executors, simulation, monitoring, and 24/7 operations. [Alto](https://github.com/pimlicolabs/alto)
 

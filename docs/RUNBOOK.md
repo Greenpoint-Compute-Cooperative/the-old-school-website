@@ -51,6 +51,9 @@ GROVE_PRODUCTION_APPROVED_SHA="$(git rev-parse HEAD)" npm run deploy:production:
 The deployment guard requires a clean, version-tagged `main` commit and an exact approved SHA. The candidate uses Production variables but `--skip-domain`, so it does not receive public Production traffic. Run `npm run production:check` against the candidate through the protected-deployment tooling, then promote that exact deployment deliberately.
 
 After deployment, verify home, `/api/health`, `/api/config`, `/api/catalog`, rejected email auth, disabled providers, security headers, and Vercel error logs. Check the live page visually on desktop and phone.
+Also fetch a known local asset through `/_vercel/image` with an allowed width/quality
+and AVIF/WebP `Accept` header. `GET /api/market-stats` must be `ready`, `syncing`,
+or deliberately `disabled`; only `ready` may contain public figures.
 
 After promotion, run `npm run production:check` against the stable alias. Do not announce a release until this passes.
 
@@ -91,6 +94,22 @@ Confirm RLS, grants, indexes, retention, and least-privilege access before deplo
 - Turn off the matching Instagram/X flag. The UI will show **Not configured** and no OAuth attempt will be made.
 - Do not substitute password collection, scraping, or a different identity provider.
 - Verify cancel, failure, callback, profile initialization, sign-out, revocation, and deletion before re-enabling.
+
+Instagram OAuth and Instagram bot intake have independent switches. During a bot
+incident, set `GROVE_INSTAGRAM_BOT_ENABLED=false` without disabling sign-in,
+preserve the private inbox, and rotate the app secret if signature integrity is
+in doubt. Never replay an event by copying its raw message into logs or chat.
+
+## Media or index-quality incident
+
+- Remove the affected media record from `published` while preserving its content
+  hash and rights evidence. Never replace immutable NFT/IPFS metadata in place.
+- Do not expand the optimizer host/path allowlist to work around a failed import.
+- Keep `GROVE_SECONDARY_ENABLED=false` if new activity must stop, but keep the
+  finalized ownership reconciler running for existing orders and owner exits.
+- A stale/incomplete stats snapshot must return `syncing` with no figures. Check
+  the latest `indexer_worker_runs`, checkpoint continuity, registered/projected
+  token coverage, and the external staging scheduler before restoring `ready`.
 
 ## Acquisition incident
 

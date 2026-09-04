@@ -25,6 +25,8 @@ A curator-led marketplace for physical art in the School and born-digital work. 
 - Card lots use Stripe-hosted Apple Pay/card setup and signed offchain bids. Crypto lots are a separate, gated rail; a v1 auction never mixes reversible card and irreversible crypto settlement.
 - Secondary sales use fixed-price ERC-721 Seaport 1.6 orders paid in USDC. Sepolia is reconciled directly because OpenSea no longer supports testnets; OpenSea publication is a separately gated Production-mainnet outbox. Stripe and Apple Pay are never secondary-sale rails.
 - First-party product events are session-scoped, server-validated, private by default, aggregated behind an operator token, and deleted after 180 days.
+- Artwork uses bounded responsive AVIF/WebP variants from repository assets or content-addressed managed storage; arbitrary social/catalog URLs are never proxied through the optimizer.
+- Public marketplace statistics publish only fresh, complete finalized-chain snapshots. Signed Instagram bot intake is a separate, disabled-by-default rights-unverified discovery path.
 - The bundled catalog remains available when the backend is absent. OAuth and checkout never claim success without real configuration.
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for trust boundaries and [`docs/ENVIRONMENTS.md`](docs/ENVIRONMENTS.md) for staging/production isolation.
@@ -98,6 +100,8 @@ npm run live:check
 - `/api/health` — live database and integration readiness, without secrets
 - `POST /api/events` — same-origin, allowlisted, session-scoped product events
 - `GET /api/metrics?days=30` — bearer-protected aggregate operator feed
+- `GET /api/market-stats` — public, finality-gated marketplace snapshot; returns `syncing` instead of incomplete figures
+- `GET/POST /api/webhooks/instagram` — separately gated official Meta verification and signed event inbox
 - `/api/cron/metrics-retention` — Vercel-authenticated 180-day cleanup
 - `GET/POST /api/auctions/:id/bids` — privacy-safe feed and EIP-712/ERC-1271 bid acceptance
 - `GET /api/auctions/:id/bid-context` — authenticated, server-canonical context for a pre-provisioned Safe passkey bid
@@ -128,6 +132,7 @@ npm run live:check
   Apple Pay, API, compliance, and staged launch plan
 - [`docs/COMMERCE_RUNBOOK.md`](docs/COMMERCE_RUNBOOK.md) — fail-closed Apple Pay/card auction operations and incident actions
 - [`docs/SECONDARY_MARKET.md`](docs/SECONDARY_MARKET.md) — Seaport resale, OpenSea, royalty, and release boundaries
+- [`docs/MEDIA_INDEXING_SOCIAL.md`](docs/MEDIA_INDEXING_SOCIAL.md) — responsive media, finalized stats, indexer health, and Instagram bot integration
 - [`contracts/README.md`](contracts/README.md) — inventory-mint ERC-721/ERC-1155 candidates and Ethereum gates
 - [`docs/GENERATED_ASSETS.md`](docs/GENERATED_ASSETS.md) — source and generated-asset disclosure
 

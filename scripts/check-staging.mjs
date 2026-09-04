@@ -61,6 +61,23 @@ for (const work of catalog.works) {
     `Staging work ${work.slug} is not visibly synthetic.`);
 }
 
+const marketStats = await (await fetchChecked("/api/market-stats")).json();
+assert.ok(["ready", "syncing"].includes(marketStats.status), "Staging stats must report readiness honestly.");
+assert.equal(marketStats.network, "ethereum-sepolia");
+if (marketStats.status !== "ready") assert.equal(marketStats.stats, null, "Incomplete stats must not publish zeros.");
+
+const optimizedImage = await fetchChecked(
+  "/_vercel/image?url=%2Fpublic%2Fassets%2Fdigital-works.jpg&w=640&q=75",
+  { headers: { Accept: "image/avif,image/webp,image/*;q=0.8" } }
+);
+assert.match(optimizedImage.headers.get("content-type") || "", /^image\/(avif|webp)$/);
+assert.ok((await optimizedImage.arrayBuffer()).byteLength < 350_000,
+  "The 640px optimized marketplace image exceeds the mobile transfer budget.");
+
+const instagramWebhook = await fetchChecked("/api/webhooks/instagram", {}, 503);
+assert.equal((await instagramWebhook.json()).error?.code, "instagram_bot_not_configured",
+  "The bot must stay fail closed without separately reviewed Meta credentials.");
+
 const metricsResponse = await fetchChecked("/api/metrics", {}, 503);
 assert.equal((await metricsResponse.json()).error?.code, "metrics_not_configured");
 const eventsResponse = await fetchChecked("/api/events", {

@@ -76,6 +76,13 @@ npm run metrics -- --days=30
 
 The protected `/api/metrics?days=30` response contains exact distinct sessions, signed-in curators, engagement depth, curator/member/collection/bazaar funnels, daily activity, top routes/works, coarse format/provider/method/error breakdowns, and operational status counts for 1–90 days. It exposes aggregates only and is never called by the public interface.
 
+This operator telemetry is intentionally separate from `GET /api/market-stats`.
+The public endpoint is derived only from finalized NFT delivery/fill ledgers and
+ownership-confirmed asks. It publishes no visitor, bidder, curator, social, tax,
+shipping, payment-method, refund, or dispute detail. A stale or incomplete chain
+snapshot returns `syncing` and no figures; see
+[Media, indexing, statistics, and Instagram integration](MEDIA_INDEXING_SOCIAL.md).
+
 The terminal report prints the dashboard in this order:
 
 1. Traffic quality: sessions, engaged sessions, high-intent sessions, error sessions, and events per session.

@@ -55,6 +55,9 @@ if (Object.hasOwn(configuration.wallet || {}, "ownerExit")) {
 }
 
 await fetchChecked("/api/catalog");
+const marketStats = await (await fetchChecked("/api/market-stats")).json();
+assert.ok(["disabled", "ready", "syncing"].includes(marketStats.status));
+if (marketStats.status === "ready") assert.equal(marketStats.network, "ethereum-mainnet");
 // Keep the monitor compatible with the still-active pre-secondary Production
 // release during a staging-only rollout. Once Production exposes the capability
 // object, the resale route becomes part of the required fail-closed contract.

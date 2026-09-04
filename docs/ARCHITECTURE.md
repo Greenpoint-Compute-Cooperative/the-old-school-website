@@ -19,6 +19,9 @@ flowchart LR
   C --> E
   U -->|fixed-price ERC-721 / USDC| SP[Seaport 1.6]
   O[OpenSea publication outbox] -->|Production mainnet only| OS[OpenSea API]
+  M[Managed content-addressed media] -->|bounded AVIF/WebP variants| B
+  IG[Signed Meta webhook inbox] -->|rights-unverified discovery| D
+  C -->|fresh complete snapshot| ST[Public market stats]
 ```
 
 ## Runtime
@@ -45,6 +48,9 @@ flowchart LR
 | Gas sponsorship | private audit log | policy decision + UserOperation receipt |
 | Secondary order/signature | public | Seaport order + current ERC-1271/chain verification |
 | OpenSea publication status | operator/public projection | retry outbox; never payment or ownership authority |
+| Optimized display media | public after rights/moderation gates | content hash + managed storage record |
+| Public market statistics | public aggregate only when complete/fresh | finalized ledgers + ownership index snapshot |
+| Instagram webhook/provenance | private | signed Meta event + explicit curator pairing |
 
 OAuth subjects, handles, email, credential IDs, authenticator metadata, payment method IDs, signatures, and wallet links never enter NFT metadata or public tables.
 
@@ -67,3 +73,5 @@ OAuth subjects, handles, email, credential IDs, authenticator metadata, payment 
 - Never put service keys, provider tokens, RPC credentials, passkey material, Safe owner material, or deployer keys in static files, logs, screenshots, or CI artifacts.
 
 See [the master plan](LIVE_MARKETPLACE_MASTER_PLAN.md) for the complete lifecycle and gate checklist.
+The integrated media/indexing/social runbook is in [Media, indexing, statistics,
+and Instagram integration](MEDIA_INDEXING_SOCIAL.md).

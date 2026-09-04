@@ -38,7 +38,7 @@ assert.doesNotMatch(app, /join-form/, "manual signup form is absent");
 assert.doesNotMatch(app, /type="email"/, "email signup is absent");
 assert.match(app, /const BRAND_NAME = "Marketplace & Auction House of Brooklyn"/, "route titles use the exact public identity");
 assert.doesNotMatch(app, /Grove Marketplace/, "retired Grove identity is absent from the application");
-assert.match(app, /class="hero__seed"/, "home restores the supplied school as the full main card");
+assert.match(app, /className: "hero__seed"/, "home restores the supplied school as the full main card");
 assert.match(app, /class="hero__copy"/, "home restores the historical action position");
 assert.doesNotMatch(app, /hero__identity|hero__mark|hero__action/, "the rejected compact editorial hero is absent");
 assert.match(app, /track\("work_viewed"/, "work engagement is measured");

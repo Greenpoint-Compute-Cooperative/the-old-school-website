@@ -28,6 +28,7 @@ let draftLink = "";
 let toastTimer;
 let authConfiguration;
 let authConfigurationRequest;
+let marketplaceStats;
 let checkoutReturnHandled = false;
 
 const escapeHtml = (value = "") => String(value)
@@ -65,6 +66,78 @@ const safeMediaUrl = (value) => {
   }
 };
 
+const IMAGE_WIDTHS = Object.freeze([64, 128, 256, 384, 640, 750, 828, 1080, 1200, 1536]);
+const OPTIMIZED_MEDIA_HOSTS = new Set([
+  "nlvxepkzrctbjafcgffk.supabase.co",
+  "xscysuvqragqwhxuhivv.supabase.co"
+]);
+const LEGACY_ASSET_HOSTS = new Set([
+  "the-school-omega.vercel.app",
+  "the-school-sepolia.vercel.app"
+]);
+const LOCAL_ASSET_PATTERN = /^\/public\/assets\/[a-z0-9][a-z0-9._/-]*\.(?:avif|jpe?g|png|webp)$/i;
+const STORAGE_ASSET_PATTERN = /^\/storage\/v1\/object\/public\/marketplace-media\/sha256\/[0-9a-f]{64}\/[a-z0-9][a-z0-9._/-]*\.(?:avif|jpe?g|png|webp)$/i;
+const LOCAL_MEDIA_DIMENSIONS = Object.freeze({
+  "/public/assets/celestial-school.jpg": [1717, 916],
+  "/public/assets/digital-works.jpg": [1536, 1024],
+  "/public/assets/physical-works.jpg": [1536, 1024],
+  "/public/assets/school-mark.jpg": [620, 620],
+  "/public/assets/school-seed.jpg": [1254, 1254]
+});
+
+const managedMediaSource = (value) => {
+  const safe = safeMediaUrl(value);
+  if (!safe) return "";
+  try {
+    const url = new URL(safe);
+    if (!url.search && !url.hash && LOCAL_ASSET_PATTERN.test(url.pathname)
+      && (url.origin === location.origin || LEGACY_ASSET_HOSTS.has(url.hostname))) return url.pathname;
+    if (!url.search && !url.hash && url.protocol === "https:"
+      && OPTIMIZED_MEDIA_HOSTS.has(url.hostname) && STORAGE_ASSET_PATTERN.test(url.pathname)) return url.href;
+  } catch {
+    return "";
+  }
+  return "";
+};
+
+const imageOptimizerAvailable = () => location.protocol === "https:"
+  && !["localhost", "127.0.0.1"].includes(location.hostname);
+
+const optimizedImageUrl = (source, width, quality) => `/_vercel/image?url=${encodeURIComponent(source)}&w=${width}&q=${quality}`;
+
+const responsiveImage = ({
+  src,
+  alt,
+  className = "",
+  widths = IMAGE_WIDTHS,
+  sizes = "100vw",
+  quality = 75,
+  priority = false,
+  width,
+  height
+}) => {
+  const safe = safeMediaUrl(src);
+  if (!safe) return "";
+  const managed = managedMediaSource(safe);
+  const canOptimize = Boolean(managed && imageOptimizerAvailable());
+  const intrinsic = managed?.startsWith("/") ? LOCAL_MEDIA_DIMENSIONS[managed] : null;
+  const intrinsicWidth = Number(width) > 0 ? Number(width) : intrinsic?.[0];
+  const intrinsicHeight = Number(height) > 0 ? Number(height) : intrinsic?.[1];
+  const maximumWidth = intrinsicWidth || IMAGE_WIDTHS.at(-1);
+  const candidates = widths.filter((candidate) => IMAGE_WIDTHS.includes(candidate) && candidate <= maximumWidth);
+  const selectedWidths = candidates.length ? candidates : [Math.min(maximumWidth, IMAGE_WIDTHS.at(-1))];
+  const fallbackWidth = selectedWidths.at(-1);
+  const source = managed || safe;
+  const imageSrc = canOptimize ? optimizedImageUrl(source, fallbackWidth, quality) : source;
+  const srcset = canOptimize
+    ? ` srcset="${selectedWidths.map((candidate) => `${escapeHtml(optimizedImageUrl(source, candidate, quality))} ${candidate}w`).join(", ")}" sizes="${escapeHtml(sizes)}"`
+    : "";
+  const dimensions = intrinsicWidth && intrinsicHeight
+    ? ` width="${Math.round(intrinsicWidth)}" height="${Math.round(intrinsicHeight)}"`
+    : "";
+  return `<img class="${escapeHtml(className)}" src="${escapeHtml(imageSrc)}"${srcset}${dimensions} alt="${escapeHtml(alt)}" loading="${priority ? "eager" : "lazy"}" decoding="async" fetchpriority="${priority ? "high" : "auto"}" referrerpolicy="no-referrer">`;
+};
+
 const safeDocumentUrl = (value) => {
   if (typeof value !== "string" || !value.trim()) return "";
   try {
@@ -75,15 +148,29 @@ const safeDocumentUrl = (value) => {
   }
 };
 
-const visualStyle = (work) => {
+const visualStyle = (work, { detail = false } = {}) => {
   const sheet = work.sheet === "digital" ? "digital" : "physical";
-  return `--art:url('public/assets/${sheet}-works.jpg');--x:${work.x};--y:${work.y}`;
+  const source = `/public/assets/${sheet}-works.jpg`;
+  const rendered = imageOptimizerAvailable()
+    ? optimizedImageUrl(source, detail ? 1536 : 750, detail ? 85 : 75)
+    : source;
+  return `--art:url('${rendered}');--x:${work.x};--y:${work.y}`;
 };
 
-const art = (work, className = "") => {
-  const mediaUrl = safeMediaUrl(work.mediaUrl);
-  if (mediaUrl) return `<img class="art art--live ${className}" src="${escapeHtml(mediaUrl)}" alt="${escapeHtml(work.alt)}">`;
-  return `<div class="art ${className}" style="${visualStyle(work)}" role="img" aria-label="${escapeHtml(work.alt)}"></div>`;
+const art = (work, className = "", { priority = false, detail = false } = {}) => {
+  const mediaUrl = managedMediaSource(work.mediaUrl);
+  if (mediaUrl) return responsiveImage({
+    src: mediaUrl,
+    alt: work.alt,
+    className: `art art--live ${className}`.trim(),
+    widths: detail ? [640, 750, 828, 1080, 1200, 1536] : [256, 384, 640, 750],
+    sizes: detail ? "(max-width: 760px) 100vw, 66vw" : "(max-width: 760px) 100vw, (max-width: 1080px) 50vw, 33vw",
+    quality: detail ? 85 : 75,
+    priority,
+    width: work.mediaWidth,
+    height: work.mediaHeight
+  });
+  return `<div class="art ${className}" style="${visualStyle(work, { detail })}" role="img" aria-label="${escapeHtml(work.alt)}"></div>`;
 };
 
 const typeLabel = (type) => ({ physical: "Physical", digital: "Digital", paired: "Physical + NFT" }[type]);
@@ -167,6 +254,8 @@ const apiWork = (work, index, auction, resale, managedResale, ownedAsset) => ({
   fulfillment: work.requires_shipping ? "Shipping address and tax are collected in secure checkout." : "Delivery details are confirmed after payment.",
   featured: false,
   mediaUrl: work.media_url,
+  mediaWidth: work.media_width,
+  mediaHeight: work.media_height,
   termsUrl: auction?.terms_url || work.buyer_terms_url,
   licenseUrl: work.license_uri,
   saleEnabled: work.checkout_ready === true,
@@ -196,11 +285,12 @@ const apiWork = (work, index, auction, resale, managedResale, ownedAsset) => ({
 
 const hydrateLiveCatalog = async () => {
   try {
-    const [response, resalesResponse, configurationResponse, walletAssetsResponse] = await Promise.all([
+    const [response, resalesResponse, configurationResponse, walletAssetsResponse, marketStatsResponse] = await Promise.all([
       fetch("/api/catalog", { headers: { Accept: "application/json" } }),
       fetch("/api/resales", { headers: { Accept: "application/json" } }),
       fetch("/api/config", { headers: { Accept: "application/json" } }),
-      fetch("/api/wallet/assets", { headers: { Accept: "application/json" } })
+      fetch("/api/wallet/assets", { headers: { Accept: "application/json" } }),
+      fetch("/api/market-stats", { headers: { Accept: "application/json" } })
     ]);
     if (!response.ok || !response.headers.get("content-type")?.includes("application/json")) return;
     const catalog = await response.json();
@@ -212,6 +302,10 @@ const hydrateLiveCatalog = async () => {
     if (configurationResponse.ok && configurationResponse.headers.get("content-type")?.includes("application/json")) {
       authConfiguration = await configurationResponse.json();
       authConfigurationRequest = Promise.resolve(authConfiguration);
+    }
+    if (marketStatsResponse.ok && marketStatsResponse.headers.get("content-type")?.includes("application/json")) {
+      const nextStats = await marketStatsResponse.json();
+      marketplaceStats = nextStats.status === "ready" ? nextStats : null;
     }
 
     const liveCurators = (Array.isArray(catalog.curators) ? catalog.curators : []).map((curator) => {
@@ -325,6 +419,24 @@ const discoveryFilters = () => ["new", "saved", "sponsored"].map((state) => {
   return `<button type="button" data-discovery-filter="${state}" aria-pressed="${discoveryFilter === state}">${state[0].toUpperCase() + state.slice(1)} <span>${count}</span></button>`;
 }).join("");
 
+const marketplaceStatsStrip = () => {
+  const stats = marketplaceStats?.stats;
+  if (!stats) return "";
+  const values = [
+    [stats.catalog?.published_works, "Published works"],
+    [stats.catalog?.minted_erc721_works, "Minted ERC-721 works"],
+    [stats.auctions?.open, "Auctions open"],
+    [(stats.auctions?.finalized_sales || 0) + (stats.secondary?.finalized_sales || 0), "Finalized sales"]
+  ].filter(([value]) => Number.isSafeInteger(value) && value >= 0);
+  if (!values.length) return "";
+  return `
+    <section class="market-stats" aria-label="Finalized marketplace statistics">
+      <span class="market-stats__network">${marketplaceStats.network === "ethereum-sepolia" ? "Sepolia rehearsal" : "Ethereum mainnet"} · finalized data</span>
+      <div>${values.map(([value, label]) => `<span><strong>${value.toLocaleString("en-US")}</strong><small>${label}</small></span>`).join("")}</div>
+    </section>
+  `;
+};
+
 const home = () => {
   const featuredDiscoveries = discoveries.slice(0, 3);
   const saleReadyWorks = works.filter((work) => work.saleEnabled || work.auctionEnabled).slice(0, 3);
@@ -337,11 +449,21 @@ const home = () => {
   return `
     <div class="page home-page">
       <section class="hero" aria-label="${BRAND_NAME}">
-        <img class="hero__seed" src="public/assets/school-seed.jpg" alt="A glowing ornate school floating in pale-blue clouds">
+        ${responsiveImage({
+          src: "public/assets/school-seed.jpg",
+          alt: "A glowing ornate school floating in pale-blue clouds",
+          className: "hero__seed",
+          widths: [640, 750, 828, 1080, 1200],
+          sizes: "(max-width: 760px) calc(100vw - 24px), min(100vw - 36px, 1480px)",
+          quality: 85,
+          priority: true
+        })}
         <div class="hero__copy">
           <a class="button button--light" href="#discover">Open discoveries</a>
         </div>
       </section>
+
+      ${marketplaceStatsStrip()}
 
       <section class="section" aria-labelledby="home-discoveries-title">
         <div class="section-head">
@@ -439,7 +561,7 @@ const workPage = (work) => {
     <div class="work-page">
       <a class="back-link work-page__back" href="#market">← Marketplace</a>
       <div class="work-view">
-        <div class="work-view__art">${art(work)}</div>
+        <div class="work-view__art">${art(work, "", { priority: true, detail: true })}</div>
         <aside class="work-panel">
           <span class="tag tag--static">${typeLabel(work.type)}</span>
           <h1>${escapeHtml(work.title)}</h1>
@@ -544,7 +666,14 @@ const providerState = (provider) => authConfiguration?.providers?.[provider]?.co
 
 const joinPage = () => `
   <div class="page join-page">
-    <div class="join-image"><img src="public/assets/school-seed.jpg" alt="A glowing school floating in clouds"></div>
+    <div class="join-image">${responsiveImage({
+      src: "public/assets/school-seed.jpg",
+      alt: "A glowing school floating in clouds",
+      widths: [384, 640, 750, 828, 1080, 1200],
+      sizes: "(max-width: 760px) 100vw, 50vw",
+      quality: 85,
+      priority: true
+    })}</div>
     <div class="join-panel">
       <h1>Join.</h1>
       <div class="social-join" aria-label="Join as curator">
@@ -572,7 +701,7 @@ const bazaarPage = () => {
   return `
     <div class="page bazaar-page">
       <section class="bazaar-hero">
-        <div class="bazaar-hero__image">${heroWork ? art(heroWork) : `<img class="art art--live" src="public/assets/school-seed.jpg" alt="The School">`}</div>
+        <div class="bazaar-hero__image">${heroWork ? art(heroWork, "", { priority: true, detail: true }) : responsiveImage({ src: "public/assets/school-seed.jpg", alt: "The School", className: "art art--live", widths: [640, 750, 828, 1080, 1200], sizes: "100vw", quality: 85, priority: true })}</div>
         <div class="bazaar-hero__copy"><span class="bazaar-meta">${escapeHtml(bazaar.dateLabel)} · ${escapeHtml(bazaar.timeLabel)}</span><h1>${escapeHtml(bazaar.title)}</h1>${bazaar.available !== false && (bazaar.startsAt || bazaar.date) ? `<button class="button button--light" type="button" data-calendar>Save the date</button>` : ""}</div>
       </section>
       <section class="schedule" aria-label="Bazaar schedule">
@@ -1115,9 +1244,9 @@ const loadAuthConfiguration = async () => {
 const setJoinResult = (headline, detail, profile) => {
   const result = document.querySelector("#join-result");
   if (!result) return;
-  const image = profile?.avatar_url && /^https:\/\//i.test(profile.avatar_url) ? profile.avatar_url : "public/assets/school-mark.jpg";
+  const image = managedMediaSource(profile?.avatar_url) || "public/assets/school-mark.jpg";
   result.innerHTML = profile ? `
-    <img src="${escapeHtml(image)}" alt="">
+    ${responsiveImage({ src: image, alt: "", className: "profile-avatar", widths: [64, 128, 256], sizes: "64px", quality: 75 })}
     <span><strong>${escapeHtml(profile.display_name)}</strong><small>${profile.handle ? `@${escapeHtml(profile.handle)} · ` : ""}${profile.provider === "x" ? "X" : "Instagram"}</small></span>
     <button type="button" data-signout>Sign out</button>
   ` : `<strong>${escapeHtml(headline)}</strong><span>${escapeHtml(detail)}</span>`;

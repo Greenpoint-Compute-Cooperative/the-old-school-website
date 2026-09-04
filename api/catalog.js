@@ -53,7 +53,7 @@ export const GET = async (request) => {
     const [worksResult, bazaarsResult, curatorsResult, auctionsResult] = await Promise.all([
       supabase
         .from("works")
-        .select("id,slug,title,artist_name,description,format,media_url,price_minor,currency,crypto_amount,crypto_asset,chain,contract_address,token_id,contract_status,location,status,curator_id,seller_id,sale_enabled,sale_kind,inventory_available,requires_shipping,stripe_tax_code,stripe_shipping_rate_id,buyer_terms_url,buyer_terms_version,license_uri,listed_at")
+        .select("id,slug,title,artist_name,description,format,media_url,media_width,media_height,price_minor,currency,crypto_amount,crypto_asset,chain,contract_address,token_id,contract_status,location,status,curator_id,seller_id,sale_enabled,sale_kind,inventory_available,requires_shipping,stripe_tax_code,stripe_shipping_rate_id,buyer_terms_url,buyer_terms_version,license_uri,listed_at")
         .in("status", ["listed", "reserved", "sold"])
         .order("listed_at", { ascending: false }),
       supabase

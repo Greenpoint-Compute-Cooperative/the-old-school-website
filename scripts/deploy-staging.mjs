@@ -36,5 +36,10 @@ for (const work of catalog.works) {
     `Staging work ${work.slug} is not visibly synthetic.`);
 }
 
+const marketStats = JSON.parse(run("vercel", ["curl", "/api/market-stats", "--deployment", deploymentUrl]));
+assert.ok(["ready", "syncing"].includes(marketStats.status));
+assert.equal(marketStats.network, "ethereum-sepolia");
+if (marketStats.status !== "ready") assert.equal(marketStats.stats, null);
+
 run("vercel", ["alias", "set", deploymentUrl, "the-school-sepolia.vercel.app"]);
 console.log(`Staging promoted: ${deploymentUrl} -> https://the-school-sepolia.vercel.app`);

@@ -50,4 +50,11 @@ Staging and Production deployments are deliberately separate builds because serv
 `npm run deploy:staging` verifies the protected, immutable staging candidate through `vercel curl` before moving `the-school-sepolia.vercel.app`, then `npm run staging:check` verifies the stable alias. The branch matcher will also create staging candidates after `codex/live-marketplace` exists on the connected remote, but a candidate does not become the stable staging release until the explicit alias step succeeds. Vercel Cron runs only against Production, so `.github/workflows/staging-resale-index.yml` always calls the authenticated staging ownership reconciler and can add the sponsorship reconciler only after its explicit provider-E2E repository variable is enabled. The workflow remains fail-closed until the repository secret `GROVE_STAGING_CRON_SECRET` matches staging's `CRON_SECRET`; a missing secret fails the run.
 - Monitoring: GitHub runs the production check hourly and maintains one `ops:incident` issue while unhealthy. A private weekly workflow produces the 7/30/90-day aggregate product report.
 
+Media, market stats, and Instagram inbox records are environment-local. The
+image optimizer allowlist names only the two controlled Storage hosts and only
+content-addressed public objects. Instagram uses separate app credentials and
+webhook subscriptions per environment. The bot stays disabled in staging until
+its signed-webhook and private-inbox rehearsal passes; it stays independently
+disabled in Production until Meta review and the Production release gate pass.
+
 Never copy production rows into preview. Recreate representative states with synthetic records that are visibly labeled as preview data.

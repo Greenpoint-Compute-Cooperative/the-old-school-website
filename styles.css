@@ -385,6 +385,48 @@ h2 {
   margin-top: 82px;
 }
 
+.market-stats {
+  display: grid;
+  margin-top: 18px;
+  padding: 18px 22px 20px;
+  gap: 13px;
+  border: 1px solid rgba(255, 255, 255, 0.84);
+  border-radius: 11px;
+  background: rgba(242, 250, 254, 0.7);
+  box-shadow: var(--shadow-sm);
+}
+
+.market-stats__network {
+  color: var(--ink-soft);
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.market-stats > div {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.market-stats > div > span {
+  display: grid;
+  gap: 2px;
+}
+
+.market-stats strong {
+  font-family: var(--serif);
+  font-size: clamp(27px, 3vw, 40px);
+  font-weight: 400;
+  line-height: 1;
+}
+
+.market-stats small {
+  color: var(--ink-soft);
+  font-size: 10px;
+}
+
 .section-head {
   display: flex;
   align-items: baseline;
@@ -2142,6 +2184,15 @@ img.art--live {
 
   .footer > span {
     justify-self: start;
+  }
+
+  .market-stats {
+    padding: 16px;
+  }
+
+  .market-stats > div {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px 12px;
   }
 
   .collect-dialog {
