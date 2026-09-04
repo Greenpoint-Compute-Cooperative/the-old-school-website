@@ -24,8 +24,9 @@ const resolvePath = (pathname) => {
   const rootFiles = ["index.html", "app.js", "analytics.js", "catalog.js", "styles.css", "manifest.webmanifest", "robots.txt", "sitemap.xml", "wallet-intents.js"];
   const allowedRootFile = rootFiles.includes(normalized);
   const allowedAsset = normalized.startsWith(`public${sep}assets${sep}`);
+  const allowedMetadata = normalized.startsWith(`public${sep}metadata${sep}`);
   if (normalized === join(".well-known", "security.txt")) return join(root, "public", normalized);
-  if (normalized.includes("..") || (!allowedRootFile && !allowedAsset)) return null;
+  if (normalized.includes("..") || (!allowedRootFile && !allowedAsset && !allowedMetadata)) return null;
   return normalized === "wallet-intents.js" ? join(root, "dist", normalized) : join(root, normalized);
 };
 

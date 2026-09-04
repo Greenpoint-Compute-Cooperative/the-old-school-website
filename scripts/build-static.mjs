@@ -15,6 +15,7 @@ for (const file of ["index.html", "app.js", "analytics.js", "catalog.js", "style
 }
 
 await cp(join(root, "public", "assets"), join(output, "public", "assets"), { recursive: true });
+await cp(join(root, "public", "metadata"), join(output, "public", "metadata"), { recursive: true });
 await mkdir(join(output, ".well-known"), { recursive: true });
 await copyFile(join(root, "public", ".well-known", "security.txt"), join(output, ".well-known", "security.txt"));
 const buildResult = await build({

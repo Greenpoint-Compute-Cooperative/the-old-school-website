@@ -7,7 +7,7 @@ import { bazaar, curators, discoveries, exhibitions, works } from "../catalog.js
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const read = (path) => readFile(join(root, path), "utf8");
 
-const [html, css, app, analytics, launch, oauth, manifest, health] = await Promise.all([
+const [html, css, app, analytics, launch, oauth, manifest, health, rehearsalMetadata] = await Promise.all([
   read("index.html"),
   read("styles.css"),
   read("app.js"),
@@ -15,7 +15,8 @@ const [html, css, app, analytics, launch, oauth, manifest, health] = await Promi
   read("LAUNCH.md"),
   read("docs/OAUTH_SETUP.md"),
   read("manifest.webmanifest"),
-  read("api/health.js")
+  read("api/health.js"),
+  read("public/metadata/sepolia-passkey-auction-rehearsal.json")
 ]);
 
 assert.match(html, /id="app"/, "application mount exists");
@@ -63,6 +64,7 @@ assert.match(app, /Apple Pay or card/, "hosted Apple Pay and card path is presen
 assert.match(app, /signBidIntentWithPasskey/, "the auction dialog invokes the Safe passkey signer");
 assert.match(app, /\/bid-context/, "the auction dialog requests a server-canonical signing context");
 assert.match(app, /Idempotency-Key/, "browser bid submission has an idempotency key");
+assert.match(rehearsalMetadata, /synthetic Grove marketplace rehearsal asset/, "Sepolia metadata is explicitly synthetic");
 assert.match(css, /prefers-reduced-motion/, "reduced-motion behavior exists");
 assert.match(css, /:focus-visible/, "keyboard focus treatment exists");
 assert.match(css, /@media \(max-width: 760px\)/, "phone layout exists");
