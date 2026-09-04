@@ -15,7 +15,9 @@ const fetchChecked = async (path, options = {}, expectedStatus = 200) => {
     signal: AbortSignal.timeout(8_000)
   });
   const durationMs = Math.round(performance.now() - startedAt);
-  assert.equal(response.status, expectedStatus, `${path} returned ${response.status}; expected ${expectedStatus}`);
+  const expectedStatuses = Array.isArray(expectedStatus) ? expectedStatus : [expectedStatus];
+  assert.ok(expectedStatuses.includes(response.status),
+    `${path} returned ${response.status}; expected ${expectedStatuses.join(" or ")}`);
   checks.push({ path, status: response.status, duration_ms: durationMs });
   return response;
 };
@@ -55,9 +57,15 @@ if (Object.hasOwn(configuration.wallet || {}, "ownerExit")) {
 }
 
 await fetchChecked("/api/catalog");
-const marketStats = await (await fetchChecked("/api/market-stats")).json();
-assert.ok(["disabled", "ready", "syncing"].includes(marketStats.status));
-if (marketStats.status === "ready") assert.equal(marketStats.network, "ethereum-mainnet");
+// During a staging-only rollout the active Production deployment legitimately
+// predates this route. As soon as the route exists, its mainnet semantics are
+// mandatory; an arbitrary non-200 response is never accepted.
+const marketStatsResponse = await fetchChecked("/api/market-stats", {}, [200, 404]);
+if (marketStatsResponse.status === 200) {
+  const marketStats = await marketStatsResponse.json();
+  assert.ok(["disabled", "ready", "syncing"].includes(marketStats.status));
+  if (marketStats.status === "ready") assert.equal(marketStats.network, "ethereum-mainnet");
+}
 // Keep the monitor compatible with the still-active pre-secondary Production
 // release during a staging-only rollout. Once Production exposes the capability
 // object, the resale route becomes part of the required fail-closed contract.

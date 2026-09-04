@@ -36,6 +36,7 @@ An inbound message or post URL is provenance, not permission to reproduce or min
 
 - A complete media ingestion/derivative worker is not part of this slice. Until it lands, arbitrary remote artwork and OAuth avatars fail closed to local editorial art.
 - Public statistics remain `syncing` until the finalized indexer has run through the chain head and its ownership projection covers every registered tracked token.
+- Vercel invokes project cron routes only on the production deployment, while GitHub scheduled workflows run only from the default branch. The staging endpoint and synchronized secret are ready, but durable scheduling cannot activate until the scheduler workflow reaches the default branch or a separate staging scheduler is provisioned.
 - The current order indexer measures Grove listings and fills, not every external OpenSea order or collection-wide sale.
 - Instagram delivery remains disabled until separate staging/production Meta apps, verified credentials, explicit sender pairing, rights/moderation review, and the processing worker are implemented.
 - Mainnet NFT metadata should not launch until canonical media and metadata use persisted `ipfs://` CIDs.
@@ -58,3 +59,5 @@ Release the fail-closed Sepolia slice now. Next, build one media ingestion worke
 | Seaport exposes fulfillment, cancellation, and counter-increment events | Events and errors | OpenSea, accessed 2026-09-04 | https://docs.opensea.io/docs/seaport-events-and-errors | High |
 | Meta signs notifications with SHA-256, batches up to 1,000 updates, and retries failures for roughly 36 hours | Instagram Platform Webhooks | Meta, accessed 2026-09-04 | https://developers.facebook.com/documentation/instagram-platform/webhooks | High; verified against current official page source |
 | Instagram Login API targets Instagram professional accounts and uses separate permissions such as `instagram_business_basic` | Instagram API with Instagram Login | Meta, accessed 2026-09-04 | https://developers.facebook.com/documentation/instagram-platform/instagram-api-with-instagram-login | High; verified against current official page source |
+| Vercel Cron invokes production deployments, not preview/custom staging deployments | Cron Jobs / setup guide | Vercel, updated 2025-11-10 | https://vercel.com/kb/guide/how-to-setup-cron-jobs-on-vercel | High |
+| GitHub `schedule` workflows run only from the default branch | Events that trigger workflows | GitHub Docs, accessed 2026-09-04 | https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule | High |
