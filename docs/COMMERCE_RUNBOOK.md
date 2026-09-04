@@ -36,6 +36,7 @@ GROVE_AUCTION_TERMS_VERSION=...
 GROVE_AUCTION_TERMS_HASH=0x...
 GROVE_MAX_FIAT_HAMMER_MINOR=...
 GROVE_AUCTION_MANDATE_HOURS=168
+GROVE_AUCTION_SETTLEMENT_HOURS=48
 GROVE_AUCTION_RISK_HOLD_HOURS=168
 STRIPE_SECRET_KEY=...
 STRIPE_WEBHOOK_SECRET=...
@@ -77,12 +78,17 @@ Do not open based on an indexer alone.
 1. Close worker locks the auction after the server close time and rereads the winning bid.
 2. Revalidate the winner's Safe, ownership/recovery state, EIP-712 payload, ERC-1271 signature, nonce, terms, and card mandate.
 3. Select the winner exactly once. If reserve is not met or proof is stale, record no-sale/exception rather than guessing.
-4. Calculate tax/shipping using current provider data; freeze the exact total and set the risk-hold deadline.
+4. Calculate tax/shipping using current provider data; freeze the exact total and settlement deadline. Set `paid_at` and the risk-hold deadline only from the authoritative payment-success timestamp, never from tax calculation time.
 5. Create one unconfirmed winner PaymentIntent with a stable generation idempotency key, atomically bind it as the settlement's current intent, then confirm it off-session. Never create or confirm a replacement until Stripe is retrieved-current and reports the named prior generation `canceled`; complete or cancel a failed/action-required intent before replacement.
 6. On `requires_action`/decline, issue a short-lived hosted cure flow. If the cure expires, follow the published default/no-sale policy.
 7. A signed webhook must retrieve the current PaymentIntent and match settlement, total, currency, and status.
 8. Keep `paid-risk-hold` until the deadline, fraud/provider review is clear, no refund/dispute is open, and a human or reviewed policy releases it.
-9. Queue one inventory Safe transfer. Confirm expected event, block/transaction hash, owner/balance, and finality before fulfillment.
+9. Call the service-only `authorize_auction_delivery` RPC with a fresh retrieved-provider evidence hash. Authorization fails closed unless the current payment is succeeded, tax transaction and paid timestamp are recorded, the risk hold passed, and no refund, open review, actionable early-fraud warning, or winner-wallet mismatch exists.
+10. `/api/cron/nft-delivery` prepares one exact Safe transaction from finalized custody evidence. It records the ERC standard, inventory Safe nonce, Safe transaction hash, calldata hash, and evidence block; it never holds owner keys, creates signatures, or broadcasts a transaction.
+11. Inventory Safe owners independently review that immutable packet, obtain the 2-of-3 quorum, and execute it just in time. An unsigned Safe transaction has no automatic expiry, so re-run the release checks instead of executing a stale proposal after any payment, fraud, wallet, or inventory state changes.
+12. The delivery worker marks `nft-submitted` only after it observes the matching Safe `ExecutionSuccess`, exact ERC-721/1155 transfer event, decoded zero-value direct call, and Safe transaction hash onchain. It marks fulfillment only after the receipt block is canonical under Ethereum's finalized head.
+
+The worker states are deliberately conservative: `queued` means an unsigned human-review packet exists; `included` means the exact transfer executed but is not finalized; `finalized` is the only successful fulfillment state. A refund or dispute after inclusion is `disputed-post-mint`; the contracts provide no clawback.
 
 ## Incident actions
 

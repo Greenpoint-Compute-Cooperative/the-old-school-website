@@ -17,6 +17,10 @@
     {
       "path": "/api/cron/auction-settle",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/nft-delivery",
+      "schedule": "*/5 * * * *"
     }
   ],
   "headers": [
