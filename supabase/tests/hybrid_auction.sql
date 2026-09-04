@@ -183,15 +183,17 @@ $$;
 update public.auctions set closes_at = now() - interval '1 second'
 where id = '60000000-0000-4000-8000-000000000001';
 
-select public.close_auction(
+select public.close_auction_for_settlement(
   '60000000-0000-4000-8000-000000000001',
   (select high_bid_id from public.auctions where id = '60000000-0000-4000-8000-000000000001'),
   '0x1212121212121212121212121212121212121212121212121212121212121212',
-  105, 105, '0x4545454545454545454545454545454545454545454545454545454545454545'
+  105, 105, '0x4545454545454545454545454545454545454545454545454545454545454545',
+  now() + interval '2 days', 604800
 );
-select public.close_auction(
+select public.close_auction_for_settlement(
   '60000000-0000-4000-8000-000000000001', null, null, null,
-  105, '0x4545454545454545454545454545454545454545454545454545454545454545'
+  105, '0x4545454545454545454545454545454545454545454545454545454545454545',
+  now() + interval '2 days', 604800
 );
 
 do $$
@@ -216,11 +218,11 @@ $$;
 
 select public.freeze_auction_settlement_total(
   (select id from public.auction_settlements where auction_id = '60000000-0000-4000-8000-000000000001'),
-  'taxcalc_test', 800, 200, '2099-01-01T00:00:00Z'
+  'taxcalc_test', 800, 200
 );
 select public.freeze_auction_settlement_total(
   (select id from public.auction_settlements where auction_id = '60000000-0000-4000-8000-000000000001'),
-  'taxcalc_test', 800, 200, '2099-01-01T00:00:00Z'
+  'taxcalc_test', 800, 200
 );
 
 do $$
@@ -231,7 +233,7 @@ begin
   begin
     perform public.freeze_auction_settlement_total(
       (select id from public.auction_settlements where auction_id = '60000000-0000-4000-8000-000000000001'),
-      'taxcalc_other', 900, 200, '2099-01-01T00:00:00Z'
+      'taxcalc_other', 900, 200
     );
     raise exception 'frozen provider total was replaced';
   exception when others then
@@ -297,13 +299,26 @@ select public.apply_stripe_auction_payment_event(
   (select id from public.auction_settlements where auction_id = '60000000-0000-4000-8000-000000000001'),
   'pi_current', 'pi_current', 'canceled', 11000, 'usd', '{}'::jsonb
 );
+do $$
+begin
+  begin
+    perform public.register_auction_payment_cure(
+      (select id from public.auction_settlements where auction_id = '60000000-0000-4000-8000-000000000001'),
+      'pi_current', 'cs_too_late', now() + interval '3 days'
+    );
+    raise exception 'cure outlived the settlement deadline';
+  exception when others then
+    if sqlerrm <> 'payment_not_curable' then raise; end if;
+  end;
+end;
+$$;
 select public.register_auction_payment_cure(
   (select id from public.auction_settlements where auction_id = '60000000-0000-4000-8000-000000000001'),
-  'pi_current', 'cs_cure', '2099-01-01T00:00:00Z'
+  'pi_current', 'cs_cure', now() + interval '1 hour'
 );
 select public.register_auction_payment_cure(
   (select id from public.auction_settlements where auction_id = '60000000-0000-4000-8000-000000000001'),
-  'pi_current', 'cs_cure', '2099-01-01T00:00:00Z'
+  'pi_current', 'cs_cure', now() + interval '1 hour'
 );
 select public.bind_auction_payment_cure(
   (select id from public.auction_settlements where auction_id = '60000000-0000-4000-8000-000000000001'),
@@ -324,19 +339,22 @@ end;
 $$;
 
 do $$
+declare
+  stale_result text;
 begin
-  begin
-    perform public.apply_stripe_auction_payment_event(
-      'evt_old_succeeded', 'payment_intent.succeeded',
-      (select id from public.auction_settlements where auction_id = '60000000-0000-4000-8000-000000000001'),
-      'pi_current', 'pi_current', 'succeeded', 11000, 'usd', '{}'::jsonb
-    );
-    raise exception 'superseded payment intent mutated settlement';
-  exception when others then
-    if sqlerrm <> 'payment_intent_not_current' then raise; end if;
-  end;
+  stale_result := public.apply_stripe_auction_payment_event(
+    'evt_old_succeeded', 'payment_intent.succeeded',
+    (select id from public.auction_settlements where auction_id = '60000000-0000-4000-8000-000000000001'),
+    'pi_current', 'pi_current', 'succeeded', 11000, 'usd', '{}'::jsonb
+  );
+  if stale_result <> 'stale' then raise exception 'prior generation was not acknowledged as stale'; end if;
 end;
 $$;
+
+select public.record_auction_tax_transaction(
+  (select id from public.auction_settlements where auction_id = '60000000-0000-4000-8000-000000000001'),
+  'pi_cure', 'tax_committed', now()
+);
 
 select public.apply_stripe_auction_payment_event(
   'evt_succeeded', 'payment_intent.succeeded',
@@ -347,6 +365,20 @@ select public.apply_stripe_auction_payment_event(
   'evt_late_processing', 'payment_intent.processing',
   (select id from public.auction_settlements where auction_id = '60000000-0000-4000-8000-000000000001'),
   'pi_cure', 'pi_cure', 'processing', 11000, 'usd', '{}'::jsonb
+);
+select public.apply_stripe_auction_risk_event(
+  'evt_review_open', 'review.opened',
+  (select id from public.auction_settlements where auction_id = '60000000-0000-4000-8000-000000000001'),
+  'pi_cure', 'prv_review', 'review', true, 'open', now(), '{}'::jsonb
+);
+select public.apply_stripe_auction_risk_event(
+  'evt_review_closed', 'review.closed',
+  (select id from public.auction_settlements where auction_id = '60000000-0000-4000-8000-000000000001'),
+  'pi_cure', 'prv_review', 'review', false, 'approved', now(), '{}'::jsonb
+);
+select public.record_auction_tax_reversal(
+  (select id from public.auction_settlements where auction_id = '60000000-0000-4000-8000-000000000001'),
+  'pi_cure', 're_partial', 'tax_reversal_partial', 2500, 'succeeded'
 );
 select public.apply_stripe_auction_payment_event(
   'evt_refund_partial', 'refund.updated',
@@ -367,6 +399,16 @@ begin
   if (select status from public.auction_payment_ledger_entries where provider_object_id = 're_partial') <> 'succeeded' then
     raise exception 'refund ledger regressed after stale event';
   end if;
+  if (select tax_reversal_ref from public.auction_payment_ledger_entries where provider_object_id = 're_partial') <> 'tax_reversal_partial' then
+    raise exception 'successful refund lacks its tax reversal';
+  end if;
+  if (select paid_at is null or risk_hold_until <> paid_at + interval '604800 seconds'
+      from public.auction_settlements where auction_id = '60000000-0000-4000-8000-000000000001') then
+    raise exception 'risk hold was not derived from authoritative payment success';
+  end if;
+  if exists (select 1 from public.auction_payment_risk_signals where actionable) then
+    raise exception 'authoritative closed review remained actionable';
+  end if;
   begin
     perform public.apply_stripe_auction_payment_event(
       'evt_wrong_intent', 'payment_intent.succeeded',
@@ -375,7 +417,7 @@ begin
     );
     raise exception 'unbound payment intent was accepted';
   exception when others then
-    if sqlerrm <> 'payment_intent_not_current' then raise; end if;
+    if sqlerrm <> 'payment_intent_not_known' then raise; end if;
   end;
 end;
 $$;

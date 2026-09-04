@@ -33,10 +33,14 @@ export const POST = async (request) => {
 
     const service = createSupabaseServiceClient();
     const { data: settlement, error: settlementError } = await service.from("auction_settlements")
-      .select("id,auction_id,winning_bid_id,bidder_user_id,total_amount,currency,state,current_payment_intent_ref,payment_generation,cure_checkout_session_ref,cure_state,cure_expires_at")
+      .select("id,auction_id,winning_bid_id,bidder_user_id,total_amount,currency,state,settlement_deadline,current_payment_intent_ref,payment_generation,cure_checkout_session_ref,cure_state,cure_expires_at")
       .eq("auction_id", auctionId).eq("bidder_user_id", user.id).maybeSingle();
     if (settlementError) return problem(503, "payment_cure_unavailable", "Payment recovery could not be loaded.", headers);
     if (!settlement) return problem(404, "settlement_not_found", "No winning settlement was found.", headers);
+    const settlementDeadline = new Date(settlement.settlement_deadline).getTime();
+    if (!Number.isFinite(settlementDeadline) || settlementDeadline <= Date.now()) {
+      return problem(409, "settlement_deadline_expired", "The winner payment deadline has expired.", headers);
+    }
     if (!["requires-action", "payment-failed"].includes(settlement.state)) {
       return json({ settlement_id: settlement.id, state: settlement.state }, { status: 202, headers });
     }
@@ -88,7 +92,10 @@ export const POST = async (request) => {
     });
     if (observed.error || observed.data !== "payment-failed") throw observed.error || new Error("CURE_STATE_FAILED");
 
-    const expiresAt = new Date(Date.now() + 35 * 60_000);
+    if (settlementDeadline - Date.now() < 31 * 60_000) {
+      return problem(409, "settlement_deadline_expired", "There is not enough time to start a payment recovery session.", headers);
+    }
+    const expiresAt = new Date(Math.min(Date.now() + 35 * 60_000, settlementDeadline));
     const session = await stripe.checkout.sessions.create(
       buildAuctionCureSessionParameters({ settlement, customerId: mandate.provider_customer_ref, workTitle: work.title, config, expiresAt }),
       { idempotencyKey: `auction-cure:${settlement.id}:${settlement.payment_generation}` }

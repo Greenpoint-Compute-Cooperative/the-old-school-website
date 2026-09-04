@@ -70,6 +70,9 @@ const observePayment = async ({ service, settlement, paymentIntent }) => {
 
 export const settleAuctionCardPayment = async ({ service, stripe, config, initialSettlement }) => {
   let settlement = initialSettlement;
+  if (!settlement.settlement_deadline || new Date(settlement.settlement_deadline) <= new Date()) {
+    throw new Error("SETTLEMENT_DEADLINE_EXPIRED");
+  }
   const { mandate, work } = await loadSettlementContext(service, settlement);
 
   if (!settlement.tax_calculation_ref) {
@@ -83,13 +86,11 @@ export const settleAuctionCardPayment = async ({ service, stripe, config, initia
       hammerAmount: settlement.hammer_amount,
       shippingAmount
     });
-    const riskHoldUntil = new Date(Date.now() + config.auctions.riskHoldHours * 60 * 60_000).toISOString();
     const frozen = await service.rpc("freeze_auction_settlement_total", {
       settlement_uuid: settlement.id,
       tax_calculation_id: calculation.id,
       tax_amount_minor: amounts.taxAmount,
-      shipping_amount_minor: amounts.shippingAmount,
-      risk_hold_until_at: riskHoldUntil
+      shipping_amount_minor: amounts.shippingAmount
     });
     if (frozen.error || !frozen.data) throw frozen.error || new Error("TOTAL_FREEZE_FAILED");
     settlement = frozen.data;
@@ -146,7 +147,7 @@ export const GET = async (request) => {
     const service = createSupabaseServiceClient();
     const stripe = createAuctionStripeClient(config);
     const { data: settlements, error } = await service.from("auction_settlements")
-      .select("id,auction_id,winning_bid_id,bidder_user_id,rail,hammer_amount,total_amount,currency,state,risk_hold_until,tax_calculation_ref,current_payment_intent_ref,payment_generation")
+      .select("id,auction_id,winning_bid_id,bidder_user_id,rail,hammer_amount,total_amount,currency,state,settlement_deadline,risk_hold_seconds,risk_hold_until,tax_calculation_ref,tax_transaction_ref,current_payment_intent_ref,payment_generation")
       .eq("rail", "card").in("state", ["winner-selected", "tax-pending", "charge-pending"])
       .order("created_at", { ascending: true }).limit(10);
     if (error) return problem(503, "auction_settlement_unavailable", "Auction settlements could not be loaded.");

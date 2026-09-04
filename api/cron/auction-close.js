@@ -92,13 +92,15 @@ export const GET = async (request) => {
           signatureVerifiedBlock = verification.blockNumber.toString();
         }
 
-        const { data: settlement, error: closeError } = await service.rpc("close_auction", {
+        const { data: settlement, error: closeError } = await service.rpc("close_auction_for_settlement", {
           auction_uuid: auction.id,
           expected_high_bid_uuid: expectedHighBidId,
           expected_intent_hash: expectedIntentHash,
           signature_verified_block: signatureVerifiedBlock,
           inventory_verified_block: inventoryProof.blockNumber.toString(),
-          inventory_verified_block_hash: inventoryProof.blockHash
+          inventory_verified_block_hash: inventoryProof.blockHash,
+          settlement_deadline_at: new Date(Date.now() + config.auctions.settlementHours * 60 * 60_000).toISOString(),
+          risk_hold_seconds_value: config.auctions.riskHoldHours * 60 * 60
         });
         if (closeError) throw closeError;
         if (settlement) summary.closed += 1;

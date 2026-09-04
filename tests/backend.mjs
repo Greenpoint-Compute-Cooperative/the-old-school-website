@@ -18,6 +18,8 @@ import {
   buildAuctionTaxCalculationParameters,
   buildWinnerPaymentIntentParameters,
   buildWinnerPaymentIntentConfirmationParameters,
+  ensureAuctionTaxReversal,
+  ensureAuctionTaxTransaction,
   requireAuctionConfig
 } from "../lib/server/auction.js";
 import { buildBidTypedData } from "../lib/shared/bid-intent.js";
@@ -81,6 +83,7 @@ const envNames = [
   ,"GROVE_AUCTION_TERMS_HASH"
   ,"GROVE_MAX_FIAT_HAMMER_MINOR"
   ,"GROVE_AUCTION_RISK_HOLD_HOURS"
+  ,"GROVE_AUCTION_SETTLEMENT_HOURS"
 ];
 const previous = Object.fromEntries(envNames.map((name) => [name, process.env[name]]));
 for (const name of envNames) delete process.env[name];
@@ -298,6 +301,35 @@ assert.equal(cureParameters.mode, "payment");
 assert.equal(cureParameters.automatic_tax.enabled, false, "cure charges the already-frozen tax-inclusive total");
 assert.equal(cureParameters.payment_intent_data.metadata.grove_flow, "auction-payment-cure");
 assert.equal(cureParameters.line_items[0].price_data.unit_amount, 512300);
+const taxTransactionCalls = [];
+const taxTransaction = await ensureAuctionTaxTransaction({
+  stripe: { tax: { transactions: { async createFromCalculation(parameters, options) {
+    taxTransactionCalls.push({ parameters, options });
+    return { id: "tax_worker", type: "transaction", currency: "usd", reference: parameters.reference };
+  } } } },
+  settlement: { id: "80000000-0000-4000-8000-000000000001", tax_calculation_ref: "taxcalc_worker", tax_transaction_ref: null },
+  paymentIntent: { id: "pi_worker" },
+  providerCreatedAt: 1_788_000_000
+});
+assert.equal(taxTransaction.id, "tax_worker");
+assert.equal(taxTransactionCalls[0].parameters.calculation, "taxcalc_worker");
+assert.equal(taxTransactionCalls[0].options.idempotencyKey, "auction-tax-transaction:80000000-0000-4000-8000-000000000001");
+const taxReversalCalls = [];
+const taxReversal = await ensureAuctionTaxReversal({
+  stripe: { tax: { transactions: { async createReversal(parameters, options) {
+    taxReversalCalls.push({ parameters, options });
+    return {
+      id: "tax_reversal", type: "reversal", reference: parameters.reference,
+      reversal: { original_transaction: parameters.original_transaction }
+    };
+  } } } },
+  settlement: { id: "80000000-0000-4000-8000-000000000001", tax_transaction_ref: "tax_worker" },
+  paymentIntent: { id: "pi_worker", amount: 512300 },
+  refund: { id: "re_worker", amount: 120000, status: "succeeded" }
+});
+assert.equal(taxReversal.id, "tax_reversal");
+assert.equal(taxReversalCalls[0].parameters.flat_amount, -120000);
+assert.equal(taxReversalCalls[0].parameters.mode, "partial");
 assert.equal(auctionCollectionStateAllowed({ state: "active", config: { auctions: {}, wallet: {} } }), true);
 assert.equal(auctionCollectionStateAllowed({
   state: "rehearsal", config: { auctions: { rehearsalReady: true }, wallet: { chainId: 11155111 } }
@@ -319,6 +351,7 @@ const workerSettlement = {
   tax_calculation_ref: null,
   current_payment_intent_ref: null,
   payment_generation: 0
+  ,settlement_deadline: "2099-01-01T00:00:00.000Z"
 };
 const workerRows = {
   auction_bids: { id: workerSettlement.winning_bid_id, payment_mandate_id: "70000000-0000-4000-8000-000000000001" },
@@ -531,11 +564,17 @@ assert.match(auctionMigration, /intent_origin_hash/, "bid verification persists 
 assert.match(auctionMigration, /payment_intent_not_current/, "settlement events are bound to one current PaymentIntent");
 assert.match(auctionMigration, /consent_terms_accepted_at/, "off-session consent evidence is required for a ready mandate");
 for (const boundary of [
-  "freeze_auction_settlement_total", "record_auction_payment_observation", "register_auction_payment_cure",
-  "bind_auction_payment_cure", "expire_auction_payment_cure"
+  "close_auction_for_settlement", "freeze_auction_settlement_total", "record_auction_payment_observation",
+  "register_auction_payment_cure", "bind_auction_payment_cure", "expire_auction_payment_cure",
+  "record_auction_tax_transaction", "record_auction_tax_reversal", "apply_stripe_auction_risk_event"
 ]) {
   assert.match(settlementMigration, new RegExp(boundary), `${boundary} is a server-only settlement boundary`);
 }
+assert.match(settlementMigration, /alter table public\.auction_payment_risk_signals enable row level security/,
+  "durable provider risk signals are never public");
+assert.match(settlementMigration, /stale_prior_generation/, "known prior PaymentIntent events are acknowledged as stale");
+assert.match(settlementMigration, /payment_intent_not_known/, "unknown PaymentIntents remain rejected");
+assert.match(settlementMigration, /tax_reversal_missing/, "successful refunds cannot post without tax reversal evidence");
 assert.match(settlementMigration, /cannot enter paid-risk-hold/, "direct provider observations cannot authorize NFT release");
 assert.match(settlementMigration, /when object_status in \('processing', 'succeeded'\) then 'processing'/,
   "even a directly observed success waits for the signed webhook");

@@ -1,5 +1,9 @@
 import { createStripeClient, requireStripeWebhookConfig } from "../../lib/server/commerce.js";
-import { assertAuctionPaymentIntent } from "../../lib/server/auction.js";
+import {
+  assertAuctionPaymentIntent,
+  ensureAuctionTaxReversal,
+  ensureAuctionTaxTransaction
+} from "../../lib/server/auction.js";
 import { ConfigurationError } from "../../lib/server/config.js";
 import { json, problem } from "../../lib/server/http.js";
 import { createSupabaseServiceClient } from "../../lib/server/supabase.js";
@@ -17,6 +21,10 @@ const acceptedEvents = new Set([
   "payment_intent.requires_action",
   "payment_intent.payment_failed",
   "payment_intent.canceled",
+  "review.opened",
+  "review.closed",
+  "radar.early_fraud_warning.created",
+  "radar.early_fraud_warning.updated",
   "refund.created",
   "refund.updated",
   "refund.failed",
@@ -27,6 +35,7 @@ const acceptedEvents = new Set([
 const checkoutEvents = new Set([...acceptedEvents].filter((type) => type.startsWith("checkout.session.")));
 const setupEvents = new Set([...acceptedEvents].filter((type) => type.startsWith("setup_intent.")));
 const paymentIntentEvents = new Set([...acceptedEvents].filter((type) => type.startsWith("payment_intent.")));
+const riskEvents = new Set([...acceptedEvents].filter((type) => type.startsWith("review.") || type.startsWith("radar.early_fraud_warning.")));
 
 const uuid = (value) => typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(value) ? value : null;
 const reference = (value) => typeof value === "string" ? value : value?.id || null;
@@ -95,6 +104,24 @@ export const POST = async (request) => {
       if (!settlementId) return json({ received: true, ignored: true });
       const effectiveType = effectivePaymentIntentEventType(paymentIntent.status);
       const service = createSupabaseServiceClient();
+      if (effectiveType === "payment_intent.succeeded") {
+        const { data: settlement, error: settlementError } = await service.from("auction_settlements")
+          .select("id,auction_id,winning_bid_id,total_amount,current_payment_intent_ref,tax_calculation_ref,tax_transaction_ref")
+          .eq("id", settlementId).single();
+        if (settlementError || !settlement) return problem(503, "webhook_dependency_pending", "Webhook processing will be retried.");
+        if (settlement.current_payment_intent_ref === paymentIntent.id) {
+          const taxTransaction = await ensureAuctionTaxTransaction({
+            stripe, settlement, paymentIntent, providerCreatedAt: event.created
+          });
+          const recorded = await service.rpc("record_auction_tax_transaction", {
+            settlement_uuid: settlementId,
+            payment_intent_id: paymentIntent.id,
+            tax_transaction_id: taxTransaction.id,
+            provider_paid_at: new Date(event.created * 1000).toISOString()
+          });
+          if (recorded.error) return problem(503, "webhook_processing_failed", "Webhook processing will be retried.");
+        }
+      }
       const { data: result, error } = await service.rpc("apply_stripe_auction_payment_event", {
         stripe_event_id: event.id,
         stripe_event_type: effectiveType,
@@ -105,6 +132,37 @@ export const POST = async (request) => {
         object_amount: paymentIntent.amount,
         object_currency: paymentIntent.currency,
         event_payload: { id: event.id, type: event.type, effective_type: effectiveType, created: event.created, livemode: event.livemode }
+      });
+      if (error) return problem(503, "webhook_processing_failed", "Webhook processing will be retried.");
+      return json({ received: true, result });
+    }
+    if (riskEvents.has(event.type)) {
+      const riskObject = event.type.startsWith("review.")
+        ? await stripe.reviews.retrieve(event.data.object.id)
+        : await stripe.radar.earlyFraudWarnings.retrieve(event.data.object.id);
+      let paymentIntentId = reference(riskObject.payment_intent);
+      if (!paymentIntentId && riskObject.charge) {
+        const charge = await stripe.charges.retrieve(reference(riskObject.charge));
+        paymentIntentId = reference(charge.payment_intent);
+      }
+      if (!paymentIntentId) return problem(422, "payment_missing", "Risk event payment metadata is invalid.");
+      const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+      const settlementId = uuid(paymentIntent.metadata?.grove_settlement_id);
+      if (!settlementId) return json({ received: true, ignored: true });
+      const review = event.type.startsWith("review.");
+      const actionable = review ? riskObject.open === true : riskObject.actionable === true;
+      const service = createSupabaseServiceClient();
+      const { data: result, error } = await service.rpc("apply_stripe_auction_risk_event", {
+        stripe_event_id: event.id,
+        stripe_event_type: event.type,
+        settlement_uuid: settlementId,
+        payment_intent_id: paymentIntentId,
+        provider_object_id: riskObject.id,
+        signal_kind_value: review ? "review" : "early-fraud-warning",
+        actionable_value: actionable,
+        object_status: review ? (riskObject.open ? "open" : riskObject.closed_reason || riskObject.reason) : (actionable ? riskObject.fraud_type : "not-actionable"),
+        provider_observed_at: new Date(event.created * 1000).toISOString(),
+        event_payload: { id: event.id, type: event.type, created: event.created, livemode: event.livemode }
       });
       if (error) return problem(503, "webhook_processing_failed", "Webhook processing will be retried.");
       return json({ received: true, result });
@@ -127,6 +185,24 @@ export const POST = async (request) => {
           ? effectiveDisputeEventType(currentObject.status)
           : event.type;
         const service = createSupabaseServiceClient();
+        if (event.type.startsWith("refund.") && currentObject.status === "succeeded") {
+          const { data: settlement, error: settlementError } = await service.from("auction_settlements")
+            .select("id,total_amount,current_payment_intent_ref,tax_transaction_ref")
+            .eq("id", settlementId).single();
+          if (settlementError || !settlement) return problem(503, "webhook_dependency_pending", "Webhook processing will be retried.");
+          if (settlement.current_payment_intent_ref === paymentIntentId) {
+            const reversal = await ensureAuctionTaxReversal({ stripe, settlement, paymentIntent, refund: currentObject });
+            const recorded = await service.rpc("record_auction_tax_reversal", {
+              settlement_uuid: settlementId,
+              payment_intent_id: paymentIntentId,
+              refund_id: currentObject.id,
+              tax_reversal_id: reversal.id,
+              refund_amount: currentObject.amount,
+              refund_status: currentObject.status
+            });
+            if (recorded.error) return problem(503, "webhook_processing_failed", "Webhook processing will be retried.");
+          }
+        }
         const { data: result, error } = await service.rpc("apply_stripe_auction_payment_event", {
           stripe_event_id: event.id,
           stripe_event_type: effectiveType,
@@ -178,7 +254,7 @@ export const POST = async (request) => {
       if (!settlementId) return problem(422, "settlement_missing", "Payment recovery metadata is invalid.");
       const service = createSupabaseServiceClient();
       const { data: settlement, error: settlementError } = await service.from("auction_settlements")
-        .select("id,auction_id,winning_bid_id,total_amount,currency,cure_checkout_session_ref")
+        .select("id,auction_id,winning_bid_id,total_amount,currency,cure_checkout_session_ref,tax_calculation_ref,tax_transaction_ref")
         .eq("id", settlementId).single();
       if (settlementError || !settlement || settlement.cure_checkout_session_ref !== session.id
           || session.mode !== "payment" || session.currency?.toLowerCase() !== "usd"
@@ -212,6 +288,18 @@ export const POST = async (request) => {
       });
       if (bound.error) return problem(503, "webhook_processing_failed", "Webhook processing will be retried.");
       const effectiveType = effectivePaymentIntentEventType(paymentIntent.status);
+      if (effectiveType === "payment_intent.succeeded") {
+        const taxTransaction = await ensureAuctionTaxTransaction({
+          stripe, settlement, paymentIntent, providerCreatedAt: event.created
+        });
+        const recorded = await service.rpc("record_auction_tax_transaction", {
+          settlement_uuid: settlementId,
+          payment_intent_id: paymentIntent.id,
+          tax_transaction_id: taxTransaction.id,
+          provider_paid_at: new Date(event.created * 1000).toISOString()
+        });
+        if (recorded.error) return problem(503, "webhook_processing_failed", "Webhook processing will be retried.");
+      }
       const { data: result, error } = await service.rpc("apply_stripe_auction_payment_event", {
         stripe_event_id: event.id,
         stripe_event_type: effectiveType,

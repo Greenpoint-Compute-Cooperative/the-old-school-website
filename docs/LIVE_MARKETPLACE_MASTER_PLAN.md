@@ -175,10 +175,10 @@ At close, the worker locks the auction, rereads the canonical block, and revalid
 2. The member explicitly accepts the auction terms and a disclosed maximum hammer amount. Checkout can show Apple Pay on eligible devices and save the resulting payment method for off-session use.
 3. A retrieved-current SetupIntent must be `succeeded` for `off_session` use, and the matching completed Checkout Session must carry accepted terms. Neither event alone makes the mandate ready; a redirect never does.
 4. Bids remain signed EIP-712 intents in Postgres. Grove does not authorize every bid and does not place a long-lived card hold for each bid.
-5. At close, calculate current tax/shipping and freeze the total. Create one unconfirmed PaymentIntent with a stable idempotency key, atomically bind it as the settlement's current generation, then confirm it off-session. A replacement generation is allowed only after Stripe is retrieved-current and reports the named prior generation `canceled`; an intent that failed or awaits customer action must first be completed or canceled.
+5. At close, freeze a non-null settlement/cure deadline, then calculate current tax/shipping and freeze the total. Create one unconfirmed PaymentIntent with a stable idempotency key, atomically bind it as the settlement's current generation, then confirm it off-session. A replacement generation is allowed only after Stripe is retrieved-current and reports the named prior generation `canceled`; an intent that failed or awaits customer action must first be completed or canceled.
 6. `requires_action` or decline moves the settlement to an interactive cure window using fresh hosted Checkout. It does not silently charge another method.
-7. Only a signed, retrieved-current PaymentIntent `succeeded` event with exact amount/currency/tax enters `paid-risk-hold`.
-8. After fraud review, configured risk hold, no open refund/dispute, and an operator release policy, queue the inventory Safe transfer.
+7. Only a signed, retrieved-current PaymentIntent `succeeded` event with exact amount/currency and an idempotently committed Stripe Tax Transaction enters `paid-risk-hold`; `paid_at` and the hold deadline derive from that event, never the earlier calculation.
+8. After the configured risk hold, no open Radar review, actionable Early Fraud Warning, refund, or dispute, and an operator release policy, queue the inventory Safe transfer. Successful refunds require a matching Stripe Tax reversal before their financial event is accepted.
 9. A dispute after delivery becomes `disputed-post-mint`; the contract does not pretend the NFT can be clawed back.
 
 Do not authorize each bid. Ordinary online card authorizations are commonly measured in days, so they are not a durable auction escrow. [Stripe authorization holds](https://docs.stripe.com/payments/place-a-hold-on-a-payment-method) Off-session payment requires explicit consent and may still need customer action. [Stripe SetupIntents](https://docs.stripe.com/payments/setup-intents) · [Apple Pay recurring/off-session](https://docs.stripe.com/apple-pay/apple-pay-recurring)
@@ -205,7 +205,7 @@ Before NFT release → refunded
 After NFT release → disputed-post-mint
 ```
 
-`paid-risk-hold` requires current payment success, exact total/currency, tax bound to that total, no provider review or dispute, a verified winner wallet, and a non-null hold deadline. The NFT worker accepts only `release-ready` rows.
+`paid-risk-hold` requires current payment success, exact total/currency, a committed Tax Transaction, and a hold derived from authoritative `paid_at`. Release additionally requires no open provider review, actionable Early Fraud Warning, refund, or dispute and a verified winner wallet. The NFT worker accepts only `release-ready` rows.
 
 ## Crypto auction rail
 
@@ -329,7 +329,7 @@ The release threat-model suite must cover cross-origin requests, forged and stal
 1. Written Stripe approval for this exact NFT/auction/deferred-charge model has not been supplied.
 2. Exact Safe/module/passkey/EntryPoint mainnet addresses and code hashes are not registered or integration-tested.
 3. A managed bundler/paymaster provider and provider-neutral adapter are not selected/rehearsed.
-4. Wallet provisioning/sponsor routes, recovery UX, charge/cure/release workers, and reorg-aware reconcilers remain to be implemented.
+4. Wallet provisioning/sponsor routes, recovery UX, provider-rehearsed release operations, and complete payment/chain reorg reconcilers remain to be implemented.
 5. The modified Grove inventory-mint contracts require independent audit and Sepolia rehearsal.
 6. Production contract addresses, inventory/admin Safe owners, role holders, RPCs, keys, tax policy, risk hold, maximum bid, and catalog rights records are intentionally unset.
 7. The storefront now contains the gated payment-setup and discoverable-passkey signed-bid UI; real-device accessibility, authenticator interoperability, and end-to-end provider rehearsal remain required.
