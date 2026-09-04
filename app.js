@@ -52,8 +52,9 @@ const showToast = (message) => {
 };
 
 const safeMediaUrl = (value) => {
+  if (typeof value !== "string" || !value.trim()) return "";
   try {
-    const url = new URL(String(value || ""), location.origin);
+    const url = new URL(value, location.origin);
     const sameOriginHttp = url.origin === location.origin && ["http:", "https:"].includes(url.protocol);
     return url.protocol === "https:" || sameOriginHttp ? url.href : "";
   } catch {
@@ -62,8 +63,9 @@ const safeMediaUrl = (value) => {
 };
 
 const safeDocumentUrl = (value) => {
+  if (typeof value !== "string" || !value.trim()) return "";
   try {
-    const url = new URL(String(value || ""), location.origin);
+    const url = new URL(value, location.origin);
     return ["https:", "ipfs:"].includes(url.protocol) ? url.href : "";
   } catch {
     return "";

@@ -60,6 +60,8 @@ assert.match(app, /Sell this NFT/, "owned eligible NFTs expose the secondary-lis
 assert.match(app, /Apple Pay and Stripe are not used for secondary NFT sales/, "secondary checkout does not misrepresent the fiat rail");
 assert.match(app, /OpenSea retired all testnet support/, "Sepolia UI explains the OpenSea testnet boundary");
 assert.doesNotMatch(app, /opensea\.io\/assets\/sepolia/, "the UI never generates a dead OpenSea Sepolia link");
+assert.equal(app.split('if (typeof value !== "string" || !value.trim()) return "";').length - 1, 2,
+  "missing media and document URLs stay absent instead of resolving to the site origin");
 assert.match(app, /Preview only · nothing is submitted/, "draft forms do not fake delivery");
 assert.match(app, /data-auth-provider="instagram"/, "Instagram is a join path");
 assert.match(app, /data-auth-provider="x"/, "X is a join path");
