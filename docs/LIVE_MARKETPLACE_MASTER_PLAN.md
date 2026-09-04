@@ -1,6 +1,6 @@
 # Live marketplace master plan
 
-Status: implementation candidate, 2026-09-02. This document supersedes the earlier Base/fixed-price launch plan.
+Status: implementation candidate, 2026-09-03. This document supersedes the earlier Base/fixed-price launch plan.
 
 ## Product decision
 
@@ -13,6 +13,9 @@ Grove is a curated, primary-market auction house on Ethereum mainnet.
 - The default auction is offchain and authoritative in Postgres. Every bid is nevertheless an EIP-712 intent signed by the bidder's Safe and verified through ERC-1271.
 - Card auctions use Stripe-hosted Apple Pay/card setup, offchain bids, a winner-only charge attempt, an interactive cure when required, a risk hold, then NFT transfer.
 - Crypto auctions are a separate rail. A lot has exactly one immutable settlement rail in v1; card and crypto bids do not compete in the same auction.
+- Collector-to-collector sales are a third, isolated product boundary. The first secondary release is fixed-price
+  ERC-721 for USDC through Seaport; it never uses Stripe or Apple Pay. See
+  [Secondary-market release policy](./SECONDARY_MARKET.md).
 
 The last rule is deliberate. Mixing reversible card money and irreversible crypto in one winner calculation creates unequal finality, chargeback, custody, tax, and cancellation behavior. A cross-rail English auction is a later, separately audited product.
 
@@ -67,7 +70,7 @@ Browser redirects, client clocks, cached indexers, screenshots, and Stripe event
 | Fiat/Apple Pay | Stripe-hosted Checkout/SetupIntent/PaymentIntent | no custom Apple Pay certificate UI |
 | Bundler/paymaster | managed provider behind a Grove adapter | operational vendor can change |
 | Self-hosting exit | Alto | GPL service isolated from the application; never run as a Vercel Function |
-| Future crypto order boundary | audited Seaport release | only when crypto lots are enabled |
+| Secondary crypto order boundary | exact-pinned OpenSea SDK/Seaport.js + audited Seaport release | fixed-price ERC-721/USDC first; server-side API adapter only |
 | Optional read model | Ponder | never commerce authority |
 
 ERC-4337 defines smart-account validation, UserOperations, bundlers, and paymasters without changing Ethereum consensus. [ERC-4337](https://eips.ethereum.org/EIPS/eip-4337) Safe publishes the relevant audited account and module components; exact deployed addresses and code hashes must be pinned and rehearsed. [Safe smart account](https://github.com/safe-global/safe-smart-account) · [Safe modules](https://github.com/safe-fndn/safe-modules) Alto is a practical self-hosted exit but needs a persistent service, node access, funded executors, simulation, monitoring, and 24/7 operations. [Alto](https://github.com/pimlicolabs/alto)
@@ -183,7 +186,11 @@ At close, the worker locks the auction, rereads the canonical block, and revalid
 
 Do not authorize each bid. Ordinary online card authorizations are commonly measured in days, so they are not a durable auction escrow. [Stripe authorization holds](https://docs.stripe.com/payments/place-a-hold-on-a-payment-method) Off-session payment requires explicit consent and may still need customer action. [Stripe SetupIntents](https://docs.stripe.com/payments/setup-intents) · [Apple Pay recurring/off-session](https://docs.stripe.com/apple-pay/apple-pay-recurring)
 
-Stripe's public restricted-business list requires approval for first-party NFT minting/sales and restricts secondary NFT sales and some auction models. Written approval for Grove's exact art, primary NFT, high-value auction, Apple Pay, off-session, refund, chargeback, tax, and merchant-of-record facts is a release blocker. [Stripe restricted businesses](https://stripe.com/legal/restricted-businesses)
+Stripe's public restricted-business list requires approval for first-party NFT minting/sales and prohibits or restricts
+secondary NFT transactions and some auction models. Written approval for Grove's exact art, **primary** NFT,
+high-value auction, Apple Pay, off-session, refund, chargeback, tax, and merchant-of-record facts is a release blocker.
+Stripe and Apple Pay must never buy, settle, fund, guarantee, or cure a collector-to-collector NFT sale under the
+current rules. [Stripe restricted businesses](https://stripe.com/legal/restricted-businesses)
 
 Apple Pay does not buy gas, top up a wallet, or convert the member's card bid into an onchain bid.
 
@@ -221,6 +228,23 @@ For v1 crypto lots:
 - ownership/recovery changes require explicit order cancellation; they do not automatically cancel old orders.
 
 A strict onchain English-auction contract is a later option only after an independent specification and audit. It must never be bolted into the card auction.
+
+## Secondary-market rail
+
+OpenSea ended all testnet support on July 23, 2025, so Sepolia staging cannot depend on an OpenSea collection page,
+testnet API, metadata refresh, or order relay. [OpenSea: Farewell,
+Testnets](https://support.opensea.io/en/articles/11833955-farewell-testnets) The authorized staging path is direct,
+exact-pinned Seaport on Sepolia with Grove-owned RPC verification and reconciliation.
+
+The first secondary-sales release is fixed-price ERC-721 for USDC only. It excludes ERC-1155, WETH/native ETH,
+offers, auctions, bundles, criteria orders, cross-chain execution, and all card rails. The buyer supplies USDC
+principal; a paymaster may sponsor only explicitly allowed gas. ERC-2981 is advisory royalty information and does not
+guarantee payment or enforcement.
+
+Production OpenSea support requires a separately audited mainnet collection deployment and minted token, durable IPFS
+availability for metadata and media, actual OpenSea indexing, and a server-side OpenSea API key. Never expose that key
+in the browser and never invent a collection slug before OpenSea returns it. The complete order, settlement,
+cancellation, metadata, and release gates live in [Secondary-market release policy](./SECONDARY_MARKET.md).
 
 ## API and worker inventory
 
@@ -303,6 +327,9 @@ The release threat-model suite must cover cross-origin requests, forged and stal
 - Deploy exact Grove contracts to Sepolia with separate 2-of-3 admin and inventory Safes.
 - Exercise configure → pre-mint → custody proof → bid → close → synthetic pay → transfer → finality/reorg recovery.
 - Run mainnet-fork gas benchmarks and set per-user/day/global sponsorship budgets.
+- Exercise the isolated secondary path directly against pinned Sepolia Seaport: fixed-price ERC-721 for allowlisted
+  test USDC, Safe signature, approval, fill, cancellation, canonical receipt, finality, and reorg handling. Do not use
+  or claim OpenSea testnet support.
 
 ### Gate 2 — Stripe sandbox and operations rehearsal
 
@@ -322,6 +349,8 @@ The release threat-model suite must cover cross-origin requests, forged and stal
 
 - Automate release only after enough reconciled, dispute-free production history.
 - Enable crypto-only lots behind separate Seaport/code-hash/simulation gates.
+- Launch secondary sales only through their own gate: fixed-price ERC-721/USDC first, exact mainnet contracts and
+  token, durable IPFS, server-side OpenSea API key, verified indexing, and completed fill/cancel/reorg reconciliation.
 - Expand limits gradually based on authorization, fraud, dispute, support, paymaster, mainnet gas, and reorg metrics.
 
 ## Production blockers as of this plan
@@ -333,5 +362,8 @@ The release threat-model suite must cover cross-origin requests, forged and stal
 5. The modified Grove inventory-mint contracts require independent audit and Sepolia rehearsal.
 6. Production contract addresses, inventory/admin Safe owners, role holders, RPCs, keys, tax policy, risk hold, maximum bid, and catalog rights records are intentionally unset.
 7. The storefront now contains the gated payment-setup and discoverable-passkey signed-bid UI; real-device accessibility, authenticator interoperability, and end-to-end provider rehearsal remain required.
+8. Secondary sales still require pinned Sepolia Seaport/USDC rehearsal and an independent production gate. OpenSea no
+   longer supports Sepolia; production integration requires a mainnet collection/token, durable IPFS, and a
+   server-only OpenSea API key.
 
 No production deploy, contract broadcast, provider mutation, real charge, or mainnet mint is authorized by this document.

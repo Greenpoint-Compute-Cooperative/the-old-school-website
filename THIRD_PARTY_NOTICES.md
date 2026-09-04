@@ -13,8 +13,15 @@ fails if any contributing package lacks a distributable license file.
 - permissionless.js — MIT: https://github.com/pimlicolabs/permissionless.js
 - ox — MIT: https://github.com/wevm/ox
 - @noble/hashes — MIT: https://github.com/paulmillr/noble-hashes
+- OpenSea SDK — MIT: https://github.com/ProjectOpenSea/opensea-sdk
+- OpenSea Seaport.js — MIT: https://github.com/ProjectOpenSea/seaport-js
+- OpenSea API Types — MIT: https://github.com/ProjectOpenSea/api-types
 - OpenZeppelin Contracts — MIT: https://github.com/OpenZeppelin/openzeppelin-contracts
 - Forge Standard Library — MIT or Apache-2.0: https://github.com/foundry-rs/forge-std
 
 Source distributions and complete license texts remain available from the
 linked upstream projects and installed package metadata.
+
+Reviewed exact license copies for `@opensea/sdk` 12.1.0 and
+`@opensea/seaport-js` 4.3.0 are retained in `third_party_licenses/` because
+they are part of the secondary-market integration boundary.
