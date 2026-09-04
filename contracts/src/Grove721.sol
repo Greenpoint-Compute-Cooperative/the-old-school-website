@@ -3,6 +3,7 @@ pragma solidity 0.8.26;
 
 import { AccessControlDefaultAdminRules } from
     "@openzeppelin/contracts/access/extensions/AccessControlDefaultAdminRules.sol";
+import { IERC5313 } from "@openzeppelin/contracts/interfaces/IERC5313.sol";
 import { ERC2981 } from "@openzeppelin/contracts/token/common/ERC2981.sol";
 import { ERC721 } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
@@ -11,7 +12,6 @@ import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 /// @notice Immutable work records and inventory-safe issuance for curated one-of-one works.
 /// @dev Every approved work is minted to custody before its auction opens. Pausing stops issuance only.
 contract Grove721 is ERC721, ERC2981, AccessControlDefaultAdminRules, Pausable {
-    bytes4 private constant ERC173_INTERFACE_ID = 0x7f5828d0;
     bytes32 public constant REGISTRAR_ROLE = keccak256("REGISTRAR_ROLE");
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
@@ -148,6 +148,6 @@ contract Grove721 is ERC721, ERC2981, AccessControlDefaultAdminRules, Pausable {
         override(ERC721, ERC2981, AccessControlDefaultAdminRules)
         returns (bool)
     {
-        return interfaceId == ERC173_INTERFACE_ID || super.supportsInterface(interfaceId);
+        return interfaceId == type(IERC5313).interfaceId || super.supportsInterface(interfaceId);
     }
 }

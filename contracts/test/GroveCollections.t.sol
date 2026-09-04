@@ -143,8 +143,10 @@ contract GroveCollectionsTest is Test {
     function testStandardsAreAdvertised() public view {
         assertTrue(oneOfOnes.supportsInterface(type(IERC2981).interfaceId));
         assertTrue(editions.supportsInterface(type(IERC2981).interfaceId));
-        assertTrue(oneOfOnes.supportsInterface(0x7f5828d0));
-        assertTrue(editions.supportsInterface(0x7f5828d0));
+        assertTrue(oneOfOnes.supportsInterface(0x8da5cb5b));
+        assertTrue(editions.supportsInterface(0x8da5cb5b));
+        assertFalse(oneOfOnes.supportsInterface(0x7f5828d0));
+        assertFalse(editions.supportsInterface(0x7f5828d0));
         assertEq(oneOfOnes.contractURI(), COLLECTION_URI);
         assertEq(editions.contractURI(), COLLECTION_URI);
         assertEq(oneOfOnes.owner(), address(this));
