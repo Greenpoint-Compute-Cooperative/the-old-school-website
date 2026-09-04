@@ -1,0 +1,39 @@
+name: Staging resale index
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: staging-resale-index
+  cancel-in-progress: true
+
+jobs:
+  index:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GROVE_STAGING_CRON_SECRET: ${{ secrets.GROVE_STAGING_CRON_SECRET }}
+    steps:
+      - name: Reconcile finalized Sepolia ownership
+        run: |
+          if [ -z "$GROVE_STAGING_CRON_SECRET" ]; then
+            echo "GROVE_STAGING_CRON_SECRET is required for staging reconciliation."
+            exit 1
+          fi
+          curl --fail-with-body --silent --show-error --retry 2 \
+            --header "Authorization: Bearer $GROVE_STAGING_CRON_SECRET" \
+            https://the-school-sepolia.vercel.app/api/cron/resale-index
+      - name: Reconcile sponsored Sepolia UserOperations
+        if: ${{ vars.GROVE_STAGING_SPONSOR_RECONCILE_ENABLED == 'true' }}
+        run: |
+          if [ -z "$GROVE_STAGING_CRON_SECRET" ]; then
+            echo "GROVE_STAGING_CRON_SECRET is required for sponsorship reconciliation."
+            exit 1
+          fi
+          curl --fail-with-body --silent --show-error --retry 2 \
+            --header "Authorization: Bearer $GROVE_STAGING_CRON_SECRET" \
+            https://the-school-sepolia.vercel.app/api/cron/sponsorship-reconcile
