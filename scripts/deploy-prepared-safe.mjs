@@ -198,7 +198,7 @@ const main = async () => {
   let result;
   try {
     result = spawnSync("cast", [
-      "send", factory, "--data", factoryData, "--keystore", keystorePath,
+      "send", factory, factoryData, "--keystore", keystorePath,
       "--password-file", passwordPath, "--json"
     ], {
       encoding: "utf8",

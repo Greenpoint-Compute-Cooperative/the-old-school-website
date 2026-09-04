@@ -454,6 +454,7 @@ assert.match(operatorScript, /GROVE_PROVISIONING_TARGET.*staging/, "the operator
 assert.match(operatorScript, /keccak256\(factoryData\) === factoryDataHash/, "the operator deployer verifies prepared calldata");
 assert.match(operatorScript, /decodeFunctionData/, "the operator deployer decodes the exact factory call");
 assert.match(operatorScript, /client\.call/, "the exact Safe factory call is simulated before spending gas");
+assert.match(operatorScript, /"send", factory, factoryData/, "cast receives the reviewed calldata as its positional raw transaction input");
 assert.match(operatorScript, /--keystore/, "the operator deployer accepts an encrypted local keystore");
 assert.match(operatorScript, /--password-file/, "the keystore secret is passed through a mode-0600 temporary file");
 assert.match(operatorScript, /rmSync\(passwordDirectory/, "the temporary password file is removed after the signer exits");
