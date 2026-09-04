@@ -10,7 +10,7 @@ if (!output.startsWith(`${root}${sep}`)) throw new Error("Unsafe output path");
 await rm(output, { recursive: true, force: true });
 await mkdir(join(output, "public"), { recursive: true });
 
-for (const file of ["index.html", "app.js", "analytics.js", "catalog.js", "styles.css", "manifest.webmanifest", "robots.txt", "sitemap.xml", "THIRD_PARTY_NOTICES.md"]) {
+for (const file of ["index.html", "auction-terms.html", "app.js", "analytics.js", "catalog.js", "styles.css", "manifest.webmanifest", "robots.txt", "sitemap.xml", "THIRD_PARTY_NOTICES.md"]) {
   await copyFile(join(root, file), join(output, file));
 }
 

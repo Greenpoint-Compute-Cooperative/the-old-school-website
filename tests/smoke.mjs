@@ -7,7 +7,7 @@ import { bazaar, curators, discoveries, exhibitions, works } from "../catalog.js
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const read = (path) => readFile(join(root, path), "utf8");
 
-const [html, css, app, analytics, launch, oauth, manifest, health, rehearsalMetadata] = await Promise.all([
+const [html, css, app, analytics, launch, oauth, manifest, health, rehearsalMetadata, auctionTerms] = await Promise.all([
   read("index.html"),
   read("styles.css"),
   read("app.js"),
@@ -16,7 +16,8 @@ const [html, css, app, analytics, launch, oauth, manifest, health, rehearsalMeta
   read("docs/OAUTH_SETUP.md"),
   read("manifest.webmanifest"),
   read("api/health.js"),
-  read("public/metadata/sepolia-passkey-auction-rehearsal.json")
+  read("public/metadata/sepolia-passkey-auction-rehearsal.json"),
+  read("auction-terms.html")
 ]);
 
 assert.match(html, /id="app"/, "application mount exists");
@@ -65,6 +66,8 @@ assert.match(app, /signBidIntentWithPasskey/, "the auction dialog invokes the Sa
 assert.match(app, /\/bid-context/, "the auction dialog requests a server-canonical signing context");
 assert.match(app, /Idempotency-Key/, "browser bid submission has an idempotency key");
 assert.match(rehearsalMetadata, /synthetic Grove marketplace rehearsal asset/, "Sepolia metadata is explicitly synthetic");
+assert.match(auctionTerms, /version sepolia-rehearsal-v1/, "Sepolia terms carry a stable version");
+assert.match(auctionTerms, /not an offer to sell artwork/, "Sepolia terms disclaim a production sale");
 assert.match(css, /prefers-reduced-motion/, "reduced-motion behavior exists");
 assert.match(css, /:focus-visible/, "keyboard focus treatment exists");
 assert.match(css, /@media \(max-width: 760px\)/, "phone layout exists");

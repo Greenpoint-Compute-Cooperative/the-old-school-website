@@ -21,7 +21,7 @@ const contentTypes = {
 const resolvePath = (pathname) => {
   const requested = pathname === "/" ? "index.html" : decodeURIComponent(pathname).replace(/^\/+/, "");
   const normalized = normalize(requested);
-  const rootFiles = ["index.html", "app.js", "analytics.js", "catalog.js", "styles.css", "manifest.webmanifest", "robots.txt", "sitemap.xml", "wallet-intents.js"];
+  const rootFiles = ["index.html", "auction-terms.html", "app.js", "analytics.js", "catalog.js", "styles.css", "manifest.webmanifest", "robots.txt", "sitemap.xml", "wallet-intents.js"];
   const allowedRootFile = rootFiles.includes(normalized);
   const allowedAsset = normalized.startsWith(`public${sep}assets${sep}`);
   const allowedMetadata = normalized.startsWith(`public${sep}metadata${sep}`);

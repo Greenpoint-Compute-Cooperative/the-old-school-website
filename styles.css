@@ -705,6 +705,34 @@ img.art--live {
   margin-left: auto;
 }
 
+.legal-page {
+  max-width: 980px;
+}
+
+.legal-page .page-title {
+  grid-template-columns: 1fr;
+  align-items: start;
+}
+
+.legal-page .page-title h1 {
+  max-width: 900px;
+  font-size: clamp(52px, 8vw, 104px);
+  line-height: 0.88;
+}
+
+.legal-copy {
+  display: grid;
+  max-width: 760px;
+  gap: 10px;
+  font-size: 16px;
+  line-height: 1.65;
+}
+
+.legal-copy h2 {
+  margin-top: 22px;
+  font-size: clamp(28px, 4vw, 46px);
+}
+
 .back-link {
   display: inline-flex;
   min-height: 44px;
