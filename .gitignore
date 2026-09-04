@@ -12,3 +12,4 @@ contracts/broadcast/
 !.env.example
 .env*.local
 .codex/
+.sepolia/
