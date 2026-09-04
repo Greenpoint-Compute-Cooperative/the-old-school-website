@@ -232,6 +232,7 @@ A strict onchain English-auction contract is a later option only after an indepe
 | `POST /api/wallet/link` | ERC-1271 wallet link | implemented, disabled by gates |
 | `POST /api/wallet/sponsor` | policy-check and forward UserOperation | provider adapter gate |
 | `GET /api/auctions/:id/bids` | privacy-safe public bid feed | implemented |
+| `GET /api/auctions/:id/bid-context` | authenticated canonical Safe/WebAuthn bid context | implemented for pre-provisioned recovery-ready Safes |
 | `POST /api/auctions/:id/payment-setup` | per-auction Stripe setup session | implemented, disabled by gates |
 | `POST /api/auctions/:id/bids` | verify Safe signature and atomically accept bid | implemented, disabled by gates |
 | `POST /api/stripe/webhook` | signed setup/payment/refund/dispute inbox | implemented foundation |
@@ -331,6 +332,6 @@ The release threat-model suite must cover cross-origin requests, forged and stal
 4. Wallet provisioning/sponsor routes, recovery UX, charge/cure/release workers, and reorg-aware reconcilers remain to be implemented.
 5. The modified Grove inventory-mint contracts require independent audit and Sepolia rehearsal.
 6. Production contract addresses, inventory/admin Safe owners, role holders, RPCs, keys, tax policy, risk hold, maximum bid, and catalog rights records are intentionally unset.
-7. The current storefront still needs the signed-bid/payment-setup UI and real-device accessibility testing.
+7. The storefront now contains the gated payment-setup and discoverable-passkey signed-bid UI; real-device accessibility, authenticator interoperability, and end-to-end provider rehearsal remain required.
 
 No production deploy, contract broadcast, provider mutation, real charge, or mainnet mint is authorized by this document.

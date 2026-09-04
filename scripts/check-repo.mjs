@@ -20,12 +20,14 @@ const required = [
   "docs/ARCHITECTURE.md",
   "docs/ENVIRONMENTS.md",
   "docs/METRICS.md",
-  "docs/RUNBOOK.md"
+  "docs/RUNBOOK.md",
+  "third_party_licenses/permissionless.LICENSE",
+  "third_party_licenses/README.md"
 ];
 
 await Promise.all(required.map(async (path) => assert.ok((await read(path)).trim(), `${path} is required`)));
 
-const [environment, vercel, analytics, metricsMigration, uptime, metricsWorkflow, releaseWorkflow, ciWorkflow, previewSeed, environments] = await Promise.all([
+const [environment, vercel, analytics, metricsMigration, uptime, metricsWorkflow, releaseWorkflow, ciWorkflow, previewSeed, sepoliaAuctionSeed, environments] = await Promise.all([
   read(".env.example"),
   read("vercel.json"),
   read("analytics.js"),
@@ -35,6 +37,7 @@ const [environment, vercel, analytics, metricsMigration, uptime, metricsWorkflow
   read(".github/workflows/release.yml"),
   read(".github/workflows/ci.yml"),
   read("scripts/seed-preview.mjs"),
+  read("scripts/seed-sepolia-auction.mjs"),
   read("docs/ENVIRONMENTS.md")
 ]);
 
@@ -56,6 +59,10 @@ for (const workflow of [uptime, metricsWorkflow, releaseWorkflow, ciWorkflow]) {
 }
 assert.match(previewSeed, /GROVE_SEED_TARGET/, "preview seeding requires an explicit target");
 assert.match(previewSeed, /assert\.notEqual\(process\.env\.VERCEL_ENV, "production"/, "preview seeding refuses production");
+assert.match(sepoliaAuctionSeed, /getTransactionReceipt/, "Sepolia auction seeding verifies chain receipts");
+assert.match(sepoliaAuctionSeed, /blockTag: "finalized"/, "Sepolia auction seeding requires finality");
+assert.match(sepoliaAuctionSeed, /verifyFinalizedInventoryCustody/, "Sepolia auction seeding verifies inventory custody");
+assert.doesNotMatch(sepoliaAuctionSeed, /privateKey|SECRET_KEY\s*=/i, "Sepolia auction seed contains no signing key material");
 assert.match(environments, /nlvxepkzrctbjafcgffk/, "the isolated preview project is documented");
 
 console.log(`Repository checks passed: ${required.length} contributor and operations files.`);

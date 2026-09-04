@@ -27,9 +27,11 @@ npm run ci
 
 `npm run seed:preview` has three independent guards: `GROVE_SEED_TARGET=preview`, a URL/project-ref match, and a production-runtime refusal. It must be supplied a preview server key through the operator environment and never through source control.
 
+The optional `npm run seed:sepolia-auction` path applies the same guards and creates exactly one card-settlement rehearsal lot. It additionally refuses to write until the supplied Sepolia deployment and mint receipts are successful and finalized, the collection runtime code hash matches, the token's registered work ID matches, and finalized ERC-721 ownership or ERC-1155 balance is held by the declared inventory Safe. The operator supplies the public chain evidence and auction window through the `GROVE_PREVIEW_NFT_*` and `GROVE_PREVIEW_AUCTION_*` variables listed in `.env.example`; reruns validate existing immutable identity instead of replacing it.
+
 ## Verification
 
-- Preview: database health is reachable, catalog returns only synthetic database records, and OAuth/acquisition/wallet/auction/metrics flags remain false.
+- Preview: database health is reachable and the catalog returns only synthetic database records. Wallet and auction UI advertise readiness only when the full gated stack is configured on Sepolia; the seeded rehearsal still requires an active OAuth member with an already deployed, recovery-ready Safe whose discoverable passkey was created for the preview relying-party origin. A browser bid proves authentication, Safe/WebAuthn signing, ERC-1271 verification, and transactional bid acceptance. It does not prove account provisioning, winner charging, or NFT delivery.
 - Production: `npm run live:check` walks the public page, security headers, database health, integration flags, catalog, manifest, robots, protected metrics, and cross-origin event rejection. Wallet and auction flags stay false until the master-plan gates pass.
 - Monitoring: GitHub runs the production check hourly and maintains one `ops:incident` issue while unhealthy. A private weekly workflow produces the 7/30/90-day aggregate product report.
 

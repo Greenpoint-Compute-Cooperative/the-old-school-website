@@ -85,6 +85,7 @@ npm run live:check
 - `GET /api/metrics?days=30` — bearer-protected aggregate operator feed
 - `/api/cron/metrics-retention` — Vercel-authenticated 180-day cleanup
 - `GET/POST /api/auctions/:id/bids` — privacy-safe feed and EIP-712/ERC-1271 bid acceptance
+- `GET /api/auctions/:id/bid-context` — authenticated, server-canonical context for a pre-provisioned Safe passkey bid
 - `POST /api/auctions/:id/payment-setup` — per-auction hosted Apple Pay/card mandate
 - `POST /api/wallet/challenge` and `/api/wallet/link` — one-time, origin-bound ERC-1271 social-to-Safe link
 - `POST /api/stripe/webhook` — signed fixed-price and auction payment events
@@ -111,4 +112,4 @@ Start with [`CONTRIBUTING.md`](CONTRIBUTING.md). Pull requests run deterministic
 
 The code is available under the [MIT License](LICENSE). Tagged releases rebuild the app, rerun CI, and publish a checksummed static artifact.
 
-The supplied floating-school image is the marketplace’s primary mark. Catalog records are fictional prototype content and cannot be sold. Wallet, auction, Apple Pay/card, and mainnet contract paths are disabled until the master-plan gates pass; no live wallet, contract address, checkout credential, paymaster, or production NFT is claimed.
+The supplied floating-school image is the marketplace’s primary mark. Catalog records are fictional prototype content and cannot be sold. A fully configured Vercel Preview may expose one chain-verified synthetic Sepolia auction rehearsal for a pre-provisioned member Safe; production wallet, auction, Apple Pay/card, and mainnet contract paths remain disabled until the master-plan gates pass. No live wallet, checkout credential, paymaster submission path, or production NFT is claimed.

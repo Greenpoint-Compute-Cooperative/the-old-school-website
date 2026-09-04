@@ -54,6 +54,15 @@ for (const packageName of bundledPackages) {
       // Try the next conventional license filename.
     }
   }
+  if (!licenseText) {
+    const vendoredLicensePath = join(root, "third_party_licenses", `${packageName.replaceAll("/", "__")}.LICENSE`);
+    try {
+      await access(vendoredLicensePath);
+      licenseText = await readFile(vendoredLicensePath, "utf8");
+    } catch {
+      // The build fails below unless a reviewed license text is present.
+    }
+  }
   if (!licenseText) throw new Error(`Bundled package ${packageName} has no distributable license text`);
   noticeSections.push(
     "",

@@ -65,7 +65,7 @@ export const GET = async (request) => {
         .from("curators")
         .select("id,display_name,handle,avatar_url,bio,focus,status,created_at")
         .eq("status", "active"),
-      config.auctions.liveReady
+      (config.auctions.liveReady || config.auctions.rehearsalReady)
         ? createSupabaseServiceClient()
           .from("public_auctions")
           .select("id,work_id,slug,quantity,settlement_rail,bid_currency,state,opens_at,closes_at,reserve_amount,minimum_increment,current_bid_amount,terms_url,terms_version,nft_token_id,nft_standard,nft_contract_address,chain_id")

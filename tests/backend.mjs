@@ -17,12 +17,14 @@ import {
 } from "../lib/server/auction.js";
 import { buildBidTypedData } from "../lib/shared/bid-intent.js";
 import { POST as placeAuctionBid } from "../api/auctions/[id]/bids.js";
+import { GET as getBidContext } from "../api/auctions/[id]/bid-context.js";
 import { POST as setupAuctionPayment } from "../api/auctions/[id]/payment-setup.js";
 import { POST as createWalletChallenge } from "../api/wallet/challenge.js";
 import { POST as linkWallet } from "../api/wallet/link.js";
 import { buildWalletLinkTypedData } from "../lib/shared/wallet-link.js";
 import { GET as closeAuctions } from "../api/cron/auction-close.js";
-import { requireWalletConfig } from "../lib/server/wallet.js";
+import { p256PublicKeyHex, requireWalletConfig } from "../lib/server/wallet.js";
+import { bidIntentFromContext } from "../lib/browser/wallet-intents.js";
 
 const envNames = [
   "VERCEL_ENV",
@@ -90,6 +92,8 @@ const unavailableBid = await placeAuctionBid(new Request("https://marketplace.ex
   method: "POST", body: "{}"
 }));
 assert.equal(unavailableBid.status, 503, "bidding fails closed without the complete wallet/payment boundary");
+assert.equal((await getBidContext(new Request("https://marketplace.example/api/auctions/60000000-0000-4000-8000-000000000001/bid-context"))).status, 503,
+  "the browser signing context fails closed with the bid boundary");
 const unavailableSetup = await setupAuctionPayment(new Request("https://marketplace.example/api/auctions/60000000-0000-4000-8000-000000000001/payment-setup", {
   method: "POST", body: "{}"
 }));
@@ -157,6 +161,40 @@ assert.equal(bidTypedData.domain.chainId, 1);
 assert.equal(bidTypedData.primaryType, "BidIntent");
 assert.equal(bidTypedData.message.amount, 480000n);
 assert.equal(bidTypedData.message.settlementRail, 0);
+assert.equal(p256PublicKeyHex(1n, 2n), `0x${"0".repeat(63)}1${"0".repeat(63)}2`);
+const browserIntent = bidIntentFromContext({
+  intent: {
+    auction_id: "60000000-0000-4000-8000-000000000001",
+    work_id: "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    bidder_safe: "0x3333333333333333333333333333333333333333",
+    currency: "USD",
+    nonce: "8",
+    valid_after: "2026-09-03T00:00:00.000Z",
+    valid_until: "2026-09-04T00:00:00.000Z",
+    terms_hash: "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    settlement_rail: "card",
+    origin: "https://marketplace.example",
+    chain_id: 11155111
+  },
+  wallet: {
+    account_address: "0x3333333333333333333333333333333333333333",
+    account_runtime_code: "0x01",
+    account_code_hash: "0x5fe7f977e71dba2ea1a68e21057beebb9be2ac30c6410aa38d4f3fbe41dcffd2",
+    passkey_public_key: `0x${"11".repeat(64)}`,
+    threshold: 1,
+    safe_version: "1.4.1",
+    entry_point_address: "0x1111111111111111111111111111111111111111",
+    entry_point_version: "0.7",
+    factory_address: "0x2222222222222222222222222222222222222222",
+    singleton_address: "0x5555555555555555555555555555555555555555",
+    safe_4337_module_address: "0x3333333333333333333333333333333333333333",
+    shared_signer_address: "0x7777777777777777777777777777777777777777",
+    p256_verifier_address: "0x4444444444444444444444444444444444444444"
+  }
+}, "525000");
+assert.equal(browserIntent.amount, "525000");
+assert.equal(browserIntent.nonce, "8");
+assert.equal(browserIntent.chainId, 11155111);
 
 const walletLinkTypedData = buildWalletLinkTypedData({
   challenge: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -275,6 +313,12 @@ process.env.GROVE_SAFE_FALLBACK_HANDLER_CODE_HASH = process.env.GROVE_SAFE_4337_
 process.env.GROVE_ETHEREUM_CHAIN_ID = "11155111";
 process.env.VERCEL_ENV = "preview";
 assert.equal(configurationReport().missing.some((item) => item.includes("GROVE_ETHEREUM_CHAIN_ID")), false, "Sepolia is accepted for preview rehearsal");
+const previewAuction = await (await getConfig()).json();
+assert.equal(previewAuction.wallet.configured, true, "a complete Sepolia wallet is visible only in Preview");
+assert.equal(previewAuction.wallet.environment, "sepolia-rehearsal");
+assert.equal(previewAuction.wallet.gas, "not-used-for-offchain-bids", "the preview does not claim an unshipped sponsorship submission path");
+assert.equal(previewAuction.auctions.configured, true, "a complete Sepolia auction is visible only in Preview");
+assert.equal(previewAuction.auctions.environment, "sepolia-rehearsal");
 process.env.GROVE_ETHEREUM_CHAIN_ID = "1";
 process.env.VERCEL_ENV = "production";
 assert.throws(() => requireAuctionConfig(), /not configured/i, "production auction mutations remain hard-disabled");
@@ -323,6 +367,7 @@ assert.match(commerceMigration, /warning_closed/, "terminal dispute inquiries ca
 assert.match(commerceMigration, /prevented/, "prevented disputes cannot remain stuck open");
 
 const auctionMigration = await readFile(new URL("../supabase/migrations/20260904000000_hybrid_auction_foundation.sql", import.meta.url), "utf8");
+const walletServer = await readFile(new URL("../lib/server/wallet.js", import.meta.url), "utf8");
 for (const table of [
   "smart_accounts", "wallet_credentials", "wallet_links", "wallet_link_challenges", "sponsorship_decisions", "nft_collections",
   "auctions", "bidder_payment_mandates", "auction_bids", "auction_events", "auction_settlements",
@@ -340,6 +385,8 @@ assert.match(auctionMigration, /Social OAuth identifies the Grove member/, "soci
 assert.match(auctionMigration, /intent_origin_hash/, "bid verification persists its immutable typed-data origin");
 assert.match(auctionMigration, /payment_intent_not_current/, "settlement events are bound to one current PaymentIntent");
 assert.match(auctionMigration, /consent_terms_accepted_at/, "off-session consent evidence is required for a ready mandate");
+assert.match(walletServer, /BigInt\(signerVerifiers\) !== expectedVerifier/, "the complete uint176 passkey verifier configuration is attested");
+assert.doesNotMatch(walletServer, /signerVerifiers[\s\S]{0,120}&\s*\(\(1n\s*<<\s*160n\)/, "passkey verifier attestation does not discard high configuration bits");
 assert.match(migration, /initialize_curator_profile/);
 assert.match(migration, /Email, phone, tokens, and credentials are deliberately not copied/);
 assert.match(migration, /source_provider in \('instagram', 'x', 'web', 'direct'\)/);

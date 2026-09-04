@@ -1,0 +1,16 @@
+{
+  "name": "Passkey Auction — Sepolia Rehearsal",
+  "description": "A synthetic Grove marketplace rehearsal asset on Ethereum Sepolia. It represents no production artwork, payment, ownership claim, or commercial offer.",
+  "image": "https://the-school-sepolia.vercel.app/public/assets/digital-works.jpg",
+  "external_url": "https://the-school-sepolia.vercel.app/#work/sepolia-passkey-auction-rehearsal",
+  "attributes": [
+    {
+      "trait_type": "Environment",
+      "value": "Sepolia"
+    },
+    {
+      "trait_type": "Purpose",
+      "value": "Auction rehearsal"
+    }
+  ]
+}

@@ -138,6 +138,7 @@ const apiWork = (work, index, auction) => ({
   auctionId: auction?.id || null,
   auctionState: auction?.state || null,
   auctionRail: auction?.settlement_rail || null,
+  auctionCurrency: auction?.bid_currency || null,
   auctionClosesAt: auction?.closes_at || null,
   auctionMinimumIncrement: auction ? Number(auction.minimum_increment) : null,
   auctionEnabled: auction?.state === "open"
@@ -500,10 +501,12 @@ const notFound = () => `<div class="page"><header class="page-title"><h1>Not fou
 const collectTemplate = (work, method) => work.auctionId ? `
   <div class="collect-work"><div>${art(work)}</div><span><small>Ethereum auction</small><h2 id="collect-title">${escapeHtml(work.title)}</h2><i>${escapeHtml(work.artist)}</i></span></div>
   <div class="collect-price"><strong>${escapeHtml(work.price)}</strong><span>${escapeHtml(work.auctionRail === "card" ? "Apple Pay / card lot" : "Crypto lot")}</span></div>
-  ${work.auctionRail === "card" ? `<label>Maximum bid (USD)<input type="number" min="1" step="1" inputmode="numeric" data-auction-maximum required></label>
+  ${work.auctionRail === "card" ? `<label>Bid and payment authorization (USD)<input type="number" min="1" step="1" inputmode="numeric" data-auction-bid required></label>
   <div class="method-panel"><span>Save Apple Pay or a card for this auction</span><button class="button button--dark" type="button" data-start-auction-setup disabled>Checking auction…</button></div>`
-    : `<div class="method-panel"><span>WETH / USDC from your Safe</span><button class="button button--dark" disabled>Crypto lots are not enabled</button></div>`}
-  <small class="pending-note" data-checkout-note>Your passkey Safe signs each bid. Grove sponsors supported transaction gas; Apple Pay does not fund a wallet.</small>
+    : `<label>Bid (${escapeHtml(work.auctionCurrency || "token")} base units)<input type="number" min="1" step="1" inputmode="numeric" data-auction-bid required></label>`}
+  <div class="method-panel"><span>Your passkey Safe signs the off-chain bid</span><button class="button button--dark" type="button" data-place-auction-bid disabled>Checking passkey…</button></div>
+  <div class="pending-note" data-auction-feed aria-live="polite">Loading verified bids…</div>
+  <small class="pending-note" data-checkout-note>This records a binding signed bid; it does not claim payment or NFT delivery. Apple Pay does not fund a wallet.</small>
 ` : `
   <div class="collect-work"><div>${art(work)}</div><span><small>Preview</small><h2 id="collect-title">${escapeHtml(work.title)}</h2><i>${escapeHtml(work.artist)}</i></span></div>
   <div class="collect-price"><strong>${escapeHtml(work.cryptoPrice)}</strong><span>${escapeHtml(work.price)} card</span></div>
@@ -526,9 +529,11 @@ const openCollect = (slug, method) => {
     if (collectDialog.dataset.workSlug !== slug) return;
     const button = collectDialog.querySelector("[data-start-card-checkout]");
     const auctionButton = collectDialog.querySelector("[data-start-auction-setup]");
+    const bidButton = collectDialog.querySelector("[data-place-auction-bid]");
     const note = collectDialog.querySelector("[data-checkout-note]");
     const configured = Boolean(configuration.acquisition?.card?.configured) && work.saleEnabled === true;
-    const auctionConfigured = Boolean(configuration.auctions?.configured) && work.auctionEnabled === true;
+    const auctionConfigured = Boolean(configuration.auctions?.configured)
+      && configuration.auctions?.rails?.includes(work.auctionRail) && work.auctionEnabled === true;
     if (button) {
       button.disabled = !configured;
       button.textContent = configured ? "Apple Pay or card" : "Checkout not available";
@@ -537,15 +542,20 @@ const openCollect = (slug, method) => {
       auctionButton.disabled = !auctionConfigured;
       auctionButton.textContent = auctionConfigured ? "Set up Apple Pay or card" : "Auction setup not available";
     }
+    if (bidButton) {
+      bidButton.disabled = !auctionConfigured;
+      bidButton.textContent = auctionConfigured ? "Sign and place bid" : "Bidding not available";
+    }
     if (note && !work.auctionId && !configured) note.textContent = work.saleEnabled
       ? "Checkout remains disabled until provider and tax review pass."
       : "This work has not passed seller, rights, price, and inventory review for sale.";
   });
+  if (work.auctionId) void loadAuctionBids(work.auctionId);
 };
 
 const startAuctionPaymentSetup = async (button) => {
   const work = getWork(collectDialog.dataset.workSlug);
-  const maximumInput = collectDialog.querySelector("[data-auction-maximum]");
+  const maximumInput = collectDialog.querySelector("[data-auction-bid]");
   const maximum = Number(maximumInput?.value);
   if (!work?.auctionId || !Number.isSafeInteger(maximum) || maximum < 1) {
     showToast("Enter a whole-dollar maximum bid");
@@ -553,6 +563,7 @@ const startAuctionPaymentSetup = async (button) => {
   }
   button.disabled = true;
   button.textContent = "Opening secure setup…";
+  sessionStorage.setItem(`grove-auction-setup:${work.auctionId}`, JSON.stringify({ slug: work.slug, maximum }));
   try {
     const response = await fetch(`/api/auctions/${encodeURIComponent(work.auctionId)}/payment-setup`, {
       method: "POST",
@@ -562,8 +573,8 @@ const startAuctionPaymentSetup = async (button) => {
     const body = await response.json();
     if (!response.ok) throw new Error(body.error?.message || "Payment setup is unavailable.");
     if (body.state === "ready") {
-      collectDialog.close();
-      showToast("Payment method ready — sign your bid next");
+      button.textContent = "Payment method ready";
+      showToast("Payment method ready — sign your bid");
       return;
     }
     if (body.state === "processing") {
@@ -578,6 +589,110 @@ const startAuctionPaymentSetup = async (button) => {
     button.textContent = "Set up Apple Pay or card";
     showToast(error.message || "Payment setup is unavailable");
   }
+};
+
+const loadAuctionBids = async (auctionId) => {
+  const feed = collectDialog.querySelector("[data-auction-feed]");
+  if (!feed) return;
+  try {
+    const response = await fetch(`/api/auctions/${encodeURIComponent(auctionId)}/bids`, {
+      headers: { Accept: "application/json" }
+    });
+    const body = await response.json();
+    if (!response.ok) throw new Error("BID_FEED_UNAVAILABLE");
+    const bids = Array.isArray(body.bids) ? body.bids : [];
+    feed.textContent = bids.length
+      ? `${bids.length} verified bid${bids.length === 1 ? "" : "s"} · leading ${money(Number(bids[0].amount), bids[0].currency)}`
+      : "No verified bids yet.";
+  } catch {
+    feed.textContent = "Verified bid feed is temporarily unavailable.";
+  }
+};
+
+const auctionAmount = (work, input) => {
+  const amount = Number(input?.value);
+  if (!Number.isSafeInteger(amount) || amount < 1) throw new Error("Enter a whole-number bid.");
+  return work.auctionRail === "card" ? String(amount * 100) : String(amount);
+};
+
+const placeAuctionBid = async (button) => {
+  const work = getWork(collectDialog.dataset.workSlug);
+  if (!work?.auctionId) return;
+  let amount;
+  try {
+    amount = auctionAmount(work, collectDialog.querySelector("[data-auction-bid]"));
+  } catch (error) {
+    showToast(error.message);
+    return;
+  }
+  button.disabled = true;
+  button.textContent = "Checking wallet…";
+  try {
+    const contextResponse = await fetch(`/api/auctions/${encodeURIComponent(work.auctionId)}/bid-context`, {
+      headers: { Accept: "application/json" }
+    });
+    const context = await contextResponse.json();
+    if (!contextResponse.ok) throw new Error(context.error?.message || "The bid context is unavailable.");
+    if (context.payment?.required && !context.payment.ready) {
+      throw new Error("Set up Apple Pay or a card before signing this bid.");
+    }
+    if (BigInt(amount) < BigInt(context.auction.minimum_amount)) {
+      const minimum = context.auction.currency === "USD"
+        ? money(Number(context.auction.minimum_amount), "USD")
+        : `${context.auction.minimum_amount} ${context.auction.currency} base units`;
+      throw new Error(`The next bid must be at least ${minimum}.`);
+    }
+    if (context.auction.maximum_amount && BigInt(amount) > BigInt(context.auction.maximum_amount)) {
+      throw new Error("This bid exceeds your saved payment authorization.");
+    }
+
+    button.textContent = "Touch your passkey…";
+    const { signBidIntentWithPasskey } = await import("./wallet-intents.js");
+    const signed = await signBidIntentWithPasskey({ context, amount });
+    button.textContent = "Submitting bid…";
+    const requestKey = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const response = await fetch(`/api/auctions/${encodeURIComponent(work.auctionId)}/bids`, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "Idempotency-Key": `browser:${requestKey}`
+      },
+      body: JSON.stringify(signed.body)
+    });
+    const body = await response.json();
+    if (!response.ok) throw new Error(body.error?.message || "The bid was not accepted.");
+    showToast(`Verified bid accepted at ${money(Number(body.bid.amount), body.bid.currency)}`);
+    button.textContent = "Bid accepted";
+    await loadAuctionBids(work.auctionId);
+  } catch (error) {
+    button.disabled = false;
+    button.textContent = "Sign and place bid";
+    showToast(error.message || "The bid was not accepted");
+  }
+};
+
+const handleAuctionSetupReturn = () => {
+  const params = new URLSearchParams(location.search);
+  const state = params.get("auction_setup");
+  const auctionId = params.get("auction_id");
+  if (!state || !auctionId) return;
+  let stored = null;
+  try {
+    stored = JSON.parse(sessionStorage.getItem(`grove-auction-setup:${auctionId}`) || "null");
+  } catch {
+    stored = null;
+  }
+  history.replaceState(null, "", location.pathname + (stored?.slug ? `#work/${stored.slug}` : location.hash));
+  if (stored?.slug && getWork(stored.slug)) {
+    render();
+    openCollect(stored.slug);
+    const input = collectDialog.querySelector("[data-auction-bid]");
+    if (input && Number.isSafeInteger(stored.maximum)) input.value = String(stored.maximum);
+  }
+  showToast(state === "success"
+    ? "Payment setup returned; webhook confirmation may take a moment"
+    : "Payment setup cancelled");
 };
 
 const startCardCheckout = async (button) => {
@@ -851,6 +966,9 @@ document.addEventListener("click", (event) => {
   const auctionSetup = event.target.closest("[data-start-auction-setup]");
   if (auctionSetup) { void startAuctionPaymentSetup(auctionSetup); return; }
 
+  const auctionBid = event.target.closest("[data-place-auction-bid]");
+  if (auctionBid) { void placeAuctionBid(auctionBid); return; }
+
   const method = event.target.closest("[data-method]");
   if (method) {
     collectDialog.querySelectorAll("[data-method]").forEach((button) => button.setAttribute("aria-selected", String(button.dataset.method === method.dataset.method)));
@@ -911,4 +1029,4 @@ addEventListener("hashchange", render);
 trackClientErrors(routeName);
 render();
 void handleCheckoutReturn();
-void hydrateLiveCatalog();
+void hydrateLiveCatalog().then(handleAuctionSetupReturn);
