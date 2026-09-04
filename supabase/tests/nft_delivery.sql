@@ -34,7 +34,7 @@ insert into public.smart_accounts (
   '0x3333333333333333333333333333333333333333', '1.4.1', '0.3.0',
   '0x4444444444444444444444444444444444444444', '0x5555555555555555555555555555555555555555',
   '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
-  2, 1, true, 'recovery-ready', 102, now()
+  1, 1, false, 'deployed', 102, now()
 );
 
 insert into public.wallet_links (

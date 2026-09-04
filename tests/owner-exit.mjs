@@ -203,11 +203,14 @@ assert.match(migration, /sponsorship_preparation_expired/, "expired unsigned exi
 assert.match(migration, /reject_resale_listing_during_owner_exit[\s\S]*pg_advisory_xact_lock/, "listing publication serializes with owner exits");
 assert.match(migration, /sponsorship_transfer_listing_conflict/, "prepare and submit both reject unresolved resale state");
 assert.match(sponsor, /const exitAction = \(action\) => \["marketplace-transfer"/, "inactive members retain the owner exit");
+assert.match(sponsor, /passkeyOnlyOwnerExit = action === "marketplace-transfer"[\s\S]*account\?\.state === "deployed"[\s\S]*account\?\.recovery_ready === false/, "a finalized passkey-only Safe can request only the exact owner-exit action");
+assert.match(sponsor, /action: body\.stage === "prepare" \? body\.action : decision\.action/, "submit authorization derives the action from the stored decision, not caller input");
 assert.match(sponsor, /sameRecipient/, "request-key idempotency binds the destination");
 assert.match(sponsor, /requireSponsorshipReconciliationConfig/, "receipt polling remains available after new exits are disabled");
 assert.match(assetsRoute, /owner_smart_account_id/, "private holdings are scoped to the authenticated Safe");
 assert.match(assetsRoute, /Cache-Control": "private, no-store"/, "social-to-wallet ownership never enters shared cache");
 assert.match(transferRoute, /request\.headers\.get\("origin"\) !== config\.siteUrl/, "transfer context is same-origin");
+assert.match(transferRoute, /\["deployed", "recovery-ready"\]\.includes\(account\.state\)/, "finalized passkey-only Safes can prepare an exact owner exit");
 assert.match(transferRoute, /resolveSecondaryActionContext/, "the browser cannot choose unchecked transfer calldata");
 assert.match(app, /data-transfer-nft/, "owned NFTs expose an exit control");
 assert.match(app, /ownerExitConfigured && work\.ownedByCurrentUser/, "flag-off hides the transfer control");

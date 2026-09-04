@@ -8,7 +8,7 @@ import {
   createSupabaseServiceClient,
   getAuthenticatedCurator
 } from "../../../lib/server/supabase.js";
-import { attestSmartAccountProfile } from "../../../lib/server/wallet.js";
+import { attestSmartAccountProfile, primaryWalletReady } from "../../../lib/server/wallet.js";
 
 const uuid = (input) => typeof input === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input)
   ? input.toLowerCase()
@@ -43,8 +43,8 @@ export const GET = async (request) => {
     if (!auction || auction.state !== "open" || now < new Date(auction.opens_at) || now >= new Date(auction.closes_at)) {
       return problem(409, "auction_not_open", "The auction is not open.", headers);
     }
-    if (!account || account.state !== "recovery-ready" || !account.recovery_ready || !account.finalized_at) {
-      return problem(409, "wallet_not_ready", "Finish passkey recovery setup before bidding.", headers);
+    if (!primaryWalletReady(account)) {
+      return problem(409, "wallet_not_ready", "Finish deploying your passkey wallet before bidding.", headers);
     }
 
     const [{ data: work, error: workError }, { data: credentials, error: credentialError }, highBidResult, mandateResult] = await Promise.all([

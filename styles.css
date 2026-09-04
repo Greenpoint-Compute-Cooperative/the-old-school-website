@@ -1443,6 +1443,98 @@ img.art--live {
   font-size: 10px;
 }
 
+.wallet-provisioning {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+}
+
+.wallet-provisioning__heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.wallet-provisioning__heading span {
+  flex: 0 0 auto;
+  color: var(--blue-dark);
+  font: 9px/1.3 var(--mono);
+}
+
+.wallet-provisioning h2 {
+  max-width: 320px;
+  font-size: 34px;
+  line-height: 0.96;
+  text-align: right;
+}
+
+.wallet-provisioning > p {
+  margin-top: 14px;
+  color: var(--ink-soft);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.wallet-provisioning__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin-top: 17px;
+  gap: 8px;
+}
+
+.wallet-provisioning__actions .button {
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 12px;
+  font-size: 11px;
+}
+
+.wallet-provisioning__actions .button:disabled {
+  opacity: 0.46;
+}
+
+.wallet-provisioning__status {
+  display: grid;
+  margin-top: 10px;
+  padding: 14px;
+  gap: 6px;
+  border-left: 3px solid var(--blue);
+  border-radius: 3px 6px 6px 3px;
+  background: #e4f1ff;
+}
+
+.wallet-provisioning__status strong {
+  font-size: 12px;
+}
+
+.wallet-provisioning__status span,
+.wallet-provisioning__status a {
+  color: var(--ink-soft);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.wallet-provisioning__status code {
+  overflow-wrap: anywhere;
+  font: 9px/1.5 var(--mono);
+}
+
+.wallet-provisioning__status a {
+  width: max-content;
+  min-height: 36px;
+  padding-top: 9px;
+  color: var(--blue-dark);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.wallet-provisioning > .wallet-provisioning__disclosure {
+  margin-top: 10px;
+  font: 9px/1.5 var(--mono);
+}
+
 .curator-role {
   color: var(--ink-soft);
   font-size: 13px;
@@ -2138,6 +2230,19 @@ img.art--live {
   .social-join i {
     max-width: 72px;
     text-align: right;
+  }
+
+  .wallet-provisioning__heading {
+    display: grid;
+  }
+
+  .wallet-provisioning h2 {
+    max-width: none;
+    text-align: left;
+  }
+
+  .wallet-provisioning__actions {
+    grid-template-columns: 1fr;
   }
 
   .bazaar-hero {

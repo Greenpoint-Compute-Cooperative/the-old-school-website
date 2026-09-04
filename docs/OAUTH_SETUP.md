@@ -47,4 +47,33 @@ Before either flag is enabled, publish a privacy policy and deletion route, choo
 - Sign-out clears the session; provider revocation is handled.
 - Account deletion and retention behavior match the published policy.
 
+## Isolated staging E2E identity
+
+The dedicated `staging` Vercel target can use a synthetic social session before
+external Meta credentials are approved. This is a test harness, not a fallback
+login method. It is unavailable unless `VERCEL_TARGET_ENV=staging`, the runtime
+is non-Production, the isolated staging Supabase service key is present, and all
+three `GROVE_SYNTHETIC_SOCIAL_AUTH_*` values are deliberately configured.
+
+An authorized test runner calls `POST /api/testing/social-bootstrap` with the
+server-only operator bearer token and an allowlisted slug such as
+`{"scenario":"auction-e2e"}`. The response contains a signed two-minute,
+single-use ticket. From the same deployment origin, the runner submits that
+ticket to `POST /api/testing/social-session`; the server exchanges an internal
+admin-generated magic link and returns ordinary Supabase session cookies.
+Neither secret nor magic-link hash reaches static code.
+
+The resulting profile uses provider `synthetic`, an `@staging.invalid` address,
+a visible name beginning `Synthetic Staging Bidder`, and a provider subject beginning
+`synthetic:staging:`. Ticket issuance, consumption, and successful session
+establishment are recorded in service-only audit tables; if that final audit
+write fails, the newly created session is cleared. Replays, expired or
+tampered tickets, cross-origin consumption, and all Production attempts fail
+closed.
+
+This session only satisfies the social/session prerequisite. It creates no
+`smart_accounts`, wallet credential, wallet link, signing key, payment mandate,
+bid, or sponsorship decision. The E2E must still deploy and prove control of a
+passkey Safe through the normal ERC-1271 wallet-link flow before it can bid.
+
 Official references: [Supabase custom OAuth providers](https://supabase.com/docs/guides/auth/custom-oauth-providers), [Supabase Twitter login](https://supabase.com/docs/guides/auth/social-login/auth-twitter), [Instagram Login](https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/), [X OAuth 2.0 + PKCE](https://docs.x.com/fundamentals/authentication/oauth-2-0/authorization-code), and [X authenticated profile lookup](https://docs.x.com/x-api/users/lookup/quickstart/authenticated-lookup).

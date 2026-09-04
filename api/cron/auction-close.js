@@ -5,7 +5,7 @@ import { verifyFinalizedInventoryCustody } from "../../lib/server/chain.js";
 import { ConfigurationError, getRuntimeConfig } from "../../lib/server/config.js";
 import { json, problem } from "../../lib/server/http.js";
 import { createSupabaseServiceClient } from "../../lib/server/supabase.js";
-import { attestSmartAccountProfile } from "../../lib/server/wallet.js";
+import { attestSmartAccountProfile, primaryWalletReady } from "../../lib/server/wallet.js";
 
 const authorized = (request, expected) => {
   const supplied = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") || "";
@@ -61,7 +61,7 @@ export const GET = async (request) => {
           const { data: account, error: accountError } = await service.from("smart_accounts")
             .select("id,chain_id,account_address,safe_version,module_version,entry_point_address,factory_address,code_hash,signer_count,threshold,state,recovery_ready,finalized_at")
             .eq("id", bid.smart_account_id).eq("user_id", bid.bidder_user_id).single();
-          if (accountError || !account || account.state !== "recovery-ready" || !account.recovery_ready || !account.finalized_at) {
+          if (accountError || !primaryWalletReady(account)) {
             throw new Error("WINNER_WALLET_NOT_READY");
           }
           const { data: credentials, error: credentialError } = await service.from("wallet_credentials")

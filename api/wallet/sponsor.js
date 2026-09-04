@@ -20,12 +20,14 @@ import { normalizeUserOperation, userOperationCommitment, userOperationToJson } 
 
 const requestKey = (input) => typeof input === "string" && /^[A-Za-z0-9._:-]{16,200}$/.test(input) ? input : null;
 
-const authenticatedAccount = async ({ service, config, userId }) => {
+const authenticatedAccount = async ({ service, config, userId, action }) => {
   const { data: account, error } = await service.from("smart_accounts")
     .select("id,user_id,chain_id,account_address,safe_version,module_version,entry_point_address,factory_address,code_hash,signer_count,threshold,state,recovery_ready,finalized_at")
     .eq("user_id", userId).eq("chain_id", config.wallet.chainId).maybeSingle();
   if (error) throw error;
-  if (!account || account.state !== "recovery-ready" || !account.recovery_ready || !account.finalized_at) {
+  const passkeyOnlyOwnerExit = action === "marketplace-transfer"
+    && account?.state === "deployed" && account?.recovery_ready === false;
+  if (!account || (!passkeyOnlyOwnerExit && (account.state !== "recovery-ready" || !account.recovery_ready)) || !account.finalized_at) {
     throw new Error("SMART_ACCOUNT_NOT_READY");
   }
   const { data: credentials, error: credentialError } = await service.from("wallet_credentials")
@@ -103,15 +105,30 @@ export const POST = async (request) => {
       return problem(403, "member_inactive", "Only owner exit, cancellation, and approval revocation remain available while membership is inactive.", context.headers);
     }
     service = createSupabaseServiceClient();
-    const accountContext = await authenticatedAccount({ service, config: context.config, userId: context.user.id });
+    const prepareKey = body.stage === "prepare" ? requestKey(body.request_key) : null;
+    if (body.stage === "prepare" && (!prepareKey || typeof body.action !== "string")) {
+      return problem(422, "invalid_sponsorship_request", "The sponsored action request is invalid.", context.headers);
+    }
+    const submitKey = body.stage === "submit" ? requestKey(body.request_key) : null;
+    if (body.stage === "submit" && (!submitKey || !body.user_operation)) {
+      return problem(422, "invalid_sponsorship_request", "The signed UserOperation is invalid.", context.headers);
+    }
+    const decision = body.stage === "submit"
+      ? await loadDecision({ service, userId: context.user.id, clientKey: submitKey })
+      : null;
+    if (body.stage === "submit" && !decision) {
+      return problem(404, "sponsorship_not_found", "The sponsorship request was not found.", context.headers);
+    }
+    const accountContext = await authenticatedAccount({
+      service,
+      config: context.config,
+      userId: context.user.id,
+      action: body.stage === "prepare" ? body.action : decision.action
+    });
     account = accountContext.account;
     const { attestation } = accountContext;
 
     if (body.stage === "prepare") {
-      const prepareKey = requestKey(body.request_key);
-      if (!prepareKey || typeof body.action !== "string") {
-        return problem(422, "invalid_sponsorship_request", "The sponsored action request is invalid.", context.headers);
-      }
       const existing = await loadDecision({ service, userId: context.user.id, clientKey: prepareKey });
       if (existing) {
         const referenceKey = body.work_id ? "work_id" : "listing_id";
@@ -159,10 +176,8 @@ export const POST = async (request) => {
       return json(preparedPayload({ context, account, attestation, prepared }), { status: 201, headers: context.headers });
     }
 
-    const key = requestKey(body.request_key);
-    if (!key || !body.user_operation) return problem(422, "invalid_sponsorship_request", "The signed UserOperation is invalid.", context.headers);
-    const decision = await loadDecision({ service, userId: context.user.id, clientKey: key });
-    if (!decision || decision.smart_account_id !== account.id) return problem(404, "sponsorship_not_found", "The sponsorship request was not found.", context.headers);
+    const key = submitKey;
+    if (decision.smart_account_id !== account.id) return problem(404, "sponsorship_not_found", "The sponsorship request was not found.", context.headers);
     requireSecondarySponsorshipConfig(context.config, decision.action);
     if (context.curator?.status !== "active" && !exitAction(decision.action)) {
       return problem(403, "member_inactive", "Only owner exit, cancellation, and approval revocation remain available while membership is inactive.", context.headers);

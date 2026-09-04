@@ -29,8 +29,8 @@ export const POST = async (request) => {
       .select("id,user_id,chain_id,account_address,state,recovery_ready,finalized_at")
       .eq("user_id", user.id).eq("chain_id", config.wallet.chainId).maybeSingle();
     if (accountError) return problem(502, "wallet_asset_unavailable", "The owner wallet could not be checked.", headers);
-    if (!account || account.state !== "recovery-ready" || !account.recovery_ready || !account.finalized_at) {
-      return problem(409, "wallet_not_ready", "Finish passkey recovery setup before moving an NFT.", headers);
+    if (!account || !["deployed", "recovery-ready"].includes(account.state) || !account.finalized_at) {
+      return problem(409, "wallet_not_ready", "Activate the passkey Safe before moving an NFT.", headers);
     }
 
     const requestKey = randomUUID();

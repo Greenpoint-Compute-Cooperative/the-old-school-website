@@ -46,7 +46,7 @@ insert into public.smart_accounts (
   '0x4444444444444444444444444444444444444444',
   '0x5555555555555555555555555555555555555555',
   '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
-  2, 1, true, 'recovery-ready', 102, now()
+  1, 1, false, 'deployed', 102, now()
 );
 
 insert into public.wallet_credentials (
@@ -54,10 +54,7 @@ insert into public.wallet_credentials (
 ) values
   ('50000000-0000-4000-8000-000000000001',
    '0x9191919191919191919191919191919191919191919191919191919191919191',
-   '0x6666666666666666666666666666666666666666', 'owner'),
-  ('50000000-0000-4000-8000-000000000001',
-   '0x9292929292929292929292929292929292929292929292929292929292929292',
-   '0x7777777777777777777777777777777777777777', 'recovery');
+   '0x6666666666666666666666666666666666666666', 'owner');
 
 insert into public.wallet_link_challenges (
   id, user_id, smart_account_id, challenge_hash, origin_hash, expires_at

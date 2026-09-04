@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { GET as getConfig } from "../api/config.js";
-import { configurationReport } from "../lib/server/config.js";
+import { configurationReport, getRuntimeConfig } from "../lib/server/config.js";
 import { GET as getHealth } from "../api/health.js";
 import { GET as startAuth } from "../api/auth/start.js";
 import { POST as createAcquisition } from "../api/acquisitions.js";
@@ -58,6 +58,9 @@ const envNames = [
   "GROVE_INSTAGRAM_BOT_ENABLED",
   "GROVE_INSTAGRAM_WEBHOOK_VERIFY_TOKEN",
   "GROVE_INSTAGRAM_APP_SECRET",
+  "GROVE_SYNTHETIC_SOCIAL_AUTH_ENABLED",
+  "GROVE_SYNTHETIC_SOCIAL_AUTH_SIGNING_SECRET",
+  "GROVE_SYNTHETIC_SOCIAL_AUTH_OPERATOR_TOKEN",
   "GROVE_X_OAUTH_ENABLED",
   "GROVE_ACQUISITION_ENABLED",
   "GROVE_SELLER_TERMS_VERSION",
@@ -82,6 +85,8 @@ const envNames = [
   ,"GROVE_SAFE_WEBAUTHN_SHARED_SIGNER_ADDRESS"
   ,"GROVE_SAFE_4337_MODULE_ADDRESS"
   ,"GROVE_SAFE_PASSKEY_VERIFIER_ADDRESS"
+  ,"GROVE_SAFE_MODULE_SETUP_ADDRESS"
+  ,"GROVE_SAFE_MULTISEND_ADDRESS"
   ,"GROVE_ENTRY_POINT_CODE_HASH"
   ,"GROVE_SAFE_FACTORY_CODE_HASH"
   ,"GROVE_SAFE_PROXY_CODE_HASH"
@@ -91,6 +96,8 @@ const envNames = [
   ,"GROVE_SAFE_WEBAUTHN_SHARED_SIGNER_CODE_HASH"
   ,"GROVE_SAFE_4337_MODULE_CODE_HASH"
   ,"GROVE_SAFE_PASSKEY_VERIFIER_CODE_HASH"
+  ,"GROVE_SAFE_MODULE_SETUP_CODE_HASH"
+  ,"GROVE_SAFE_MULTISEND_CODE_HASH"
   ,"GROVE_BUNDLER_URL"
   ,"GROVE_PAYMASTER_URL"
   ,"GROVE_PAYMASTER_API_TOKEN"
@@ -514,6 +521,8 @@ Object.assign(process.env, {
   GROVE_SAFE_WEBAUTHN_SHARED_SIGNER_ADDRESS: "0x7777777777777777777777777777777777777777",
   GROVE_SAFE_4337_MODULE_ADDRESS: "0x3333333333333333333333333333333333333333",
   GROVE_SAFE_PASSKEY_VERIFIER_ADDRESS: "0x4444444444444444444444444444444444444444",
+  GROVE_SAFE_MODULE_SETUP_ADDRESS: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  GROVE_SAFE_MULTISEND_ADDRESS: "0xcccccccccccccccccccccccccccccccccccccccc",
   GROVE_ENTRY_POINT_CODE_HASH: "0x1111111111111111111111111111111111111111111111111111111111111111",
   GROVE_SAFE_FACTORY_CODE_HASH: "0x2222222222222222222222222222222222222222222222222222222222222222",
   GROVE_SAFE_PROXY_CODE_HASH: "0x5555555555555555555555555555555555555555555555555555555555555555",
@@ -523,6 +532,8 @@ Object.assign(process.env, {
   GROVE_SAFE_WEBAUTHN_SHARED_SIGNER_CODE_HASH: "0x8888888888888888888888888888888888888888888888888888888888888888",
   GROVE_SAFE_4337_MODULE_CODE_HASH: "0x3333333333333333333333333333333333333333333333333333333333333333",
   GROVE_SAFE_PASSKEY_VERIFIER_CODE_HASH: "0x4444444444444444444444444444444444444444444444444444444444444444",
+  GROVE_SAFE_MODULE_SETUP_CODE_HASH: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  GROVE_SAFE_MULTISEND_CODE_HASH: "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
   GROVE_BUNDLER_URL: "https://bundler.example",
   GROVE_PAYMASTER_URL: "https://paymaster.example",
   GROVE_PAYMASTER_API_TOKEN: "test-provider-token",
@@ -554,12 +565,20 @@ delete process.env.GROVE_INVENTORY_SAFE_SINGLETON_CODE_HASH;
 assert.equal(configurationReport().missing.includes("GROVE_INVENTORY_SAFE_SINGLETON_CODE_HASH"), true,
   "auction configuration requires the independent inventory Safe singleton code hash");
 process.env.GROVE_INVENTORY_SAFE_SINGLETON_CODE_HASH = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+delete process.env.GROVE_BUNDLER_URL;
+delete process.env.GROVE_PAYMASTER_URL;
+delete process.env.GROVE_PAYMASTER_API_TOKEN;
+delete process.env.GROVE_SPONSOR_POLICY_VERSION;
 process.env.GROVE_ETHEREUM_CHAIN_ID = "11155111";
 process.env.VERCEL_ENV = "preview";
 process.env.VERCEL_TARGET_ENV = "staging";
 assert.equal(configurationReport().missing.some((item) => item.includes("GROVE_ETHEREUM_CHAIN_ID")), false, "Sepolia is accepted for preview rehearsal");
+assert.equal(configurationReport().missing.includes("GROVE_BUNDLER_URL"), false,
+  "off-chain bidding does not require an account-abstraction provider");
+assert.equal(getRuntimeConfig().wallet.identityStagingConfigured, true, "the passkey Safe identity boundary is complete");
+assert.equal(getRuntimeConfig().wallet.stagingConfigured, false, "sponsored execution remains closed without a bundler and paymaster");
 const previewAuction = await (await getConfig()).json();
-assert.equal(previewAuction.wallet.configured, true, "a complete Sepolia wallet is visible in the staging target");
+assert.equal(previewAuction.wallet.configured, true, "a complete Sepolia passkey identity is visible in the staging target");
 assert.equal(previewAuction.wallet.environment, "sepolia-rehearsal");
 assert.equal(previewAuction.wallet.gas, "not-used-for-offchain-bids", "the preview does not claim an unshipped sponsorship submission path");
 assert.equal(previewAuction.auctions.configured, true, "a complete Sepolia auction is visible only in Preview");

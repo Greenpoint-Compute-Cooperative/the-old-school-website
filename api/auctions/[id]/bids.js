@@ -7,7 +7,7 @@ import {
   createSupabaseServiceClient,
   getAuthenticatedCurator
 } from "../../../lib/server/supabase.js";
-import { attestSmartAccountProfile } from "../../../lib/server/wallet.js";
+import { attestSmartAccountProfile, primaryWalletReady } from "../../../lib/server/wallet.js";
 
 const uuid = (input) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input)
   ? input.toLowerCase()
@@ -74,13 +74,13 @@ export const POST = async (request) => {
     if (!auction || auction.state !== "open") return problem(409, "auction_not_open", "The auction is not open.", headers);
     const [{ data: work }, { data: account }] = await Promise.all([
       service.from("works").select("id,nft_work_id,nft_custody_state,contract_status").eq("id", auction.work_id).maybeSingle(),
-      service.from("smart_accounts").select("id,chain_id,account_address,safe_version,module_version,entry_point_address,factory_address,code_hash,signer_count,threshold,state,recovery_ready").eq("user_id", user.id).maybeSingle()
+      service.from("smart_accounts").select("id,chain_id,account_address,safe_version,module_version,entry_point_address,factory_address,code_hash,signer_count,threshold,state,recovery_ready,finalized_at").eq("user_id", user.id).maybeSingle()
     ]);
     if (!work || work.nft_custody_state !== "inventory-safe" || work.contract_status !== "minted") {
       return problem(409, "nft_not_in_inventory", "Bidding opens only after the NFT is finalized in inventory.", headers);
     }
-    if (!account || account.state !== "recovery-ready" || !account.recovery_ready) {
-      return problem(409, "wallet_not_ready", "Finish passkey recovery setup before bidding.", headers);
+    if (!primaryWalletReady(account)) {
+      return problem(409, "wallet_not_ready", "Finish deploying your passkey wallet before bidding.", headers);
     }
     const { data: credentials, error: credentialError } = await service.from("wallet_credentials")
       .select("credential_commitment,owner_address,purpose").eq("smart_account_id", account.id).eq("state", "active");

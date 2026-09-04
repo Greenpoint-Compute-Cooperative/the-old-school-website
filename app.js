@@ -30,6 +30,7 @@ let authConfiguration;
 let authConfigurationRequest;
 let marketplaceStats;
 let checkoutReturnHandled = false;
+let recoveryWalletAddress = "";
 
 const escapeHtml = (value = "") => String(value)
   .replaceAll("&", "&amp;")
@@ -690,6 +691,23 @@ const joinPage = () => `
       </div>
       <p class="join-note">Provider consent only. We never ask for your password.</p>
       <div class="join-result" id="join-result" aria-live="polite"></div>
+      <section class="wallet-provisioning" data-wallet-provisioning aria-labelledby="wallet-provisioning-title" hidden>
+        <div class="wallet-provisioning__heading">
+          <span>Sepolia rehearsal</span>
+          <h2 id="wallet-provisioning-title">Set up your auction wallet</h2>
+        </div>
+        <p>Your passkey controls the Safe. You can add a wallet you already control as recovery now, or continue without one; The School never receives either private key.</p>
+        <div class="wallet-provisioning__actions">
+          <button class="button button--soft" type="button" data-connect-recovery-wallet>Add recovery wallet (optional)</button>
+          <button class="button button--dark" type="button" data-create-passkey-safe>Create passkey Safe</button>
+          <button class="button button--soft" type="button" data-check-safe-activation hidden>Check deployment status</button>
+        </div>
+        <div class="wallet-provisioning__status" data-wallet-provisioning-status role="status" aria-live="polite">
+          <strong>Ready for a passkey</strong>
+          <span>Without a recovery wallet, losing this device or passkey may permanently remove access until recovery is added.</span>
+        </div>
+        <p class="wallet-provisioning__disclosure">This browser prepares the Safe only. It does not submit gas or claim that the Safe is active.</p>
+      </section>
     </div>
   </div>
 `;
@@ -1253,6 +1271,234 @@ const setJoinResult = (headline, detail, profile) => {
   result.classList.add("is-visible");
 };
 
+const walletRehearsalConfigured = (configuration) => configuration?.wallet?.configured === true
+  && configuration.wallet.environment === "sepolia-rehearsal"
+  && Number(configuration.wallet.chainId) === 11155111;
+
+const setWalletProvisioningStatus = (headline, detail, contents = "") => {
+  const status = document.querySelector("[data-wallet-provisioning-status]");
+  if (!status) return;
+  status.innerHTML = `<strong>${escapeHtml(headline)}</strong><span>${escapeHtml(detail)}</span>${contents}`;
+};
+
+const walletStatusAddress = (status) => status?.account_address || status?.wallet?.account_address || "";
+
+const resetWalletProvisioningControls = () => {
+  const panel = document.querySelector("[data-wallet-provisioning]");
+  if (!panel) return;
+  const connectButton = panel.querySelector("[data-connect-recovery-wallet]");
+  const createButton = panel.querySelector("[data-create-passkey-safe]");
+  const checkButton = panel.querySelector("[data-check-safe-activation]");
+  connectButton.hidden = false;
+  connectButton.disabled = !globalThis.ethereum?.request;
+  connectButton.textContent = "Add recovery wallet (optional)";
+  createButton.hidden = false;
+  createButton.disabled = !globalThis.PublicKeyCredential || !globalThis.isSecureContext;
+  createButton.textContent = "Create passkey Safe";
+  checkButton.hidden = true;
+  checkButton.disabled = false;
+  checkButton.textContent = "Check deployment status";
+  delete panel.dataset.activationState;
+  if (!globalThis.ethereum?.request) {
+    setWalletProvisioningStatus(
+      "Ready without recovery",
+      "No injected wallet was found. You can continue, but losing this device or passkey may permanently remove access until recovery is added."
+    );
+  } else if (!globalThis.PublicKeyCredential || !globalThis.isSecureContext) {
+    setWalletProvisioningStatus(
+      "Passkeys unavailable",
+      "Use a passkey-capable browser on this secure staging site."
+    );
+  } else {
+    setWalletProvisioningStatus(
+      "Ready for a passkey",
+      "Add an existing recovery wallet for stronger account recovery, or continue without one."
+    );
+  }
+};
+
+const renderWalletProvisioningStage = (status) => {
+  const panel = document.querySelector("[data-wallet-provisioning]");
+  if (!panel) return;
+  if (status?.stage === "unprepared") {
+    resetWalletProvisioningControls();
+    return;
+  }
+  if (!["prepared", "active"].includes(status?.stage)) {
+    throw new Error("The server returned an unknown wallet activation state.");
+  }
+  const address = walletStatusAddress(status);
+  if (!/^0x[0-9a-fA-F]{40}$/.test(address)) {
+    throw new Error("The server did not return a valid Safe address.");
+  }
+  const connectButton = panel.querySelector("[data-connect-recovery-wallet]");
+  const createButton = panel.querySelector("[data-create-passkey-safe]");
+  const checkButton = panel.querySelector("[data-check-safe-activation]");
+  connectButton.hidden = true;
+  createButton.hidden = true;
+  const active = status.stage === "active";
+  checkButton.hidden = active;
+  checkButton.disabled = false;
+  checkButton.textContent = "Check deployment status";
+  const checkedThrough = status.deployment?.checked_through_block;
+  const preparedBlock = status.verified_finalized_block;
+  const recoveryReady = status.recovery_ready === true || status.wallet?.recovery_ready === true
+    || Boolean(status.owners?.recovery_address);
+  const detail = active
+    ? `Activation status: active from finalized Sepolia evidence.${recoveryReady ? " Recovery is configured." : " No recovery wallet is configured; losing the passkey may permanently remove access."}`
+    : `Activation status: pending platform deployment. Factory calldata is ready${preparedBlock ? ` and was prepared at finalized block ${preparedBlock}` : ""}${checkedThrough ? `; deployment was checked through block ${checkedThrough}` : ""}.${recoveryReady ? " Recovery is configured." : " No recovery wallet is configured yet."}`;
+  setWalletProvisioningStatus(
+    active ? "Passkey Safe active" : "Counterfactual Safe ready",
+    detail,
+    `<code>${escapeHtml(address)}</code><a href="https://sepolia.etherscan.io/address/${escapeHtml(address)}" target="_blank" rel="noopener noreferrer">View address on Sepolia Etherscan</a>`
+  );
+  panel.dataset.activationState = active ? "active" : "pending";
+};
+
+const refreshWalletProvisioningStatus = async (button) => {
+  const panel = document.querySelector("[data-wallet-provisioning]");
+  if (!panel || panel.hidden) return;
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Checking finality…";
+  }
+  try {
+    const status = await postWalletProvisioning({ stage: "status" });
+    renderWalletProvisioningStage(status);
+  } catch (error) {
+    if (button) {
+      button.disabled = false;
+      button.textContent = "Check deployment status";
+    }
+    setWalletProvisioningStatus("Deployment status unavailable", error.message || "Try checking again. No transaction was submitted.");
+  }
+};
+
+const showWalletProvisioning = (curator, configuration) => {
+  const panel = document.querySelector("[data-wallet-provisioning]");
+  if (!panel || curator?.status !== "active" || !walletRehearsalConfigured(configuration)) return;
+  panel.hidden = false;
+  panel.dataset.credentialName = curator.handle
+    ? `${BRAND_NAME} · @${curator.handle}`
+    : `${BRAND_NAME} · ${curator.display_name}`;
+  setWalletProvisioningStatus("Checking auction wallet", "Looking for an existing prepared or active Safe.");
+  void refreshWalletProvisioningStatus();
+};
+
+const connectProvisioningRecoveryWallet = async (button) => {
+  const panel = document.querySelector("[data-wallet-provisioning]");
+  if (!panel || panel.hidden) return;
+  const createButton = panel.querySelector("[data-create-passkey-safe]");
+  const originalLabel = button.textContent;
+  button.disabled = true;
+  button.textContent = "Connecting…";
+  try {
+    const { connectRecoveryWallet } = await import("./wallet-intents.js");
+    const recovery = await connectRecoveryWallet();
+    recoveryWalletAddress = recovery.address;
+    button.textContent = "Recovery wallet connected";
+    createButton.disabled = !globalThis.PublicKeyCredential || !globalThis.isSecureContext;
+    const networkDetail = recovery.chainId && recovery.chainId !== 11155111
+      ? "The proof is Sepolia-specific even though your wallet currently displays another network."
+      : "It will sign a Sepolia-specific recovery proof; no transaction is requested.";
+    setWalletProvisioningStatus(
+      "Recovery owner connected",
+      `${recovery.address.slice(0, 8)}…${recovery.address.slice(-6)}. ${networkDetail}`
+    );
+  } catch (error) {
+    button.disabled = false;
+    button.textContent = originalLabel;
+    createButton.disabled = !globalThis.PublicKeyCredential || !globalThis.isSecureContext;
+    setWalletProvisioningStatus("Recovery wallet not connected", error.message || "Connect an existing Ethereum wallet to continue.");
+  }
+};
+
+const postWalletProvisioning = async (body) => {
+  const response = await fetch("/api/wallet/provision", {
+    method: "POST",
+    headers: { Accept: "application/json", "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+  const result = response.headers.get("content-type")?.includes("application/json")
+    ? await response.json()
+    : null;
+  if (!response.ok) throw new Error(result?.error?.message || "Passkey wallet preparation is unavailable.");
+  return result;
+};
+
+const preparePasskeySafe = async (button) => {
+  const panel = document.querySelector("[data-wallet-provisioning]");
+  const connectButton = panel?.querySelector("[data-connect-recovery-wallet]");
+  if (!panel || panel.hidden) return;
+  const originalLabel = button.textContent;
+  button.disabled = true;
+  if (connectButton) connectButton.disabled = true;
+  try {
+    button.textContent = "Confirm passkey…";
+    setWalletProvisioningStatus("Creating passkey", "Confirm the browser prompt. The private key stays in your authenticator.");
+    const {
+      connectRecoveryWallet,
+      createProvisioningPasskey,
+      signRecoveryAuthorizationWithWallet
+    } = await import("./wallet-intents.js");
+    const credential = await createProvisioningPasskey({ name: panel.dataset.credentialName });
+    const prepareBody = {
+      stage: "prepare",
+      passkey_public_key: credential.publicKey
+    };
+    if (recoveryWalletAddress) {
+      const currentRecovery = await connectRecoveryWallet();
+      recoveryWalletAddress = currentRecovery.address;
+      button.textContent = "Requesting recovery proof…";
+      const challenge = await postWalletProvisioning({
+        stage: "challenge",
+        passkey_public_key: credential.publicKey,
+        recovery_address: recoveryWalletAddress
+      });
+      if (challenge?.stage !== "challenge" || challenge.recovery_address?.toLowerCase() !== recoveryWalletAddress.toLowerCase()
+        || challenge.passkey_public_key !== credential.publicKey || typeof challenge.message !== "string") {
+        throw new Error("The recovery challenge did not match this wallet setup.");
+      }
+      button.textContent = "Confirm recovery wallet…";
+      setWalletProvisioningStatus("Confirm recovery owner", "Sign the displayed authorization message. This is not a transaction and costs no gas.");
+      const signature = await signRecoveryAuthorizationWithWallet({
+        message: challenge.message,
+        recoveryAddress: recoveryWalletAddress
+      });
+      Object.assign(prepareBody, {
+        recovery_address: recoveryWalletAddress,
+        recovery_proof: {
+          nonce: challenge.nonce,
+          expires_at: challenge.expires_at,
+          signature
+        }
+      });
+    } else {
+      setWalletProvisioningStatus(
+        "Preparing without recovery",
+        "No recovery private key is generated or held. Keep this passkey available; loss may permanently remove access until recovery is added."
+      );
+    }
+    button.textContent = "Preparing Safe…";
+    const prepared = await postWalletProvisioning(prepareBody);
+    if (!["prepared", "active"].includes(prepared?.stage)
+      || !/^0x[0-9a-fA-F]{40}$/.test(prepared.account_address || prepared.wallet?.account_address || "")) {
+      throw new Error("The server did not return a valid Safe preparation record.");
+    }
+
+    const address = walletStatusAddress(prepared);
+    renderWalletProvisioningStage(prepared);
+    void track("wallet_provisioning_prepared", {
+      route: routeName(), entityType: "wallet", entityId: address, properties: { state: prepared.stage, chainId: 11155111 }
+    });
+  } catch (error) {
+    button.disabled = false;
+    if (connectButton) connectButton.disabled = !globalThis.ethereum?.request;
+    button.textContent = originalLabel;
+    setWalletProvisioningStatus("Safe not prepared", error.message || "No Safe deployment was submitted.");
+  }
+};
+
 const hydrateJoin = async () => {
   const configuration = await loadAuthConfiguration();
   if (!document.querySelector(".join-page")) return;
@@ -1266,31 +1512,36 @@ const hydrateJoin = async () => {
   }
 
   const authState = new URLSearchParams(location.search).get("auth");
-  if (!authState) return;
-
-  if (authState === "connected") {
+  let curator = null;
+  if (authState === "connected" || walletRehearsalConfigured(configuration)) {
     try {
       const response = await fetch("/api/me", { headers: { Accept: "application/json" } });
       const body = await response.json();
       if (response.ok && body.curator) {
-        setJoinResult("", "", body.curator);
-        void track("join_completed", { route: routeName(), entityType: "provider", entityId: body.curator.provider, properties: { state: "connected" } });
-      } else setJoinResult("Profile unavailable", "No profile data was imported.");
+        curator = body.curator;
+        if (!authState || authState === "connected") setJoinResult("", "", curator);
+        if (authState === "connected") {
+          void track("join_completed", { route: routeName(), entityType: "provider", entityId: curator.provider, properties: { state: "connected" } });
+        }
+      } else if (authState === "connected") setJoinResult("Profile unavailable", "No profile data was imported.");
     } catch {
-      setJoinResult("Profile unavailable", "No profile data was imported.");
+      if (authState === "connected") setJoinResult("Profile unavailable", "No profile data was imported.");
     }
-  } else if (authState === "cancelled") {
+  }
+
+  if (curator) showWalletProvisioning(curator, configuration);
+  if (authState === "cancelled") {
     setJoinResult("Join cancelled", "No account was opened or imported.");
     void track("join_cancelled", { route: routeName(), properties: { state: "cancelled" } });
   } else if (authState === "not-configured") {
     setJoinResult("OAuth not configured", "No account was opened or imported.");
     void track("join_unavailable", { route: routeName(), properties: { state: "not-configured" } });
-  } else {
+  } else if (authState && authState !== "connected") {
     setJoinResult("Join incomplete", "No profile data was imported.");
     void track("join_cancelled", { route: routeName(), properties: { state: "incomplete" } });
   }
 
-  history.replaceState(null, "", `${location.pathname}${location.hash}`);
+  if (authState) history.replaceState(null, "", `${location.pathname}${location.hash}`);
 };
 
 const startAuth = async (provider) => {
@@ -1308,6 +1559,9 @@ const signOut = async () => {
   try {
     const response = await fetch("/api/auth/signout", { method: "POST", headers: { Accept: "application/json" } });
     if (!response.ok) throw new Error("SIGNOUT_FAILED");
+    recoveryWalletAddress = "";
+    const panel = document.querySelector("[data-wallet-provisioning]");
+    if (panel) panel.hidden = true;
     setJoinResult("Signed out", "This browser session is closed.");
   } catch {
     setJoinResult("Sign-out incomplete", "Try again when the service is available.");
@@ -1358,6 +1612,15 @@ document.addEventListener("click", (event) => {
   if (authProvider) { void startAuth(authProvider.dataset.authProvider); return; }
 
   if (event.target.closest("[data-signout]")) { void signOut(); return; }
+
+  const recoveryWallet = event.target.closest("[data-connect-recovery-wallet]");
+  if (recoveryWallet) { void connectProvisioningRecoveryWallet(recoveryWallet); return; }
+
+  const passkeySafe = event.target.closest("[data-create-passkey-safe]");
+  if (passkeySafe) { void preparePasskeySafe(passkeySafe); return; }
+
+  const safeActivation = event.target.closest("[data-check-safe-activation]");
+  if (safeActivation) { void refreshWalletProvisioningStatus(safeActivation); return; }
 
   const save = event.target.closest("[data-save-discovery]");
   if (save) {

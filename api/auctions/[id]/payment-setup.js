@@ -6,6 +6,7 @@ import {
   createSupabaseServiceClient,
   getAuthenticatedCurator
 } from "../../../lib/server/supabase.js";
+import { primaryWalletReady } from "../../../lib/server/wallet.js";
 
 const uuid = (input) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input)
   ? input.toLowerCase()
@@ -33,7 +34,7 @@ export const POST = async (request) => {
     const [{ data: auction }, { data: account }] = await Promise.all([
       service.from("auctions").select("id,work_id,settlement_rail,state,maximum_card_bid_minor,terms_version,terms_hash,works(title)")
         .eq("id", auctionId).maybeSingle(),
-      service.from("smart_accounts").select("id,state,recovery_ready").eq("user_id", user.id).maybeSingle()
+      service.from("smart_accounts").select("id,state,recovery_ready,finalized_at").eq("user_id", user.id).maybeSingle()
     ]);
     if (!auction || auction.settlement_rail !== "card" || !["scheduled", "open"].includes(auction.state)) {
       return problem(409, "payment_setup_unavailable", "Payment setup is not open for this auction.", headers);
@@ -42,8 +43,8 @@ export const POST = async (request) => {
       return problem(409, "auction_terms_changed", "Payment setup is paused while the auction terms are reviewed.", headers);
     }
     if (maximumHammer > auction.maximum_card_bid_minor) return problem(422, "invalid_bid_limit", "The limit exceeds this auction's maximum.", headers);
-    if (!account || account.state !== "recovery-ready" || !account.recovery_ready) {
-      return problem(409, "wallet_not_ready", "Finish passkey recovery setup before adding a payment method.", headers);
+    if (!primaryWalletReady(account)) {
+      return problem(409, "wallet_not_ready", "Finish deploying your passkey wallet before adding a payment method.", headers);
     }
     const expiresAt = new Date(Date.now() + config.auctions.mandateHours * 60 * 60_000).toISOString();
     let { data: mandate, error: mandateError } = await service.from("bidder_payment_mandates")
