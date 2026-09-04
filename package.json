@@ -19,7 +19,7 @@
     "repo:check": "node scripts/check-repo.mjs",
     "seed:preview": "node scripts/seed-preview.mjs",
     "seed:sepolia-auction": "node scripts/seed-sepolia-auction.mjs",
-    "test": "node tests/smoke.mjs && node tests/backend.mjs && node tests/delivery.mjs && node tests/resale.mjs && node tests/resale-seller-actions.mjs",
+    "test": "node tests/smoke.mjs && node tests/backend.mjs && node tests/delivery.mjs && node tests/resale.mjs && node tests/resale-seller-actions.mjs && node tests/resale-indexer.mjs",
     "contracts:build": "forge build --root contracts",
     "contracts:test": "forge test --root contracts"
   },
