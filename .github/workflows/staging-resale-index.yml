@@ -1,39 +1,105 @@
-name: Staging resale index
+name: Staging marketplace orchestration
 
 on:
   schedule:
-    - cron: "*/5 * * * *"
+    # GitHub schedules have a five-minute minimum. Offset from the top of the
+    # hour to reduce scheduler contention.
+    - cron: "2-57/5 * * * *"
   workflow_dispatch:
+    inputs:
+      worker:
+        description: Worker to invoke; gates remain authoritative.
+        required: true
+        default: all-enabled
+        type: choice
+        options:
+          - all-enabled
+          - auction-close
+          - auction-settle
+          - nft-delivery
+          - resale-index
+          - sponsorship-reconcile
 
 permissions: {}
 
 concurrency:
-  group: staging-resale-index
-  cancel-in-progress: true
+  group: staging-marketplace-orchestration
+  cancel-in-progress: false
 
 jobs:
-  index:
+  orchestrate:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     env:
+      STAGING_ORIGIN: https://the-school-sepolia.vercel.app
       GROVE_STAGING_CRON_SECRET: ${{ secrets.GROVE_STAGING_CRON_SECRET }}
+      GROVE_STAGING_AUCTION_CLOSE_ENABLED: ${{ vars.GROVE_STAGING_AUCTION_CLOSE_ENABLED }}
+      GROVE_STAGING_AUCTION_SETTLE_ENABLED: ${{ vars.GROVE_STAGING_AUCTION_SETTLE_ENABLED }}
+      GROVE_STAGING_NFT_DELIVERY_ENABLED: ${{ vars.GROVE_STAGING_NFT_DELIVERY_ENABLED }}
+      GROVE_STAGING_SPONSOR_RECONCILE_ENABLED: ${{ vars.GROVE_STAGING_SPONSOR_RECONCILE_ENABLED }}
+      REQUESTED_WORKER: ${{ inputs.worker }}
+      WORKFLOW_EVENT: ${{ github.event_name }}
     steps:
-      - name: Reconcile finalized Sepolia ownership
+      - name: Invoke enabled staging workers
+        shell: bash
         run: |
+          set -u
+
           if [ -z "$GROVE_STAGING_CRON_SECRET" ]; then
-            echo "GROVE_STAGING_CRON_SECRET is required for staging reconciliation."
+            echo "GROVE_STAGING_CRON_SECRET is required for staging orchestration."
             exit 1
           fi
-          curl --fail-with-body --silent --show-error --retry 2 \
-            --header "Authorization: Bearer $GROVE_STAGING_CRON_SECRET" \
-            https://the-school-sepolia.vercel.app/api/cron/resale-index
-      - name: Reconcile sponsored Sepolia UserOperations
-        if: ${{ vars.GROVE_STAGING_SPONSOR_RECONCILE_ENABLED == 'true' }}
-        run: |
-          if [ -z "$GROVE_STAGING_CRON_SECRET" ]; then
-            echo "GROVE_STAGING_CRON_SECRET is required for sponsorship reconciliation."
+
+          requested="${REQUESTED_WORKER:-all-enabled}"
+          failures=0
+
+          selected() {
+            [ "$requested" = "all-enabled" ] || [ "$requested" = "$1" ]
+          }
+
+          invoke() {
+            local worker="$1"
+            local path="$2"
+            echo "Invoking staging worker: $worker"
+            if ! curl --fail-with-body --silent --show-error \
+              --retry 1 --retry-all-errors --retry-max-time 50 \
+              --connect-timeout 5 --max-time 45 \
+              --header "Authorization: Bearer $GROVE_STAGING_CRON_SECRET" \
+              "$STAGING_ORIGIN$path"; then
+              echo "Staging worker failed: $worker"
+              failures=$((failures + 1))
+            fi
+          }
+
+          gated() {
+            local worker="$1"
+            local path="$2"
+            local enabled="$3"
+            selected "$worker" || return 0
+            if [ "$enabled" != "true" ]; then
+              echo "Staging worker remains disabled: $worker"
+              if [ "$WORKFLOW_EVENT" = "workflow_dispatch" ] && [ "$requested" = "$worker" ]; then
+                failures=$((failures + 1))
+              fi
+              return 0
+            fi
+            invoke "$worker" "$path"
+          }
+
+          # Preserve auction progression while allowing one failed worker to be
+          # reported without preventing independent workers from being tried.
+          gated "auction-close" "/api/cron/auction-close" "$GROVE_STAGING_AUCTION_CLOSE_ENABLED"
+          gated "auction-settle" "/api/cron/auction-settle" "$GROVE_STAGING_AUCTION_SETTLE_ENABLED"
+          gated "nft-delivery" "/api/cron/nft-delivery" "$GROVE_STAGING_NFT_DELIVERY_ENABLED"
+
+          # Finalized-chain indexing is read-only and is the one always-on lane.
+          if selected "resale-index"; then
+            invoke "resale-index" "/api/cron/resale-index"
+          fi
+
+          gated "sponsorship-reconcile" "/api/cron/sponsorship-reconcile" "$GROVE_STAGING_SPONSOR_RECONCILE_ENABLED"
+
+          if [ "$failures" -ne 0 ]; then
+            echo "$failures staging worker invocation(s) failed or were explicitly requested while disabled."
             exit 1
           fi
-          curl --fail-with-body --silent --show-error --retry 2 \
-            --header "Authorization: Bearer $GROVE_STAGING_CRON_SECRET" \
-            https://the-school-sepolia.vercel.app/api/cron/sponsorship-reconcile
