@@ -82,22 +82,22 @@ insert into public.auction_settlements (
   '97000000-0000-4000-8000-000000000001', '95000000-0000-4000-8000-000000000001',
   '96000000-0000-4000-8000-000000000001', '91000000-0000-4000-8000-000000000001',
   '94000000-0000-4000-8000-000000000001', 'card', 10000, 10000, 'USD', 'paid-risk-hold',
-  now() - interval '1 minute', 'pi_delivery', 1, 150,
+  now() - interval '1 minute', 'pi_delivery', 2, 150,
   '0x4545454545454545454545454545454545454545454545454545454545454545',
   'taxcalc_delivery', 'tax_delivery', now() - interval '2 hours', now() + interval '1 hour', 3600
 );
 
 insert into public.payment_attempts (
   settlement_id, payment_intent_ref, generation, attempt_kind, amount_minor, currency, state
-) values (
-  '97000000-0000-4000-8000-000000000001', 'pi_delivery', 1, 'off-session', 10000, 'USD', 'succeeded'
-);
+) values
+  ('97000000-0000-4000-8000-000000000001', 'pi_delivery_prior', 1, 'off-session', 10000, 'USD', 'canceled'),
+  ('97000000-0000-4000-8000-000000000001', 'pi_delivery', 2, 'interactive-cure', 10000, 'USD', 'succeeded');
 
 insert into public.auction_payment_risk_signals (
   settlement_id, payment_intent_ref, provider_object_ref, signal_kind, actionable, status, observed_at
 ) values (
-  '97000000-0000-4000-8000-000000000001', 'pi_delivery', 'prv_delivery',
-  'review', true, 'open', now()
+  '97000000-0000-4000-8000-000000000001', 'pi_delivery', 'iss_delivery',
+  'early-fraud-warning', false, 'not-actionable', now()
 );
 
 do $$
@@ -107,15 +107,33 @@ begin
       '97000000-0000-4000-8000-000000000001', 'pi_delivery', 'release-authorization-0001', 'policy-v1',
       '0x5656565656565656565656565656565656565656565656565656565656565656', now(), 'operator:test'
     );
-    raise exception 'actionable payment review authorized release';
+    raise exception 'unresolved non-actionable EFW authorized release';
   exception when others then
     if sqlerrm <> 'payment_risk_not_cleared' then raise; end if;
   end;
 end;
 $$;
 
-update public.auction_payment_risk_signals set actionable = false, status = 'approved'
-where provider_object_ref = 'prv_delivery';
+do $$
+begin
+  if not (select actionable from public.auction_payment_risk_signals where provider_object_ref = 'iss_delivery') then
+    raise exception 'non-actionable EFW did not remain blocking';
+  end if;
+end;
+$$;
+
+select public.resolve_auction_early_fraud_warning(
+  '97000000-0000-4000-8000-000000000001', 'pi_delivery', 'iss_delivery',
+  'provider-resolution-0001',
+  '0xa1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1',
+  now(), 'operator:test'
+);
+select public.resolve_auction_early_fraud_warning(
+  '97000000-0000-4000-8000-000000000001', 'pi_delivery', 'iss_delivery',
+  'provider-resolution-0001',
+  '0xa1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1',
+  now(), 'operator:test'
+);
 
 select public.authorize_auction_delivery(
   '97000000-0000-4000-8000-000000000001', 'pi_delivery', 'release-authorization-0001', 'policy-v1',
@@ -126,8 +144,11 @@ select public.authorize_auction_delivery(
   '0x5656565656565656565656565656565656565656565656565656565656565656', now(), 'operator:test'
 );
 
-update public.auction_payment_risk_signals set actionable = true, status = 'open'
-where provider_object_ref = 'prv_delivery';
+select public.apply_stripe_auction_risk_event(
+  'evt_delivery_efw', 'radar.early_fraud_warning.created',
+  '97000000-0000-4000-8000-000000000001', 'pi_delivery_prior', 'iss_delivery_late',
+  'early-fraud-warning', false, 'not-actionable', now(), '{"source":"test"}'::jsonb
+);
 
 do $$
 begin
@@ -140,15 +161,24 @@ begin
       '0x7878787878787878787878787878787878787878787878787878787878787878',
       200, '0x8989898989898989898989898989898989898989898989898989898989898989'
     );
-    raise exception 'actionable payment review allowed delivery claim';
+    raise exception 'late unresolved EFW allowed delivery claim';
   exception when others then
-    if sqlerrm <> 'payment_risk_not_cleared' then raise; end if;
+    if sqlerrm <> 'settlement_not_release_ready' then raise; end if;
   end;
 end;
 $$;
 
-update public.auction_payment_risk_signals set actionable = false, status = 'approved'
-where provider_object_ref = 'prv_delivery';
+select public.resolve_auction_early_fraud_warning(
+  '97000000-0000-4000-8000-000000000001', 'pi_delivery_prior', 'iss_delivery_late',
+  'provider-resolution-0002',
+  '0xa2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2',
+  now(), 'operator:test'
+);
+
+select public.authorize_auction_delivery(
+  '97000000-0000-4000-8000-000000000001', 'pi_delivery', 'release-authorization-0002', 'policy-v1',
+  '0x5757575757575757575757575757575757575757575757575757575757575757', now(), 'operator:test'
+);
 
 select public.claim_auction_delivery(
   '97000000-0000-4000-8000-000000000001', 11155111, 'ERC721',

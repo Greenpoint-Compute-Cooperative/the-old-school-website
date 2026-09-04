@@ -43,10 +43,11 @@ assert.deepEqual({
 });
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
-const [worker, helper, migration] = await Promise.all([
+const [worker, helper, migration, hardeningMigration] = await Promise.all([
   readFile(join(root, "api/cron/nft-delivery.js"), "utf8"),
   readFile(join(root, "lib/server/delivery.js"), "utf8"),
-  readFile(join(root, "supabase/migrations/20260906000000_auction_nft_delivery.sql"), "utf8")
+  readFile(join(root, "supabase/migrations/20260906000000_auction_nft_delivery.sql"), "utf8"),
+  readFile(join(root, "supabase/migrations/20260907000000_inventory_safe_and_efw_hardening.sql"), "utf8")
 ]);
 assert.doesNotMatch(`${worker}\n${helper}`,
   /privateKey|keystore|privateKeyToAccount|createWalletClient|signTransaction|sendTransaction|sendRawTransaction|writeContract/i,
@@ -62,5 +63,15 @@ assert.match(migration, /tax_transaction_ref is null or selected_settlement\.pai
   "release requires committed tax and authoritative paid time");
 assert.match(migration, /auction_payment_risk_signals[\s\S]*?and actionable/,
   "release fails closed on actionable provider risk");
+assert.match(helper, /config\.auctions\.inventorySafeSingletonAddress/,
+  "inventory attestation uses its independent Safe singleton trust root");
+assert.match(helper, /config\.auctions\.inventorySafeSingletonCodeHash/,
+  "inventory attestation verifies its independently pinned singleton code hash");
+assert.match(hardeningMigration, /new\.signal_kind = 'early-fraud-warning'[\s\S]*?new\.actionable := new\.resolved_at is null/,
+  "every unresolved Early Fraud Warning remains blocking regardless of Stripe actionable state");
+assert.match(hardeningMigration, /resolve_auction_early_fraud_warning/,
+  "Early Fraud Warnings require a separate evidenced resolution RPC");
+assert.match(hardeningMigration, /revoke all on function public\.resolve_auction_early_fraud_warning[\s\S]*?from public, anon, authenticated/,
+  "risk resolution is not browser executable");
 
 console.log("NFT delivery evidence checks passed.");

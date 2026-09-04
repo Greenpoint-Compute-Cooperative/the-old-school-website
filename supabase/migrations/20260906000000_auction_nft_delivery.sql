@@ -203,7 +203,8 @@ begin
   if exists (
     select 1 from public.auction_payment_risk_signals
     where settlement_id = settlement_uuid
-      and payment_intent_ref = expected_payment_intent_id and actionable
+      and actionable
+      and (signal_kind = 'early-fraud-warning' or payment_intent_ref = expected_payment_intent_id)
   ) then raise exception 'payment_risk_not_cleared'; end if;
 
   select * into selected_account from public.smart_accounts where id = selected_settlement.smart_account_id for update;
@@ -324,7 +325,9 @@ begin
   if exists (
     select 1 from public.auction_payment_risk_signals
     where settlement_id = settlement_uuid
-      and payment_intent_ref = selected_settlement.current_payment_intent_ref and actionable
+      and actionable
+      and (signal_kind = 'early-fraud-warning'
+        or payment_intent_ref = selected_settlement.current_payment_intent_ref)
   ) then raise exception 'payment_risk_not_cleared'; end if;
   select * into selected_attempt from public.payment_attempts
   where settlement_id = settlement_uuid
