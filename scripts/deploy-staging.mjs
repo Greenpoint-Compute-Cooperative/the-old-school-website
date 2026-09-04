@@ -25,6 +25,8 @@ assert.equal(health.metrics?.configured, false, "Staging must not write producti
 
 const configuration = JSON.parse(run("vercel", ["curl", "/api/config", "--deployment", deploymentUrl]));
 assert.equal(configuration.backend?.configured, true);
+assert.equal(configuration.wallet?.ownerExit?.configured, false,
+  "The owner-exit control must remain hidden until its independent Sepolia attestation passes.");
 
 const catalog = JSON.parse(run("vercel", ["curl", "/api/catalog", "--deployment", deploymentUrl]));
 assert.ok(Array.isArray(catalog.works) && catalog.works.length > 0, "Staging needs synthetic catalog records.");

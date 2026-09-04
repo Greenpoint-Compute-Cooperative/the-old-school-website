@@ -113,8 +113,9 @@ Deploy only on Sepolia (`11155111`) for rehearsal and Ethereum mainnet (`1`) for
 2. In a secure browser origin, a WebAuthn credential is created; private material remains in the authenticator.
 3. The browser derives the expected Safe account using the pinned Safe proxy, singleton, fallback handler, 4337 module, shared WebAuthn signer, P-256 verifier, factory, and EntryPoint tuple. For the pinned Safe 4337 initializer, the module is also the fallback handler, so both configured addresses and runtime code hashes must be identical.
 4. A separately release-gated provisioning sponsor evaluates the narrowly allowed account-deployment UserOperation.
-   The implemented `POST /api/wallet/sponsor` route currently accepts only exact secondary-market calls from an
-   already deployed, recovery-ready Safe.
+   The implemented `POST /api/wallet/sponsor` route accepts exact secondary-market calls and the ERC-721
+   `marketplace-transfer` owner exit from an already deployed, recovery-ready Safe. Account provisioning remains
+   a separate, unshipped release gate.
 5. Managed bundler submits it; the backend verifies canonical EntryPoint and Safe logs from its own mainnet RPC.
 6. The member signs an origin-, nonce-, chain-, expiry-, and account-bound link challenge. The backend code-hash attests the tuple; reads the Safe fallback slot, owners, threshold, and enabled module; verifies the per-Safe WebAuthn public-key commitment; verifies ERC-1271; and writes one protected wallet link.
 7. Before valuable bidding or delivery, the member adds a second passkey or approved user-controlled recovery configuration and completes a recovery drill.
@@ -257,6 +258,8 @@ cancellation, metadata, and release gates live in [Secondary-market release poli
 | `POST /api/wallet/challenge` | one-time wallet-link challenge | implemented, disabled by gates |
 | `POST /api/wallet/link` | ERC-1271 wallet link | implemented, disabled by gates |
 | `POST /api/wallet/sponsor` | prepare, passkey-sign, durably submit, and inspect an exact UserOperation | implemented, provider-attestation gate |
+| `GET /api/wallet/assets` | private finalized ERC-721 holdings for the authenticated Safe | implemented |
+| `POST /api/wallet/assets/:workId/transfer-context` | exact passkey-signed transfer to an external address | implemented, owner-exit attestation gate |
 | `GET /api/auctions/:id/bids` | privacy-safe public bid feed | implemented |
 | `GET /api/auctions/:id/bid-context` | authenticated canonical Safe/WebAuthn bid context | implemented for pre-provisioned recovery-ready Safes |
 | `POST /api/auctions/:id/payment-setup` | per-auction Stripe setup session | implemented, disabled by gates |

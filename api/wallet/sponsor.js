@@ -1,10 +1,12 @@
-import { ConfigurationError } from "../../lib/server/config.js";
+import { ConfigurationError, getRuntimeConfig } from "../../lib/server/config.js";
 import { json, problem, readJson, requestFailure } from "../../lib/server/http.js";
 import {
   prepareSponsoredSecondaryOperation,
   reconcileSponsoredSecondaryOperation,
   recordRejectedSecondarySponsorship,
   requireSecondarySponsorshipConfig,
+  requireSponsorshipReconciliationConfig,
+  sponsorshipReplayAllowed,
   sponsorshipWalletContext,
   submitSponsoredSecondaryOperation
 } from "../../lib/server/secondary-sponsorship.js";
@@ -43,14 +45,14 @@ const loadDecision = async ({ service, userId, clientKey }) => {
 };
 
 const authorize = async (request) => {
-  const config = requireSecondarySponsorshipConfig();
+  const config = getRuntimeConfig();
   const context = createSupabaseRequestClient(request);
   const identity = await getAuthenticatedCurator(context.supabase);
   if (!identity.user) return { response: problem(401, "not_authenticated", "Sign in before requesting sponsored gas.", context.headers) };
   return { config, ...context, ...identity };
 };
 
-const exitAction = (action) => ["resale-cancel-order", "resale-revoke-token", "resale-revoke-usdc"].includes(action);
+const exitAction = (action) => ["marketplace-transfer", "resale-cancel-order", "resale-revoke-token", "resale-revoke-usdc"].includes(action);
 
 const preparedPayload = ({ context, account, attestation, prepared, idempotent = false }) => ({
   stage: "prepared",
@@ -96,8 +98,9 @@ export const POST = async (request) => {
     if (!["prepare", "submit"].includes(body.stage)) {
       return problem(422, "invalid_sponsorship_stage", "Choose the prepare or submit stage.", context.headers);
     }
+    if (body.stage === "prepare") requireSecondarySponsorshipConfig(context.config, body.action);
     if (body.stage === "prepare" && context.curator?.status !== "active" && !exitAction(body.action)) {
-      return problem(403, "member_inactive", "Only cancellation and approval revocation remain available while membership is inactive.", context.headers);
+      return problem(403, "member_inactive", "Only owner exit, cancellation, and approval revocation remain available while membership is inactive.", context.headers);
     }
     service = createSupabaseServiceClient();
     const accountContext = await authenticatedAccount({ service, config: context.config, userId: context.user.id });
@@ -112,9 +115,12 @@ export const POST = async (request) => {
       const existing = await loadDecision({ service, userId: context.user.id, clientKey: prepareKey });
       if (existing) {
         const referenceKey = body.work_id ? "work_id" : "listing_id";
+        const sameRecipient = body.action !== "marketplace-transfer"
+          || existing.policy_input?.reference?.recipient_address === String(body.recipient_address || "").toLowerCase();
         const sameRequest = existing.smart_account_id === account.id && existing.action === body.action
           && existing.policy_input?.reference
-          && existing.policy_input.reference[referenceKey] === String(body[referenceKey] || "").toLowerCase();
+          && existing.policy_input.reference[referenceKey] === String(body[referenceKey] || "").toLowerCase()
+          && sameRecipient;
         if (["submitted", "included"].includes(existing.decision)) {
           throw new Error("SPONSORSHIP_REQUEST_KEY_CONFLICT");
         }
@@ -157,8 +163,9 @@ export const POST = async (request) => {
     if (!key || !body.user_operation) return problem(422, "invalid_sponsorship_request", "The signed UserOperation is invalid.", context.headers);
     const decision = await loadDecision({ service, userId: context.user.id, clientKey: key });
     if (!decision || decision.smart_account_id !== account.id) return problem(404, "sponsorship_not_found", "The sponsorship request was not found.", context.headers);
+    requireSecondarySponsorshipConfig(context.config, decision.action);
     if (context.curator?.status !== "active" && !exitAction(decision.action)) {
-      return problem(403, "member_inactive", "Only cancellation and approval revocation remain available while membership is inactive.", context.headers);
+      return problem(403, "member_inactive", "Only owner exit, cancellation, and approval revocation remain available while membership is inactive.", context.headers);
     }
     const submitted = await submitSponsoredSecondaryOperation({
       service,
@@ -218,7 +225,13 @@ export const GET = async (request) => {
         actual_cost_wei: String(decision.actual_cost_wei)
       }, { headers: context.headers });
     }
-    const result = await reconcileSponsoredSecondaryOperation({ service, config: context.config, decision });
+    requireSponsorshipReconciliationConfig(context.config, decision.action);
+    const result = await reconcileSponsoredSecondaryOperation({
+      service,
+      config: context.config,
+      decision,
+      allowReplay: sponsorshipReplayAllowed(context.config, decision.action)
+    });
     return json({
       request_key: key,
       action: decision.action,

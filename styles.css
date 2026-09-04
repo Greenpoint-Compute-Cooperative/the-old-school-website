@@ -1658,6 +1658,47 @@ img.art--live {
   opacity: 0.45;
 }
 
+.transfer-form {
+  display: grid;
+  gap: 14px;
+  min-width: min(520px, calc(100vw - 76px));
+}
+
+.transfer-form h2 {
+  margin: 0;
+  padding-right: 48px;
+  font-size: clamp(30px, 6vw, 48px);
+  line-height: 0.95;
+}
+
+.transfer-form > label:not(.transfer-confirmation) {
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.transfer-form > input {
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--white);
+  font: 13px/1.4 monospace;
+}
+
+.transfer-confirmation {
+  display: grid;
+  grid-template-columns: 20px 1fr;
+  align-items: start;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .toast {
   position: fixed;
   right: 20px;

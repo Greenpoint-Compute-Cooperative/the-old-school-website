@@ -22,6 +22,7 @@ const required = [
   "docs/ARCHITECTURE.md",
   "docs/ENVIRONMENTS.md",
   "docs/METRICS.md",
+  "docs/OWNER_EXIT.md",
   "docs/RUNBOOK.md",
   "docs/SECONDARY_MARKET.md",
   "third_party_licenses/opensea-seaport-js.LICENSE",
@@ -31,7 +32,7 @@ const required = [
 
 await Promise.all(required.map(async (path) => assert.ok((await read(path)).trim(), `${path} is required`)));
 
-const [environment, vercel, analytics, metricsMigration, uptime, stagingUptime, stagingResaleIndex, metricsWorkflow, releaseWorkflow, ciWorkflow, previewSeed, sepoliaAuctionSeed, environments, stagingCheck, stagingDeploy, productionCheck, resaleMigration, openSeaLeaseMigration, resaleApi, openSeaWorker, secondaryDocs] = await Promise.all([
+const [environment, vercel, analytics, metricsMigration, uptime, stagingUptime, stagingResaleIndex, metricsWorkflow, releaseWorkflow, ciWorkflow, previewSeed, sepoliaAuctionSeed, environments, stagingCheck, stagingDeploy, productionCheck, resaleMigration, ownerExitMigration, resaleApi, openSeaLeaseMigration, openSeaWorker, secondaryDocs, ownerExitDocs] = await Promise.all([
   read(".env.example"),
   read("vercel.json"),
   read("analytics.js"),
@@ -49,10 +50,12 @@ const [environment, vercel, analytics, metricsMigration, uptime, stagingUptime, 
   read("scripts/deploy-staging.mjs"),
   read("scripts/check-live.mjs"),
   read("supabase/migrations/20260908000000_secondary_market.sql"),
-  read("supabase/migrations/20260908020000_opensea_publication_leases.sql"),
+  read("supabase/migrations/20260910000000_owner_exit_sponsorship.sql"),
   read("api/resales.js"),
+  read("supabase/migrations/20260908020000_opensea_publication_leases.sql"),
   read("api/cron/opensea-publish.js"),
-  read("docs/SECONDARY_MARKET.md")
+  read("docs/SECONDARY_MARKET.md"),
+  read("docs/OWNER_EXIT.md")
 ]);
 
 for (const name of ["SUPABASE_SECRET_KEY", "GROVE_METRICS_ENABLED", "GROVE_METRICS_READ_TOKEN", "CRON_SECRET", "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"]) {
@@ -61,6 +64,7 @@ for (const name of ["SUPABASE_SECRET_KEY", "GROVE_METRICS_ENABLED", "GROVE_METRI
 for (const name of ["GROVE_SECONDARY_ENABLED", "GROVE_SEAPORT_ADDRESS", "GROVE_SEAPORT_CODE_HASH", "GROVE_USDC_ADDRESS", "GROVE_USDC_CODE_HASH", "GROVE_OPENSEA_ENABLED", "OPENSEA_API_KEY"]) {
   assert.match(environment, new RegExp(`^${name}=`, "m"), `${name} is documented`);
 }
+assert.match(environment, /^GROVE_OWNER_EXIT_ENABLED=false$/m, "owner exit is documented fail-closed");
 assert.match(vercel, /Content-Security-Policy/, "CSP is configured");
 assert.match(vercel, /metrics-retention/, "metrics retention is scheduled");
 assert.match(vercel, /auction-close/, "auction close is scheduled");
@@ -96,6 +100,7 @@ assert.match(environments, /xscysuvqragqwhxuhivv/, "the isolated production proj
 assert.match(environments, /VERCEL_TARGET_ENV/, "the custom staging target authority is documented");
 assert.match(stagingCheck, /runtime\?\.environment, "staging"/, "the staging check rejects a non-staging alias");
 assert.match(stagingDeploy, /vercel.*curl[\s\S]*vercel.*alias/s, "staging is verified before its stable alias moves");
+assert.match(stagingDeploy, /ownerExit\?\.configured, false/, "staging promotion verifies owner exit is fail-closed");
 assert.match(productionCheck, /runtime\?\.environment, "production"/, "the production check rejects a non-production alias");
 assert.match(resaleMigration, /create table public\.resale_orders/, "secondary orders have a durable ledger");
 assert.match(resaleMigration, /create table public\.resale_order_publications/, "OpenSea publication uses a durable outbox");
@@ -104,5 +109,8 @@ assert.match(resaleMigration, /create view public\.public_resale_orders/, "buyer
 assert.match(resaleApi, /verifyPublishableResaleOrder/, "resale publication verifies chain state and ERC-1271 authorization");
 assert.match(openSeaWorker, /productionDeployment/, "OpenSea publication refuses non-production targets");
 assert.match(secondaryDocs, /July 23, 2025/, "secondary docs record the OpenSea testnet shutdown date");
+assert.match(ownerExitMigration, /reject_resale_listing_during_owner_exit/, "owner exit and resale listing publication are serialized");
+assert.match(ownerExitMigration, /sponsorship_active_token_action_duplicate/, "owner-exit migration preflights active token locks");
+assert.match(ownerExitDocs, /The School must not custody/, "owner exit documents the noncustodial boundary");
 
 console.log(`Repository checks passed: ${required.length} contributor and operations files.`);

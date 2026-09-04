@@ -31,6 +31,13 @@ The deployment guard requires a clean `codex/live-marketplace` working tree. The
 
 For secondary-sale staging, set the repository secret `GROVE_STAGING_CRON_SECRET` to the same independently generated value as staging's `CRON_SECRET`. The `staging-resale-index` workflow always calls `/api/cron/resale-index`; it never receives a Supabase key, RPC URL, wallet key, or OpenSea credential. Keep the repository variable `GROVE_STAGING_SPONSOR_RECONCILE_ENABLED` absent or `false` while `sponsorExecutionReady` is false. Only after the reviewed Sepolia UserOperation E2E and code attestation may an operator set that variable to `true`, which adds the authenticated `/api/cron/sponsorship-reconcile` call on the same five-minute schedule. A `submission-pending` result is durable outbox evidence, not chain finality; use the receipt endpoint or reconciler result and canonical finalized EntryPoint event before reporting completion.
 
+Owner exit uses that same reconciler but has an independent submission switch,
+`GROVE_OWNER_EXIT_ENABLED`. Disable it to stop new transfer preparations while
+leaving sponsorship and ownership reconciliation running. Do not disable the
+reconciler for already submitted exits. An exit is complete only after finalized
+EntryPoint success, the exact ERC-721 Transfer event, and the ownership indexer;
+see `docs/OWNER_EXIT.md` for release gates and incident invariants.
+
 ### Production candidate
 
 ```sh

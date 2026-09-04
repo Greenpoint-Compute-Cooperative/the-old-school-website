@@ -15,6 +15,9 @@ const BRAND_NAME = "Marketplace & Auction House of Brooklyn";
 const app = document.querySelector("#app");
 const collectDialog = document.querySelector("#collect-dialog");
 const collectContent = document.querySelector("#collect-content");
+const transferDialog = document.querySelector("#transfer-dialog");
+const transferForm = document.querySelector("#transfer-form");
+const transferSummary = document.querySelector("#transfer-summary");
 const toast = document.querySelector("#toast");
 
 const discoveryState = new Map(discoveries.map((item) => [item.id, item.status]));
@@ -125,7 +128,7 @@ const tokenLinks = (chainId, contractAddress, tokenId, minted, openSeaEnabled = 
   };
 };
 
-const apiWork = (work, index, auction, resale, managedResale) => ({
+const apiWork = (work, index, auction, resale, managedResale, ownedAsset) => ({
   slug: work.slug,
   title: work.title,
   artist: work.artist_name,
@@ -180,6 +183,8 @@ const apiWork = (work, index, auction, resale, managedResale) => ({
   resaleManagedId: managedResale?.id || (resale?.seller_managed === true ? resale.id : null),
   resaleProtocol: resale ? "Seaport 1.6" : null,
   resaleCurrency: resale?.currency || null,
+  ownedByCurrentUser: Boolean(ownedAsset),
+  ownerAddress: ownedAsset?.owner_address || null,
   ...tokenLinks(
     Number(resale?.chain_id || auction?.chain_id || (work.chain === "ethereum-sepolia" ? 11155111 : work.chain === "ethereum" ? 1 : 0)),
     resale?.collection_address || work.contract_address,
@@ -191,16 +196,19 @@ const apiWork = (work, index, auction, resale, managedResale) => ({
 
 const hydrateLiveCatalog = async () => {
   try {
-    const [response, resalesResponse, configurationResponse] = await Promise.all([
+    const [response, resalesResponse, configurationResponse, walletAssetsResponse] = await Promise.all([
       fetch("/api/catalog", { headers: { Accept: "application/json" } }),
       fetch("/api/resales", { headers: { Accept: "application/json" } }),
-      fetch("/api/config", { headers: { Accept: "application/json" } })
+      fetch("/api/config", { headers: { Accept: "application/json" } }),
+      fetch("/api/wallet/assets", { headers: { Accept: "application/json" } })
     ]);
     if (!response.ok || !response.headers.get("content-type")?.includes("application/json")) return;
     const catalog = await response.json();
     if (!Array.isArray(catalog.works)) return;
     const resales = resalesResponse.ok && resalesResponse.headers.get("content-type")?.includes("application/json")
       ? await resalesResponse.json() : { orders: [] };
+    const walletAssets = walletAssetsResponse.ok && walletAssetsResponse.headers.get("content-type")?.includes("application/json")
+      ? await walletAssetsResponse.json() : { assets: [] };
     if (configurationResponse.ok && configurationResponse.headers.get("content-type")?.includes("application/json")) {
       authConfiguration = await configurationResponse.json();
       authConfigurationRequest = Promise.resolve(authConfiguration);
@@ -220,8 +228,11 @@ const hydrateLiveCatalog = async () => {
     for (const order of Array.isArray(resales.managed_orders) ? resales.managed_orders : []) {
       if (!managedResalesByWork.has(order.work_id)) managedResalesByWork.set(order.work_id, order);
     }
+    const ownedAssetsByWork = new Map((Array.isArray(walletAssets.assets) ? walletAssets.assets : [])
+      .map((asset) => [asset.work_id, asset]));
     const liveWorks = catalog.works.map((work, index) => apiWork(
-      work, index, auctionsByWork.get(work.id), resalesByWork.get(work.id), managedResalesByWork.get(work.id)
+      work, index, auctionsByWork.get(work.id), resalesByWork.get(work.id), managedResalesByWork.get(work.id),
+      ownedAssetsByWork.get(work.id)
     ));
     const liveSlugs = new Set(liveWorks.map((work) => work.slug));
     works.splice(0, works.length, ...liveWorks);
@@ -422,6 +433,7 @@ const workPage = (work) => {
   const unavailable = work.resaleId ? !work.resaleEnabled : work.auctionId ? work.auctionState !== "open" : ["reserved", "sold"].includes(work.status);
   const closes = work.auctionClosesAt ? new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" }).format(new Date(work.auctionClosesAt)) : "";
   const secondaryConfigured = authConfiguration?.secondary?.configured === true;
+  const ownerExitConfigured = authConfiguration?.wallet?.ownerExit?.configured === true;
   const resellableToken = secondaryConfigured && work.id && work.type === "digital" && work.contractStatus === "minted" && work.contractAddress && work.tokenId !== undefined;
   return `
     <div class="work-page">
@@ -442,9 +454,11 @@ const workPage = (work) => {
               ? `<button class="button button--blue" type="button" data-collect="${work.slug}" data-method="${work.auctionRail}">${verb}</button>`
               : `<button class="button button--blue" type="button" data-collect="${work.slug}" data-method="crypto">${verb}</button>
           <button class="text-button" type="button" data-collect="${work.slug}" data-method="card">Use card</button>`}
-          ${resellableToken && !work.resaleId ? `<button class="text-button" type="button" data-start-resale="${work.slug}">Sell this NFT</button>` : ""}
+          ${resellableToken && work.ownedByCurrentUser && !work.resaleId ? `<button class="text-button" type="button" data-start-resale="${work.slug}">Sell this NFT</button>` : ""}
           ${work.resaleId && work.resaleSellerManaged ? `<button class="text-button" type="button" data-cancel-resale="${work.slug}">Cancel my listing</button>` : ""}
           ${work.resaleManagedId && work.resaleSellerManaged ? `<button class="text-button" type="button" data-revoke-resale-approval="${work.slug}">Revoke Seaport approval</button>` : ""}
+          ${ownerExitConfigured && work.ownedByCurrentUser && !work.resaleManagedId ? `<button class="text-button" type="button" data-transfer-nft="${work.slug}">Move to another wallet</button>` : ""}
+          ${work.ownedByCurrentUser ? `<p class="pending-note">Held in your passkey Safe. The School cannot sign or transfer it without you.</p>` : ""}
           ${safeDocumentUrl(work.openSeaUrl) ? `<a class="text-button" href="${escapeHtml(safeDocumentUrl(work.openSeaUrl))}" target="_blank" rel="noopener">View on OpenSea ↗</a>` : ""}
           ${work.chainId === 11155111 && work.contractStatus === "minted" ? `<p class="pending-note">Sepolia rehearsal · OpenSea retired all testnet support.</p>` : ""}
           <details class="work-details">
@@ -956,6 +970,80 @@ const runResaleSellerAction = async (button, kind) => {
   }
 };
 
+const openNftTransfer = (slug) => {
+  const work = getWork(slug);
+  if (!work?.ownedByCurrentUser || !work.contractAddress || work.tokenId === undefined) return;
+  transferForm.reset();
+  transferForm.dataset.workSlug = slug;
+  transferSummary.textContent = `${work.title} · ${work.chain} · ${work.contractAddress} · token #${work.tokenId}`;
+  transferForm.querySelector("[data-transfer-status]").textContent = "";
+  transferForm.querySelector("[data-submit-nft-transfer]").disabled = false;
+  transferDialog.showModal();
+};
+
+const waitForSponsoredTransfer = async (requestKey) => {
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 2_500));
+    const response = await fetch(`/api/wallet/sponsor?request_key=${encodeURIComponent(requestKey)}`, {
+      headers: { Accept: "application/json" }
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error?.message || "Transfer status is unavailable.");
+    if (["finalized", "failed"].includes(result.state)) return result;
+  }
+  return { state: "submitted" };
+};
+
+const submitNftTransfer = async (form, data) => {
+  const work = getWork(form.dataset.workSlug);
+  if (!work?.ownedByCurrentUser) return;
+  const recipient = String(data.get("recipient") || "").trim();
+  if (!/^0x[0-9a-fA-F]{40}$/.test(recipient) || recipient.toLowerCase() === String(work.ownerAddress || "").toLowerCase()) {
+    showToast("Enter a different 20-byte Ethereum address");
+    return;
+  }
+  const button = form.querySelector("[data-submit-nft-transfer]");
+  const status = form.querySelector("[data-transfer-status]");
+  button.disabled = true;
+  button.textContent = "Checking ownership and approvals…";
+  status.textContent = "No transfer has been submitted yet.";
+  try {
+    const response = await fetch(`/api/wallet/assets/${encodeURIComponent(work.id)}/transfer-context`, {
+      method: "POST",
+      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      body: JSON.stringify({ recipient_address: recipient })
+    });
+    const action = await response.json();
+    if (!response.ok) throw new Error(action.error?.message || "The NFT transfer is unavailable.");
+    if (action.action !== "marketplace-transfer"
+      || action.confirmation?.recipient_address?.toLowerCase() !== recipient.toLowerCase()
+      || action.confirmation?.from_address?.toLowerCase() !== String(work.ownerAddress || "").toLowerCase()
+      || action.confirmation?.token_id !== String(work.tokenId)) {
+      throw new Error("The transfer confirmation changed. Nothing was signed.");
+    }
+    transferSummary.textContent = `${work.title} · ${action.confirmation.network} · token #${action.confirmation.token_id} · to ${action.confirmation.recipient_address}`;
+    button.textContent = "Confirm with passkey…";
+    const submitted = await submitSponsoredSecondaryAction(action);
+    status.textContent = submitted.state === "finalized"
+      ? "Transfer finalized onchain. Ownership indexing is updating."
+      : "Transfer submitted. Waiting for finalized chain evidence…";
+    if (submitted.state !== "finalized") {
+      const finalized = await waitForSponsoredTransfer(action.request_key);
+      if (finalized.state === "failed") throw new Error("The onchain transfer failed. Your NFT remains in your Safe.");
+      status.textContent = finalized.state === "finalized"
+        ? "Transfer finalized onchain. Ownership indexing is updating."
+        : "Transfer is still pending. You can close this window; reconciliation will continue.";
+    }
+    await hydrateLiveCatalog();
+    button.textContent = "Transfer submitted";
+  } catch (error) {
+    button.disabled = false;
+    button.textContent = "Review and sign with passkey";
+    status.textContent = error.message || "The NFT transfer was not submitted.";
+    showToast(error.message || "The NFT transfer was not submitted");
+  }
+};
+
 const handleCheckoutReturn = async () => {
   if (checkoutReturnHandled) return;
   checkoutReturnHandled = true;
@@ -1197,6 +1285,9 @@ document.addEventListener("click", (event) => {
   const revokeResaleApproval = event.target.closest("[data-revoke-resale-approval]");
   if (revokeResaleApproval) { void runResaleSellerAction(revokeResaleApproval, "revoke"); return; }
 
+  const transferNft = event.target.closest("[data-transfer-nft]");
+  if (transferNft) { openNftTransfer(transferNft.dataset.transferNft); return; }
+
   const cardCheckout = event.target.closest("[data-start-card-checkout]");
   if (cardCheckout) { void startCardCheckout(cardCheckout); return; }
 
@@ -1218,6 +1309,7 @@ document.addEventListener("click", (event) => {
   }
 
   if (event.target.closest("[data-close-dialog]")) { collectDialog.close(); return; }
+  if (event.target.closest("[data-close-transfer-dialog]")) { transferDialog.close(); return; }
   if (event.target.closest("[data-calendar]")) downloadCalendar();
 });
 
@@ -1226,6 +1318,11 @@ document.addEventListener("submit", (event) => {
   const form = event.target;
   if (!form.reportValidity()) return;
   const data = new FormData(form);
+
+  if (form.id === "transfer-form") {
+    void submitNftTransfer(form, data);
+    return;
+  }
 
   if (form.id === "link-capture") {
     draftLink = data.get("link");
@@ -1265,6 +1362,7 @@ const downloadCalendar = () => {
 };
 
 collectDialog.addEventListener("click", (event) => { if (event.target === collectDialog) collectDialog.close(); });
+transferDialog.addEventListener("click", (event) => { if (event.target === transferDialog) transferDialog.close(); });
 addEventListener("hashchange", render);
 trackClientErrors(routeName);
 render();

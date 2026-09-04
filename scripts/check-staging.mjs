@@ -45,6 +45,8 @@ assert.equal(configuration.backend?.configured, true);
 assert.equal(configuration.openSea?.availability, "unsupported-on-testnets", "Sepolia must not claim OpenSea availability.");
 assert.equal(configuration.openSea?.configured, false, "OpenSea publication is mainnet-only.");
 assert.equal(configuration.secondary?.applePay?.configured, false, "Apple Pay is not a secondary NFT rail.");
+assert.equal(configuration.wallet?.ownerExit?.configured, false,
+  "Owner exit must remain hidden until its independent Sepolia attestation is enabled.");
 
 const resales = await (await fetchChecked("/api/resales")).json();
 assert.ok(Array.isArray(resales.orders), "The staging resale read model must respond safely.");

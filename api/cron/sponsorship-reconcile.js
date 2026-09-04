@@ -3,7 +3,8 @@ import { ConfigurationError, getRuntimeConfig } from "../../lib/server/config.js
 import { json, problem } from "../../lib/server/http.js";
 import {
   reconcileSponsoredSecondaryOperation,
-  requireSecondarySponsorshipConfig
+  requireSponsorshipReconciliationConfig,
+  sponsorshipReplayAllowed
 } from "../../lib/server/secondary-sponsorship.js";
 import { createStandardUserOperationProvider } from "../../lib/server/userop-provider.js";
 import { createSupabaseServiceClient } from "../../lib/server/supabase.js";
@@ -20,12 +21,13 @@ export const GET = async (request) => {
     return problem(401, "not_authorized", "Cron authorization is required.");
   }
   try {
-    const config = requireSecondarySponsorshipConfig(runtime);
+    const config = requireSponsorshipReconciliationConfig(runtime);
     const service = createSupabaseServiceClient();
     const { data: decisions, error } = await service.from("sponsorship_decisions")
       .select("id,user_id,smart_account_id,request_key,action,decision,policy_version,target,selector,userop_hash,transaction_hash,provider,quoted_cost_wei,actual_cost_wei,rejection_code,policy_input,created_at,updated_at")
       .eq("decision", "submitted")
       .in("action", [
+        "marketplace-transfer",
         "resale-approve-token", "resale-revoke-token", "resale-cancel-order",
         "resale-approve-usdc", "resale-revoke-usdc", "resale-fulfill"
       ])
@@ -35,7 +37,14 @@ export const GET = async (request) => {
     const summary = { pending: 0, "included-unfinalized": 0, "reorg-pending": 0, finalized: 0, failed: 0, errors: 0 };
     for (const decision of decisions) {
       try {
-        const result = await reconcileSponsoredSecondaryOperation({ service, config, decision, provider });
+        requireSponsorshipReconciliationConfig(config, decision.action);
+        const result = await reconcileSponsoredSecondaryOperation({
+          service,
+          config,
+          decision,
+          provider,
+          allowReplay: sponsorshipReplayAllowed(config, decision.action)
+        });
         if (result.state in summary) summary[result.state] += 1;
         else summary.errors += 1;
       } catch (reconcileError) {

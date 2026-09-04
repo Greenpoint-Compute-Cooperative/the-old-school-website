@@ -50,6 +50,9 @@ assert.equal(configuration.wallet?.configured ?? false, false);
 assert.equal(configuration.auctions?.configured ?? false, false);
 assert.equal(configuration.secondary?.configured ?? false, false);
 assert.equal(configuration.openSea?.configured ?? false, false);
+if (Object.hasOwn(configuration.wallet || {}, "ownerExit")) {
+  assert.equal(configuration.wallet.ownerExit?.configured, false, "Production owner exit must remain fail-closed.");
+}
 
 await fetchChecked("/api/catalog");
 // Keep the monitor compatible with the still-active pre-secondary Production

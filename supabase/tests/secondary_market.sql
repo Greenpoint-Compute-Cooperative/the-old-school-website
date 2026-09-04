@@ -454,6 +454,109 @@ begin
 end;
 $$;
 
+-- Owner exit and listing publication are serialized around the same token.
+-- The local SQL harness supplies the Supabase role claim used by service-only
+-- RPCs; hosted Supabase provides this function itself.
+create or replace function auth.role()
+returns text
+language sql
+stable
+as $$ select 'service_role'::text $$;
+
+do $$
+declare
+  transfer_decision public.sponsorship_decisions%rowtype;
+  transfer_policy jsonb;
+begin
+  transfer_policy := jsonb_build_object(
+    'schema', 'secondary-userop-v1',
+    'chain_id', 11155111,
+    'client_request_key', 'owner-exit-request-00000001',
+    'valid_after', pg_catalog.date_part('epoch', pg_catalog.now())::bigint - 60,
+    'valid_until', pg_catalog.date_part('epoch', pg_catalog.now())::bigint + 3600,
+    'reference', jsonb_build_object(
+      'work_id', '22000000-0000-4000-8000-000000000002',
+      'collection_id', '21000000-0000-4000-8000-000000000001',
+      'collection_address', '0x2222222222222222222222222222222222222222',
+      'token_id', '8',
+      'from_address', '0x3333333333333333333333333333333333333333',
+      'recipient_address', '0x5555555555555555555555555555555555555555'
+    ),
+    'expected_call', jsonb_build_object(
+      'to', '0x2222222222222222222222222222222222222222',
+      'from_address', '0x3333333333333333333333333333333333333333',
+      'recipient_address', '0x5555555555555555555555555555555555555555',
+      'token_id', '8'
+    ),
+    'user_operation', jsonb_build_object(
+      'sender', '0x3333333333333333333333333333333333333333',
+      'callData', '0x1234'
+    )
+  );
+
+  select * into transfer_decision from public.reserve_secondary_sponsorship(
+    'owner-exit-ledger-000000000001', 'owner-exit-request-00000001',
+    '20000000-0000-4000-8000-000000000001'::uuid,
+    '23000000-0000-4000-8000-000000000001'::uuid,
+    'marketplace-transfer', 'test-policy',
+    '0x2222222222222222222222222222222222222222', '0x42842e0e',
+    1, transfer_policy, 1, 2, 3, 'test-provider'
+  );
+  if transfer_decision.decision <> 'approved' then
+    raise exception 'owner exit was not reserved';
+  end if;
+
+  begin
+    update public.resale_orders set state = 'open', closed_at = null
+      where id = '24000000-0000-4000-8000-000000000002';
+    raise exception 'listing reopened while owner exit was active';
+  exception
+    when others then
+      if sqlerrm not like '%resale_listing_owner_exit_conflict%' then
+        raise;
+      end if;
+  end;
+
+  perform public.record_secondary_userop_submission(
+    transfer_decision.id,
+    '20000000-0000-4000-8000-000000000001'::uuid,
+    '0x8686868686868686868686868686868686868686868686868686868686868686',
+    '0x8787878787878787878787878787878787878787878787878787878787878787',
+    jsonb_build_object('sender', '0x3333333333333333333333333333333333333333', 'callData', '0x1234', 'signature', '0x01')
+  );
+  if (select decision from public.sponsorship_decisions where id = transfer_decision.id) <> 'submitted' then
+    raise exception 'owner exit durable outbox was not submitted';
+  end if;
+
+  begin
+    perform public.reserve_secondary_sponsorship(
+      'owner-exit-ledger-000000000002', 'owner-exit-request-00000002',
+      '20000000-0000-4000-8000-000000000001'::uuid,
+      '23000000-0000-4000-8000-000000000001'::uuid,
+      'marketplace-transfer', 'test-policy',
+      '0x2222222222222222222222222222222222222222', '0x42842e0e',
+      1,
+      pg_catalog.jsonb_set(
+        pg_catalog.jsonb_set(
+          pg_catalog.jsonb_set(transfer_policy, '{client_request_key}', '"owner-exit-request-00000002"'::jsonb),
+          '{reference,work_id}', '"22000000-0000-4000-8000-000000000003"'::jsonb
+        ),
+        '{reference,token_id}', '"9"'::jsonb
+      ) || jsonb_build_object(
+        'expected_call', pg_catalog.jsonb_set(transfer_policy->'expected_call', '{token_id}', '"9"'::jsonb)
+      ),
+      1, 2, 3, 'test-provider'
+    );
+    raise exception 'owner exit reserved a token with unresolved resale state';
+  exception
+    when others then
+      if sqlerrm not like '%sponsorship_transfer_listing_conflict%' then
+        raise;
+      end if;
+  end;
+end;
+$$;
+
 select public.release_resale_indexer_lease(
   'resale-finalized-test', 11155111,
   '10000000-0000-4000-8000-000000000001'::uuid
