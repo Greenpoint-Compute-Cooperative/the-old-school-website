@@ -237,8 +237,8 @@ A strict onchain English-auction contract is a later option only after an indepe
 | `POST /api/auctions/:id/bids` | verify Safe signature and atomically accept bid | implemented, disabled by gates |
 | `POST /api/stripe/webhook` | signed setup/payment/refund/dispute inbox | implemented foundation |
 | auction close worker | revalidate signature and select winner once | implemented, disabled by gates |
-| tax/charge worker | calculate total and attempt winner payment | pending provider rehearsal |
-| payment-cure endpoint | fresh hosted winner checkout | pending provider rehearsal |
+| tax/charge worker | calculate/freeze total, bind one intent, attempt winner payment | implemented, disabled by gates; pending provider rehearsal |
+| payment-cure endpoint | cancel the current failed/action-required intent and bind one fresh hosted winner checkout | implemented, disabled by gates; pending provider rehearsal |
 | NFT inventory reconciler | prove mint/custody/finality/reorg state | pending mainnet provider selection |
 | NFT release worker | 2-of-3 Safe transfer after release gate | pending custody runbook/audit |
 | sponsorship reconciler | verify UserOperation receipt and spend | pending provider selection |

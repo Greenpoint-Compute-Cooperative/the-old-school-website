@@ -214,25 +214,60 @@ begin
 end;
 $$;
 
-update public.auction_settlements
-set total_amount = 10000, risk_hold_until = now() + interval '7 days'
-where auction_id = '60000000-0000-4000-8000-000000000001';
+select public.freeze_auction_settlement_total(
+  (select id from public.auction_settlements where auction_id = '60000000-0000-4000-8000-000000000001'),
+  'taxcalc_test', 800, 200, '2099-01-01T00:00:00Z'
+);
+select public.freeze_auction_settlement_total(
+  (select id from public.auction_settlements where auction_id = '60000000-0000-4000-8000-000000000001'),
+  'taxcalc_test', 800, 200, '2099-01-01T00:00:00Z'
+);
+
+do $$
+begin
+  if (select total_amount from public.auction_settlements where auction_id = '60000000-0000-4000-8000-000000000001') <> 11000 then
+    raise exception 'provider total was not frozen exactly';
+  end if;
+  begin
+    perform public.freeze_auction_settlement_total(
+      (select id from public.auction_settlements where auction_id = '60000000-0000-4000-8000-000000000001'),
+      'taxcalc_other', 900, 200, '2099-01-01T00:00:00Z'
+    );
+    raise exception 'frozen provider total was replaced';
+  exception when others then
+    if sqlerrm <> 'settlement_total_already_frozen' then raise; end if;
+  end;
+end;
+$$;
 
 select public.register_auction_payment_attempt(
   (select id from public.auction_settlements where auction_id = '60000000-0000-4000-8000-000000000001'),
-  'pi_current', 10000, 'off-session'
+  'pi_current', 11000, 'off-session'
 );
+
+select public.record_auction_payment_observation(
+  (select id from public.auction_settlements where auction_id = '60000000-0000-4000-8000-000000000001'),
+  'pi_current', 'requires_action', 'authentication_required'
+);
+
+do $$
+begin
+  if (select state from public.auction_settlements where auction_id = '60000000-0000-4000-8000-000000000001') <> 'requires-action' then
+    raise exception 'requires_action was not exposed for cure';
+  end if;
+end;
+$$;
 
 do $$
 begin
   begin
     perform public.register_auction_payment_attempt(
       (select id from public.auction_settlements where auction_id = '60000000-0000-4000-8000-000000000001'),
-      'pi_concurrent', 10000, 'off-session'
+      'pi_concurrent', 11000, 'off-session'
     );
     raise exception 'concurrent payment intent replaced the bound attempt';
   exception when others then
-    if sqlerrm <> 'payment_attempt_already_bound' then raise; end if;
+    if sqlerrm <> 'settlement_not_chargeable' then raise; end if;
   end;
 end;
 $$;
@@ -240,7 +275,7 @@ $$;
 select public.apply_stripe_auction_payment_event(
   'evt_failed', 'payment_intent.payment_failed',
   (select id from public.auction_settlements where auction_id = '60000000-0000-4000-8000-000000000001'),
-  'pi_current', 'pi_current', 'requires_payment_method', 10000, 'usd', '{}'::jsonb
+  'pi_current', 'pi_current', 'requires_payment_method', 11000, 'usd', '{}'::jsonb
 );
 
 do $$
@@ -248,7 +283,7 @@ begin
   begin
     perform public.replace_auction_payment_attempt(
       (select id from public.auction_settlements where auction_id = '60000000-0000-4000-8000-000000000001'),
-      'pi_current', 'pi_cure', 10000, 'interactive-cure'
+      'pi_current', 'pi_cure', 11000, 'interactive-cure'
     );
     raise exception 'non-canceled payment intent was replaced';
   exception when others then
@@ -260,12 +295,33 @@ $$;
 select public.apply_stripe_auction_payment_event(
   'evt_canceled', 'payment_intent.canceled',
   (select id from public.auction_settlements where auction_id = '60000000-0000-4000-8000-000000000001'),
-  'pi_current', 'pi_current', 'canceled', 10000, 'usd', '{}'::jsonb
+  'pi_current', 'pi_current', 'canceled', 11000, 'usd', '{}'::jsonb
 );
-select public.replace_auction_payment_attempt(
+select public.register_auction_payment_cure(
   (select id from public.auction_settlements where auction_id = '60000000-0000-4000-8000-000000000001'),
-  'pi_current', 'pi_cure', 10000, 'interactive-cure'
+  'pi_current', 'cs_cure', '2099-01-01T00:00:00Z'
 );
+select public.register_auction_payment_cure(
+  (select id from public.auction_settlements where auction_id = '60000000-0000-4000-8000-000000000001'),
+  'pi_current', 'cs_cure', '2099-01-01T00:00:00Z'
+);
+select public.bind_auction_payment_cure(
+  (select id from public.auction_settlements where auction_id = '60000000-0000-4000-8000-000000000001'),
+  'cs_cure', 'pi_cure', 11000
+);
+select public.bind_auction_payment_cure(
+  (select id from public.auction_settlements where auction_id = '60000000-0000-4000-8000-000000000001'),
+  'cs_cure', 'pi_cure', 11000
+);
+
+do $$
+begin
+  if (select count(*) from public.payment_attempts) <> 2 then raise exception 'cure replay created an extra attempt'; end if;
+  if (select attempt_kind from public.payment_attempts where payment_intent_ref = 'pi_cure') <> 'interactive-cure' then
+    raise exception 'cure payment was not distinguished';
+  end if;
+end;
+$$;
 
 do $$
 begin
@@ -273,7 +329,7 @@ begin
     perform public.apply_stripe_auction_payment_event(
       'evt_old_succeeded', 'payment_intent.succeeded',
       (select id from public.auction_settlements where auction_id = '60000000-0000-4000-8000-000000000001'),
-      'pi_current', 'pi_current', 'succeeded', 10000, 'usd', '{}'::jsonb
+      'pi_current', 'pi_current', 'succeeded', 11000, 'usd', '{}'::jsonb
     );
     raise exception 'superseded payment intent mutated settlement';
   exception when others then
@@ -285,12 +341,12 @@ $$;
 select public.apply_stripe_auction_payment_event(
   'evt_succeeded', 'payment_intent.succeeded',
   (select id from public.auction_settlements where auction_id = '60000000-0000-4000-8000-000000000001'),
-  'pi_cure', 'pi_cure', 'succeeded', 10000, 'usd', '{}'::jsonb
+  'pi_cure', 'pi_cure', 'succeeded', 11000, 'usd', '{}'::jsonb
 );
 select public.apply_stripe_auction_payment_event(
   'evt_late_processing', 'payment_intent.processing',
   (select id from public.auction_settlements where auction_id = '60000000-0000-4000-8000-000000000001'),
-  'pi_cure', 'pi_cure', 'processing', 10000, 'usd', '{}'::jsonb
+  'pi_cure', 'pi_cure', 'processing', 11000, 'usd', '{}'::jsonb
 );
 select public.apply_stripe_auction_payment_event(
   'evt_refund_partial', 'refund.updated',
@@ -315,7 +371,7 @@ begin
     perform public.apply_stripe_auction_payment_event(
       'evt_wrong_intent', 'payment_intent.succeeded',
       (select id from public.auction_settlements where auction_id = '60000000-0000-4000-8000-000000000001'),
-      'pi_wrong', 'pi_wrong', 'succeeded', 10000, 'usd', '{}'::jsonb
+      'pi_wrong', 'pi_wrong', 'succeeded', 11000, 'usd', '{}'::jsonb
     );
     raise exception 'unbound payment intent was accepted';
   exception when others then
@@ -327,7 +383,7 @@ $$;
 select public.apply_stripe_auction_payment_event(
   'evt_dispute_lost', 'charge.dispute.lost',
   (select id from public.auction_settlements where auction_id = '60000000-0000-4000-8000-000000000001'),
-  'pi_cure', 'dp_lost', 'lost', 10000, 'usd', '{}'::jsonb
+  'pi_cure', 'dp_lost', 'lost', 11000, 'usd', '{}'::jsonb
 );
 
 do $$

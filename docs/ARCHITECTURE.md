@@ -22,7 +22,7 @@ flowchart LR
 ## Runtime
 
 - The editorial storefront is vanilla HTML/CSS/ES modules. esbuild creates one exact-pinned browser-only Ethereum intent bundle. In a fully configured Sepolia Preview, that bundle asks the user's discoverable passkey to sign a server-canonical bid with the attested Safe configuration; passkey private material and raw credential IDs stay in the authenticator/browser boundary.
-- Vercel Functions own request validation, social sessions, Stripe calls, ERC-1271 checks, sponsorship policy, and provider credentials.
+- Vercel Functions own request validation, social sessions, Stripe calls, ERC-1271 checks, sponsorship policy, and provider credentials. The auction workers select the winner, freeze one provider-calculated total, and bind one off-session PaymentIntent; an authenticated hosted cure can replace it only after the retrieved-current prior intent is canceled.
 - Supabase Auth holds social-provider identities and PKCE sessions. Postgres owns auction order, payment state, NFT custody projections, and append-only events.
 - Ethereum mainnet owns NFT identity, inventory, member Safe state, transfers, and canonical receipts. Indexers are read models only.
 - A managed ERC-4337 bundler/paymaster is replaceable behind a Grove adapter. It never becomes auction or ownership authority.
@@ -49,7 +49,7 @@ OAuth subjects, handles, email, credential IDs, authenticator metadata, payment 
 - One work maps to one collection/token identity; an ERC-1155 cap is minted in full before sale.
 - One v1 auction has one settlement rail, high bid, winner, and settlement.
 - Bids are EIP-712 intents checked through ERC-1271 before row-locked acceptance and again at close.
-- Stripe redirects never authorize settlement. A payment mandate requires both current off-session SetupIntent success and accepted terms from its matching completed Checkout Session; settlement webhooks are reconciled against the one bound current PaymentIntent.
+- Stripe redirects and direct worker observations never authorize settlement. A payment mandate requires both current off-session SetupIntent success and accepted terms from its matching completed Checkout Session; signed settlement webhooks are reconciled against the one bound current PaymentIntent before entering `paid-risk-hold`.
 - NFT release requires a cleared payment/crypto settlement, risk gate, idempotent delivery record, and finalized chain receipt.
 - Grove sponsors only allowlisted Ethereum actions; it never takes unilateral recovery control.
 

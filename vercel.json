@@ -13,6 +13,10 @@
     {
       "path": "/api/cron/auction-close",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/auction-settle",
+      "schedule": "* * * * *"
     }
   ],
   "headers": [

@@ -46,6 +46,8 @@ for (const name of ["SUPABASE_SECRET_KEY", "GROVE_METRICS_ENABLED", "GROVE_METRI
 }
 assert.match(vercel, /Content-Security-Policy/, "CSP is configured");
 assert.match(vercel, /metrics-retention/, "metrics retention is scheduled");
+assert.match(vercel, /auction-close/, "auction close is scheduled");
+assert.match(vercel, /auction-settle/, "auction settlement is scheduled");
 assert.match(analytics, /sessionStorage/, "analytics is session-scoped");
 assert.doesNotMatch(analytics, /localStorage|fingerprint|document\.cookie/, "analytics avoids persistent browser identity");
 assert.match(metricsMigration, /enable row level security/, "metrics data has RLS");

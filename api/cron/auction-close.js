@@ -1,6 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 import { getAddress } from "viem";
-import { requireAuctionConfig, verifyBidIntent } from "../../lib/server/auction.js";
+import { auctionCollectionStateAllowed, requireAuctionConfig, verifyBidIntent } from "../../lib/server/auction.js";
 import { verifyFinalizedInventoryCustody } from "../../lib/server/chain.js";
 import { ConfigurationError, getRuntimeConfig } from "../../lib/server/config.js";
 import { json, problem } from "../../lib/server/http.js";
@@ -46,7 +46,9 @@ export const GET = async (request) => {
         const { data: collection, error: collectionError } = await service.from("nft_collections")
           .select("id,standard,chain_id,contract_address,deployed_code_hash,inventory_safe,deployment_block,state")
           .eq("id", work.nft_collection_id).single();
-        if (collectionError || !collection || collection.state !== "active") throw new Error("COLLECTION_NOT_ACTIVE");
+        if (collectionError || !collection || !auctionCollectionStateAllowed({ state: collection.state, config })) {
+          throw new Error("COLLECTION_NOT_ACTIVE");
+        }
         const inventoryProof = await verifyFinalizedInventoryCustody({ config, work, collection, quantity: auction.quantity });
         let expectedHighBidId = null;
         let expectedIntentHash = null;

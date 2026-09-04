@@ -90,6 +90,8 @@ npm run live:check
 - `POST /api/wallet/challenge` and `/api/wallet/link` — one-time, origin-bound ERC-1271 social-to-Safe link
 - `POST /api/stripe/webhook` — signed fixed-price and auction payment events
 - `/api/cron/auction-close` — close-time ERC-1271 revalidation and idempotent winner selection
+- `/api/cron/auction-settle` — frozen tax/shipping total and one bound off-session winner charge attempt
+- `POST /api/auctions/:id/payment-cure` — authenticated winner-only hosted recovery for a retired failed/action-required intent
 
 ## Product notes
 

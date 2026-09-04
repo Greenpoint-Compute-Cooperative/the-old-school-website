@@ -10,7 +10,12 @@ import { POST as recordEvent } from "../api/events.js";
 import { GET as getMetrics } from "../api/metrics.js";
 import { buildCheckoutSessionParameters } from "../lib/server/commerce.js";
 import {
+  assertAuctionPaymentIntent,
+  auctionAmountsFromTaxCalculation,
+  auctionCollectionStateAllowed,
+  buildAuctionCureSessionParameters,
   buildAuctionSetupSessionParameters,
+  buildAuctionTaxCalculationParameters,
   buildWinnerPaymentIntentParameters,
   buildWinnerPaymentIntentConfirmationParameters,
   requireAuctionConfig
@@ -23,6 +28,8 @@ import { POST as createWalletChallenge } from "../api/wallet/challenge.js";
 import { POST as linkWallet } from "../api/wallet/link.js";
 import { buildWalletLinkTypedData } from "../lib/shared/wallet-link.js";
 import { GET as closeAuctions } from "../api/cron/auction-close.js";
+import { GET as settleAuctions, settleAuctionCardPayment } from "../api/cron/auction-settle.js";
+import { POST as cureAuctionPayment } from "../api/auctions/[id]/payment-cure.js";
 import { p256PublicKeyHex, requireWalletConfig } from "../lib/server/wallet.js";
 import { bidIntentFromContext } from "../lib/browser/wallet-intents.js";
 
@@ -73,6 +80,7 @@ const envNames = [
   ,"GROVE_AUCTION_TERMS_VERSION"
   ,"GROVE_AUCTION_TERMS_HASH"
   ,"GROVE_MAX_FIAT_HAMMER_MINOR"
+  ,"GROVE_AUCTION_RISK_HOLD_HOURS"
 ];
 const previous = Object.fromEntries(envNames.map((name) => [name, process.env[name]]));
 for (const name of envNames) delete process.env[name];
@@ -101,6 +109,10 @@ assert.equal(unavailableSetup.status, 503, "Apple Pay setup fails closed without
 assert.equal((await createWalletChallenge(new Request("https://marketplace.example/api/wallet/challenge", { method: "POST", body: "{}" }))).status, 503);
 assert.equal((await linkWallet(new Request("https://marketplace.example/api/wallet/link", { method: "POST", body: "{}" }))).status, 503);
 assert.equal((await closeAuctions(new Request("https://marketplace.example/api/cron/auction-close"))).status, 401);
+assert.equal((await settleAuctions(new Request("https://marketplace.example/api/cron/auction-settle"))).status, 401);
+assert.equal((await cureAuctionPayment(new Request("https://marketplace.example/api/auctions/60000000-0000-4000-8000-000000000001/payment-cure", {
+  method: "POST"
+}))).status, 503);
 
 const invalidProvider = await startAuth(new Request("https://marketplace.example/api/auth/start?provider=email"));
 assert.equal(invalidProvider.status, 400, "email is not accepted as a join path");
@@ -234,6 +246,138 @@ assert.equal(winnerPayment.off_session, undefined);
 assert.equal(winnerPayment.confirm, false);
 assert.equal(winnerPayment.amount, 512300);
 assert.deepEqual(buildWinnerPaymentIntentConfirmationParameters(), { off_session: true, error_on_requires_action: false });
+const taxParameters = buildAuctionTaxCalculationParameters({
+  settlement: { id: "80000000-0000-4000-8000-000000000001", hammer_amount: "500000" },
+  mandate: { provider_customer_ref: "cus_test" },
+  work: { stripe_tax_code: "txcd_99999999" },
+  shippingAmount: 2500
+});
+assert.equal(taxParameters.customer, "cus_test");
+assert.equal(taxParameters.line_items[0].amount, 500000);
+assert.equal(taxParameters.shipping_cost.amount, 2500);
+assert.deepEqual(auctionAmountsFromTaxCalculation({
+  calculation: { id: "taxcalc_test", currency: "usd", amount_total: 546250 },
+  hammerAmount: "500000",
+  shippingAmount: 2500
+}), { taxAmount: 43750, shippingAmount: 2500, totalAmount: 546250 });
+assert.throws(() => auctionAmountsFromTaxCalculation({
+  calculation: { id: "taxcalc_test", currency: "usd", amount_total: 499999 },
+  hammerAmount: 500000
+}), /INVALID_TAX_CALCULATION/);
+assertAuctionPaymentIntent({
+  paymentIntent: {
+    id: "pi_test", amount: 512300, currency: "usd", customer: "cus_test", payment_method: "pm_test",
+    metadata: {
+      grove_flow: "auction-settlement",
+      grove_auction_id: "60000000-0000-4000-8000-000000000001",
+      grove_settlement_id: "80000000-0000-4000-8000-000000000001",
+      grove_winning_bid_id: "90000000-0000-4000-8000-000000000001"
+    }
+  },
+  settlement: {
+    id: "80000000-0000-4000-8000-000000000001",
+    auction_id: "60000000-0000-4000-8000-000000000001",
+    winning_bid_id: "90000000-0000-4000-8000-000000000001",
+    total_amount: "512300"
+  },
+  mandate: { provider_customer_ref: "cus_test", payment_method_ref: "pm_test" }
+});
+const cureParameters = buildAuctionCureSessionParameters({
+  settlement: {
+    id: "80000000-0000-4000-8000-000000000001",
+    auction_id: "60000000-0000-4000-8000-000000000001",
+    winning_bid_id: "90000000-0000-4000-8000-000000000001",
+    total_amount: "512300"
+  },
+  customerId: "cus_test",
+  workTitle: "Auction Work",
+  config: { siteUrl: "https://marketplace.example" },
+  expiresAt: "2026-09-04T00:30:00.000Z"
+});
+assert.equal(cureParameters.mode, "payment");
+assert.equal(cureParameters.automatic_tax.enabled, false, "cure charges the already-frozen tax-inclusive total");
+assert.equal(cureParameters.payment_intent_data.metadata.grove_flow, "auction-payment-cure");
+assert.equal(cureParameters.line_items[0].price_data.unit_amount, 512300);
+assert.equal(auctionCollectionStateAllowed({ state: "active", config: { auctions: {}, wallet: {} } }), true);
+assert.equal(auctionCollectionStateAllowed({
+  state: "rehearsal", config: { auctions: { rehearsalReady: true }, wallet: { chainId: 11155111 } }
+}), true);
+assert.equal(auctionCollectionStateAllowed({
+  state: "rehearsal", config: { auctions: { rehearsalReady: false }, wallet: { chainId: 11155111 } }
+}), false, "rehearsal inventory cannot close outside an attested preview");
+
+const workerSettlement = {
+  id: "80000000-0000-4000-8000-000000000001",
+  auction_id: "60000000-0000-4000-8000-000000000001",
+  winning_bid_id: "90000000-0000-4000-8000-000000000001",
+  bidder_user_id: "10000000-0000-4000-8000-000000000001",
+  rail: "card",
+  hammer_amount: "10000",
+  total_amount: null,
+  currency: "USD",
+  state: "winner-selected",
+  tax_calculation_ref: null,
+  current_payment_intent_ref: null,
+  payment_generation: 0
+};
+const workerRows = {
+  auction_bids: { id: workerSettlement.winning_bid_id, payment_mandate_id: "70000000-0000-4000-8000-000000000001" },
+  auctions: { id: workerSettlement.auction_id, work_id: "40000000-0000-4000-8000-000000000001" },
+  bidder_payment_mandates: {
+    id: "70000000-0000-4000-8000-000000000001",
+    bidder_user_id: workerSettlement.bidder_user_id,
+    provider_customer_ref: "cus_worker",
+    payment_method_ref: "pm_worker",
+    state: "ready"
+  },
+  works: { id: "40000000-0000-4000-8000-000000000001", title: "Worker Work", requires_shipping: false, stripe_tax_code: "txcd_99999999" }
+};
+const workerRpcCalls = [];
+const workerService = {
+  from(table) {
+    return {
+      select() { return this; },
+      eq() { return this; },
+      async single() { return { data: workerRows[table], error: null }; }
+    };
+  },
+  async rpc(name, args) {
+    workerRpcCalls.push({ name, args });
+    if (name === "freeze_auction_settlement_total") {
+      return { data: { ...workerSettlement, total_amount: 10800, tax_calculation_ref: "taxcalc_worker", state: "tax-pending" }, error: null };
+    }
+    if (name === "register_auction_payment_attempt") return { data: { generation: 1 }, error: null };
+    if (name === "record_auction_payment_observation") return { data: "processing", error: null };
+    throw new Error(`unexpected RPC ${name}`);
+  }
+};
+let createdPaymentParameters;
+let confirmationParameters;
+const workerStripe = {
+  tax: { calculations: { async create() { return { id: "taxcalc_worker", currency: "usd", amount_total: 10800 }; } } },
+  shippingRates: { async retrieve() { throw new Error("shipping should not be loaded"); } },
+  paymentIntents: {
+    async create(parameters) {
+      createdPaymentParameters = parameters;
+      return { id: "pi_worker", ...parameters, status: "requires_confirmation" };
+    },
+    async confirm(id, parameters) {
+      confirmationParameters = parameters;
+      return { id, ...createdPaymentParameters, status: "succeeded" };
+    }
+  }
+};
+assert.equal(await settleAuctionCardPayment({
+  service: workerService,
+  stripe: workerStripe,
+  config: { auctions: { riskHoldHours: 168 } },
+  initialSettlement: workerSettlement
+}), "processing", "direct Stripe success still waits in processing for a signed webhook");
+assert.equal(createdPaymentParameters.confirm, false, "the worker binds before confirming");
+assert.deepEqual(confirmationParameters, { off_session: true, error_on_requires_action: false });
+assert.deepEqual(workerRpcCalls.map(({ name }) => name), [
+  "freeze_auction_settlement_total", "register_auction_payment_attempt", "record_auction_payment_observation"
+]);
 assert.equal(effectiveDisputeEventType("warning_needs_response"), "charge.dispute.created");
 assert.equal(effectiveDisputeEventType("warning_closed"), "charge.dispute.warning_closed");
 assert.equal(effectiveDisputeEventType("prevented"), "charge.dispute.prevented");
@@ -367,6 +511,7 @@ assert.match(commerceMigration, /warning_closed/, "terminal dispute inquiries ca
 assert.match(commerceMigration, /prevented/, "prevented disputes cannot remain stuck open");
 
 const auctionMigration = await readFile(new URL("../supabase/migrations/20260904000000_hybrid_auction_foundation.sql", import.meta.url), "utf8");
+const settlementMigration = await readFile(new URL("../supabase/migrations/20260905000000_auction_card_settlement_worker.sql", import.meta.url), "utf8");
 const walletServer = await readFile(new URL("../lib/server/wallet.js", import.meta.url), "utf8");
 for (const table of [
   "smart_accounts", "wallet_credentials", "wallet_links", "wallet_link_challenges", "sponsorship_decisions", "nft_collections",
@@ -385,6 +530,15 @@ assert.match(auctionMigration, /Social OAuth identifies the Grove member/, "soci
 assert.match(auctionMigration, /intent_origin_hash/, "bid verification persists its immutable typed-data origin");
 assert.match(auctionMigration, /payment_intent_not_current/, "settlement events are bound to one current PaymentIntent");
 assert.match(auctionMigration, /consent_terms_accepted_at/, "off-session consent evidence is required for a ready mandate");
+for (const boundary of [
+  "freeze_auction_settlement_total", "record_auction_payment_observation", "register_auction_payment_cure",
+  "bind_auction_payment_cure", "expire_auction_payment_cure"
+]) {
+  assert.match(settlementMigration, new RegExp(boundary), `${boundary} is a server-only settlement boundary`);
+}
+assert.match(settlementMigration, /cannot enter paid-risk-hold/, "direct provider observations cannot authorize NFT release");
+assert.match(settlementMigration, /when object_status in \('processing', 'succeeded'\) then 'processing'/,
+  "even a directly observed success waits for the signed webhook");
 assert.match(walletServer, /BigInt\(signerVerifiers\) !== expectedVerifier/, "the complete uint176 passkey verifier configuration is attested");
 assert.doesNotMatch(walletServer, /signerVerifiers[\s\S]{0,120}&\s*\(\(1n\s*<<\s*160n\)/, "passkey verifier attestation does not discard high configuration bits");
 assert.match(migration, /initialize_curator_profile/);

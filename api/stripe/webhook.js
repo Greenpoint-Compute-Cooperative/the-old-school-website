@@ -1,4 +1,5 @@
 import { createStripeClient, requireStripeWebhookConfig } from "../../lib/server/commerce.js";
+import { assertAuctionPaymentIntent } from "../../lib/server/auction.js";
 import { ConfigurationError } from "../../lib/server/config.js";
 import { json, problem } from "../../lib/server/http.js";
 import { createSupabaseServiceClient } from "../../lib/server/supabase.js";
@@ -172,6 +173,59 @@ export const POST = async (request) => {
 
     const announcedSession = event.data.object;
     const session = await stripe.checkout.sessions.retrieve(announcedSession.id);
+    if (session.metadata?.grove_flow === "auction-payment-cure") {
+      const settlementId = uuid(session.metadata?.grove_settlement_id || session.client_reference_id);
+      if (!settlementId) return problem(422, "settlement_missing", "Payment recovery metadata is invalid.");
+      const service = createSupabaseServiceClient();
+      const { data: settlement, error: settlementError } = await service.from("auction_settlements")
+        .select("id,auction_id,winning_bid_id,total_amount,currency,cure_checkout_session_ref")
+        .eq("id", settlementId).single();
+      if (settlementError || !settlement || settlement.cure_checkout_session_ref !== session.id
+          || session.mode !== "payment" || session.currency?.toLowerCase() !== "usd"
+          || session.amount_total !== Number(settlement.total_amount)) {
+        return problem(422, "settlement_mismatch", "Payment recovery does not match the frozen settlement.");
+      }
+      const eventPayload = { id: event.id, type: event.type, created: event.created, livemode: event.livemode };
+      if (event.type === "checkout.session.expired" || session.status === "expired") {
+        const { data: result, error } = await service.rpc("expire_auction_payment_cure", {
+          stripe_event_id: event.id,
+          settlement_uuid: settlementId,
+          checkout_session_id: session.id,
+          event_payload: eventPayload
+        });
+        if (error) return problem(503, "webhook_processing_failed", "Webhook processing will be retried.");
+        return json({ received: true, result });
+      }
+      const paymentIntentId = reference(session.payment_intent);
+      if (!paymentIntentId) return problem(503, "webhook_dependency_pending", "Webhook processing will be retried.");
+      const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+      try {
+        assertAuctionPaymentIntent({ paymentIntent, settlement, flow: "auction-payment-cure" });
+      } catch {
+        return problem(422, "settlement_mismatch", "Payment recovery does not match the frozen settlement.");
+      }
+      const bound = await service.rpc("bind_auction_payment_cure", {
+        settlement_uuid: settlementId,
+        checkout_session_id: session.id,
+        replacement_payment_intent_id: paymentIntent.id,
+        expected_amount: paymentIntent.amount
+      });
+      if (bound.error) return problem(503, "webhook_processing_failed", "Webhook processing will be retried.");
+      const effectiveType = effectivePaymentIntentEventType(paymentIntent.status);
+      const { data: result, error } = await service.rpc("apply_stripe_auction_payment_event", {
+        stripe_event_id: event.id,
+        stripe_event_type: effectiveType,
+        settlement_uuid: settlementId,
+        payment_intent_id: paymentIntent.id,
+        stripe_object_id: paymentIntent.id,
+        object_status: paymentIntent.last_payment_error?.code || paymentIntent.status,
+        object_amount: paymentIntent.amount,
+        object_currency: paymentIntent.currency,
+        event_payload: { ...eventPayload, effective_type: effectiveType }
+      });
+      if (error) return problem(503, "webhook_processing_failed", "Webhook processing will be retried.");
+      return json({ received: true, result });
+    }
     if (session.metadata?.grove_flow === "auction-payment-setup") {
       const setupIntentId = reference(session.setup_intent);
       const setupIntent = setupIntentId ? await stripe.setupIntents.retrieve(setupIntentId) : null;

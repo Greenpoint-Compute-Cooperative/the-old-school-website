@@ -43,7 +43,7 @@ The production MVP uses Ethereum mainnet and audited, standard infrastructure:
 - durable media and metadata, explicit supply, rights, and preservation terms;
 - authoritative transaction/indexer state before the UI claims a mint or ownership change.
 
-The delivery branch now contains disabled-by-default auction/payment APIs, an EIP-712/ERC-1271 bid boundary, a signed Stripe event inbox, a row-locked auction ledger, and inventory-mint ERC-721/ERC-1155 contracts. Prototype works remain unsaleable and no provider, production address, paymaster, RPC, or real identity is invented. Wallet and auction paths stay disabled until their documented launch gates pass.
+The delivery branch now contains disabled-by-default auction/payment APIs, an EIP-712/ERC-1271 bid boundary, row-locked close and card-settlement workers, a winner-only hosted payment cure, a signed Stripe event inbox, a row-locked auction ledger, and inventory-mint ERC-721/ERC-1155 contracts. Prototype works remain unsaleable and no provider, production address, paymaster, RPC, or real identity is invented. Wallet and auction paths stay disabled until their documented launch gates pass.
 
 ### Monthly bazaar
 
