@@ -5,7 +5,12 @@ import { configurationReport } from "../lib/server/config.js";
 import { GET as getHealth } from "../api/health.js";
 import { GET as startAuth } from "../api/auth/start.js";
 import { POST as createAcquisition } from "../api/acquisitions.js";
-import { effectiveDisputeEventType, effectivePaymentIntentEventType, POST as receiveStripeWebhook } from "../api/stripe/webhook.js";
+import {
+  effectiveAuctionRiskSignal,
+  effectiveDisputeEventType,
+  effectivePaymentIntentEventType,
+  POST as receiveStripeWebhook
+} from "../api/stripe/webhook.js";
 import { POST as recordEvent } from "../api/events.js";
 import { GET as getMetrics } from "../api/metrics.js";
 import { buildCheckoutSessionParameters } from "../lib/server/commerce.js";
@@ -590,6 +595,14 @@ assert.match(settlementMigration, /tax_reversal_missing/, "successful refunds ca
 assert.match(settlementMigration, /cannot enter paid-risk-hold/, "direct provider observations cannot authorize NFT release");
 assert.match(settlementMigration, /when object_status in \('processing', 'succeeded'\) then 'processing'/,
   "even a directly observed success waits for the signed webhook");
+assert.deepEqual(effectiveAuctionRiskSignal({ review: true, riskObject: { open: false, closed_reason: "approved" } }),
+  { status: "approved", actionable: false }, "only an approved closed Review clears its risk signal");
+for (const closed_reason of ["refunded", "refunded_as_fraud", "disputed", "canceled", "payment_never_settled", null]) {
+  assert.equal(effectiveAuctionRiskSignal({ review: true, riskObject: { open: false, closed_reason } }).actionable, true,
+    `adverse or unknown Review close reason ${closed_reason} remains blocking`);
+}
+assert.equal(effectiveAuctionRiskSignal({ review: false, riskObject: { actionable: false } }).actionable, true,
+  "a non-actionable Early Fraud Warning remains blocking until separately resolved");
 assert.match(walletServer, /BigInt\(signerVerifiers\) !== expectedVerifier/, "the complete uint176 passkey verifier configuration is attested");
 assert.doesNotMatch(walletServer, /signerVerifiers[\s\S]{0,120}&\s*\(\(1n\s*<<\s*160n\)/, "passkey verifier attestation does not discard high configuration bits");
 assert.match(migration, /initialize_curator_profile/);

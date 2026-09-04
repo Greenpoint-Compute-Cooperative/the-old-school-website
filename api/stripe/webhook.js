@@ -53,6 +53,18 @@ export const effectivePaymentIntentEventType = (status) => ({
   requires_payment_method: "payment_intent.payment_failed"
 }[status] || "payment_intent.payment_failed");
 
+export const effectiveAuctionRiskSignal = ({ review, riskObject }) => {
+  if (review) {
+    const status = riskObject.open ? "open" : riskObject.closed_reason || riskObject.reason || "closed-unknown";
+    return { status, actionable: riskObject.open === true || status !== "approved" };
+  }
+  const status = riskObject.actionable === true ? riskObject.fraud_type || "actionable" : "not-actionable";
+  // An Early Fraud Warning never clears itself. Stripe can mark it non-actionable
+  // because a refund or dispute already exists, which must still block delivery
+  // until the service-only resolution path records fresh evidence.
+  return { status, actionable: true };
+};
+
 export const POST = async (request) => {
   try {
     const announcedLength = Number(request.headers.get("content-length") || 0);
@@ -150,7 +162,7 @@ export const POST = async (request) => {
       const settlementId = uuid(paymentIntent.metadata?.grove_settlement_id);
       if (!settlementId) return json({ received: true, ignored: true });
       const review = event.type.startsWith("review.");
-      const actionable = review ? riskObject.open === true : riskObject.actionable === true;
+      const signal = effectiveAuctionRiskSignal({ review, riskObject });
       const service = createSupabaseServiceClient();
       const { data: result, error } = await service.rpc("apply_stripe_auction_risk_event", {
         stripe_event_id: event.id,
@@ -159,8 +171,8 @@ export const POST = async (request) => {
         payment_intent_id: paymentIntentId,
         provider_object_id: riskObject.id,
         signal_kind_value: review ? "review" : "early-fraud-warning",
-        actionable_value: actionable,
-        object_status: review ? (riskObject.open ? "open" : riskObject.closed_reason || riskObject.reason) : (actionable ? riskObject.fraud_type : "not-actionable"),
+        actionable_value: signal.actionable,
+        object_status: signal.status,
         provider_observed_at: new Date(event.created * 1000).toISOString(),
         event_payload: { id: event.id, type: event.type, created: event.created, livemode: event.livemode }
       });
