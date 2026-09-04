@@ -25,6 +25,7 @@ const required = [
   "docs/OWNER_EXIT.md",
   "docs/RUNBOOK.md",
   "docs/SECONDARY_MARKET.md",
+  "docs/STAGING_ORCHESTRATION.md",
   "third_party_licenses/opensea-seaport-js.LICENSE",
   "third_party_licenses/permissionless.LICENSE",
   "third_party_licenses/README.md"
@@ -32,7 +33,7 @@ const required = [
 
 await Promise.all(required.map(async (path) => assert.ok((await read(path)).trim(), `${path} is required`)));
 
-const [environment, vercel, analytics, metricsMigration, uptime, stagingUptime, stagingResaleIndex, metricsWorkflow, releaseWorkflow, ciWorkflow, previewSeed, sepoliaAuctionSeed, environments, stagingCheck, stagingDeploy, productionCheck, resaleMigration, ownerExitMigration, resaleApi, openSeaLeaseMigration, openSeaWorker, secondaryDocs, ownerExitDocs] = await Promise.all([
+const [environment, vercel, analytics, metricsMigration, uptime, stagingUptime, stagingOrchestration, metricsWorkflow, releaseWorkflow, ciWorkflow, previewSeed, sepoliaAuctionSeed, environments, stagingCheck, stagingDeploy, productionCheck, resaleMigration, ownerExitMigration, resaleApi, openSeaLeaseMigration, openSeaWorker, secondaryDocs, ownerExitDocs, stagingOrchestrationDocs] = await Promise.all([
   read(".env.example"),
   read("vercel.json"),
   read("analytics.js"),
@@ -55,7 +56,8 @@ const [environment, vercel, analytics, metricsMigration, uptime, stagingUptime, 
   read("supabase/migrations/20260908020000_opensea_publication_leases.sql"),
   read("api/cron/opensea-publish.js"),
   read("docs/SECONDARY_MARKET.md"),
-  read("docs/OWNER_EXIT.md")
+  read("docs/OWNER_EXIT.md"),
+  read("docs/STAGING_ORCHESTRATION.md")
 ]);
 
 for (const name of ["SUPABASE_SECRET_KEY", "GROVE_METRICS_ENABLED", "GROVE_METRICS_READ_TOKEN", "CRON_SECRET", "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"]) {
@@ -82,10 +84,27 @@ assert.match(metricsMigration, /revoke all on public\.product_events/, "metrics 
 assert.match(uptime, /scripts\/check-live\.mjs/, "live monitoring uses the full-story check");
 assert.match(uptime, /ops:incident/, "live monitoring manages one incident label");
 assert.match(stagingUptime, /npm run staging:check/, "staging monitoring uses the isolated environment check");
-assert.match(stagingResaleIndex, /api\/cron\/resale-index/, "staging has an external ownership-index schedule");
+for (const worker of ["auction-close", "auction-settle", "nft-delivery", "resale-index", "sponsorship-reconcile"]) {
+  assert.match(stagingOrchestration, new RegExp(`/api/cron/${worker}`), `staging orchestration invokes ${worker}`);
+}
+for (const gate of ["GROVE_STAGING_AUCTION_CLOSE_ENABLED", "GROVE_STAGING_AUCTION_SETTLE_ENABLED", "GROVE_STAGING_NFT_DELIVERY_ENABLED", "GROVE_STAGING_SPONSOR_RECONCILE_ENABLED"]) {
+  assert.match(stagingOrchestration, new RegExp(`vars\\.${gate}`), `${gate} is an explicit repository gate`);
+}
+assert.match(stagingOrchestration, /\[ "\$enabled" != "true" \]/, "missing and false gate values cannot invoke guarded workers");
+assert.doesNotMatch(stagingOrchestration, /GROVE_STAGING_RESALE_INDEX_ENABLED/, "finalized read-only indexing remains the always-on staging lane");
+assert.match(stagingOrchestration, /permissions:\s*\{\}/, "staging orchestration has no GitHub token permissions");
+assert.doesNotMatch(stagingOrchestration, /\buses:/, "staging orchestration checks out no source and uses no third-party action");
+assert.match(stagingOrchestration, /secrets\.GROVE_STAGING_CRON_SECRET/, "staging orchestration uses the isolated cron bearer secret");
+assert.equal([...stagingOrchestration.matchAll(/secrets\./g)].length, 1, "staging orchestration receives exactly one GitHub secret");
+assert.doesNotMatch(stagingOrchestration, /the-school-omega|VERCEL_TOKEN|SUPABASE_SECRET_KEY|STRIPE_SECRET_KEY|RPC_URL|PRIVATE_KEY|OPENSEA_API_KEY/i,
+  "staging orchestration cannot reach Production or receive provider credentials");
+assert.match(stagingOrchestration, /workflow_dispatch:[\s\S]*worker:[\s\S]*all-enabled/, "staging orchestration supports targeted manual dispatch");
+assert.match(stagingOrchestration, /cancel-in-progress:\s*false/, "staging orchestration does not interrupt an in-flight worker");
+assert.match(stagingOrchestrationDocs, /Manual dispatch never overrides a gate/, "staging orchestration documents fail-closed manual dispatch");
+assert.match(stagingOrchestrationDocs, /Vercel Cron invokes[\s\S]*Production deployments only/, "staging documents why its scheduler is external");
 assert.match(metricsWorkflow, /secrets\.GROVE_METRICS_READ_TOKEN/, "scheduled metrics use a GitHub secret");
 assert.match(releaseWorkflow, /SHA256SUMS\.txt/, "tagged releases include a checksum");
-for (const workflow of [uptime, stagingUptime, stagingResaleIndex, metricsWorkflow, releaseWorkflow, ciWorkflow]) {
+for (const workflow of [uptime, stagingUptime, stagingOrchestration, metricsWorkflow, releaseWorkflow, ciWorkflow]) {
   assert.doesNotMatch(workflow, /uses:\s+[^\s]+@(v\d+|main|master)\b/, "GitHub Actions are pinned to immutable commits");
 }
 assert.match(previewSeed, /GROVE_SEED_TARGET/, "preview seeding requires an explicit target");
