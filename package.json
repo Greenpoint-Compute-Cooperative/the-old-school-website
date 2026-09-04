@@ -27,7 +27,6 @@
     "node": ">=24 <25"
   },
   "dependencies": {
-    "@opensea/sdk": "12.1.0",
     "@opensea/seaport-js": "4.3.0",
     "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.112.3",

@@ -24,7 +24,6 @@ const required = [
   "docs/METRICS.md",
   "docs/RUNBOOK.md",
   "docs/SECONDARY_MARKET.md",
-  "third_party_licenses/opensea-sdk.LICENSE",
   "third_party_licenses/opensea-seaport-js.LICENSE",
   "third_party_licenses/permissionless.LICENSE",
   "third_party_licenses/README.md"

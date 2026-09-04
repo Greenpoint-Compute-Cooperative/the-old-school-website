@@ -77,8 +77,8 @@ OpenSea production support is a separate mainnet integration, not a promotion of
    backend. [OpenSea search and discovery](https://docs.opensea.io/docs/search-and-discovery)
 5. The production collection and token can be retrieved and refreshed through current OpenSea endpoints, and their
    canonical OpenSea URLs are recorded only after OpenSea returns the actual collection slug and item identity.
-6. The exact `@opensea/sdk`, `@opensea/seaport-js`, Seaport address/code hash, conduit, zone, USDC address/code hash,
-   API behavior, and order schema pass mainnet-fork and low-value mainnet rehearsals.
+6. The exact `@opensea/seaport-js`, server-only OpenSea API adapter, Seaport address/code hash, conduit, zone, USDC
+   address/code hash, API behavior, and order schema pass mainnet-fork and low-value mainnet rehearsals.
 
 Do not manufacture a collection slug from the contract name. Do not publish legacy `testnets.opensea.io` links.
 
