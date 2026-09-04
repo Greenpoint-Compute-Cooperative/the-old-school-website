@@ -31,7 +31,17 @@ jobs:
       - run: npm run ci
         env:
           FOUNDRY_PROFILE: ci
-      - run: npm audit --omit=dev --audit-level=high
+      - name: Audit production dependencies
+        run: |
+          for attempt in 1 2 3; do
+            if npm audit --omit=dev --audit-level=high; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+            sleep $((attempt * 10))
+          done
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: marketplace-static-${{ github.sha }}
