@@ -41,12 +41,19 @@ export const GET = async (request) => {
       .select("id,work_id,slug,artist_name,title,media_url,chain_id,collection_address,token_id,quantity,seller_address,seaport_address,seaport_version,seaport_order_type,zone_address,conduit_key,currency,currency_address,currency_decimals,gross_amount,seller_proceeds_recipient,seller_proceeds_amount,royalty_recipient,royalty_amount,marketplace_fee_recipient,marketplace_fee_amount,start_time_epoch,end_time_epoch,salt,counter,order_hash,signature,order_components,partial_fills_allowed,state,published_at,terms_version,terms_hash")
       .order("published_at", { ascending: false }).limit(100);
     if (error) return problem(502, "resales_unavailable", "Secondary listings could not be loaded.", headers);
+    const managedIds = new Set();
+    if (data.length) {
+      // Base-table RLS returns only rows owned by the current authenticated user.
+      // Anonymous grant errors are intentionally treated as an empty ownership set.
+      const managed = await supabase.from("resale_orders").select("id").in("id", data.map((order) => order.id));
+      if (!managed.error) for (const order of managed.data || []) managedIds.add(order.id);
+    }
     return json({
       configured: true,
-      orders: data.map(publicOrder),
+      orders: data.map((order) => ({ ...publicOrder(order), seller_managed: managedIds.has(order.id) })),
       protocol: "seaport-1.6",
       open_sea: runtime.openSea.liveReady ? "mainnet" : runtime.wallet.chainId === 11155111 ? "unsupported-on-testnets" : "disabled"
-    }, { headers: { ...Object.fromEntries(headers), "Cache-Control": "public, max-age=2" } });
+    }, { headers: { ...Object.fromEntries(headers), "Cache-Control": "private, no-store" } });
   } catch (error) {
     if (error instanceof ConfigurationError) return problem(503, "secondary_not_configured", "Secondary listings are not available.");
     return problem(500, "unexpected_error", "Secondary listings could not be loaded.");

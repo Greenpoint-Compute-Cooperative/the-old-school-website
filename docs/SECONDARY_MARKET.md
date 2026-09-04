@@ -57,6 +57,26 @@ verification, current ownership/approval/balance checks, simulation, and durable
 No application database write can itself transfer the NFT or USDC. No order is valid merely because it appears in an
 offchain API.
 
+## Seller cancellation and approval cleanup
+
+`POST /api/resales/:id/cancellation-context` is seller-authenticated and returns an exact
+`Seaport.cancel(OrderComponents[])` action bound to the stored order hash, current Safe, canonical Seaport address,
+and a finalized chain observation. It does not change the database state, submit a UserOperation, or claim that the
+listing is cancelled. The shared sponsorship pipeline must revalidate the action, submit it, and let canonical event
+reconciliation move the order to `cancelled`. Hiding a listing or receiving this context is not cancellation.
+
+After cancellation, expiry, or counter invalidation is established onchain,
+`POST /api/resales/:id/approval-revocation-context` may return an exact
+`ERC721.approve(address(0), tokenId)` action. It refuses approval-only cleanup while the signed order remains active,
+because a later reapproval could make that order fillable again. Revocation is unnecessary if the exact Seaport
+approval is already absent, and impossible from the seller Safe after it no longer owns the token.
+
+Both endpoints return policy-bound action intents with an exact `expected_call`, zero call value, target and selector,
+calldata hash, chain, Safe, token/order identity, stable request key, and the server-derived prepare request for the
+shared `/api/wallet/sponsor` pipeline. They intentionally return no UserOperation hash or submission result. The public
+feed annotates only the current authenticated seller's rows as `seller_managed` via base-table RLS; it never returns
+seller user IDs. The work page renders seller controls only for that private annotation.
+
 ## OpenSea production gates
 
 OpenSea production support is a separate mainnet integration, not a promotion of the Sepolia rehearsal. Before any

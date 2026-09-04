@@ -174,6 +174,7 @@ const apiWork = (work, index, auction, resale) => ({
   auctionEnabled: auction?.state === "open",
   resaleId: resale?.id || null,
   resaleEnabled: resale?.state === "open",
+  resaleSellerManaged: resale?.seller_managed === true,
   resaleProtocol: resale ? "Seaport 1.6" : null,
   resaleCurrency: resale?.currency || null,
   ...tokenLinks(
@@ -433,6 +434,8 @@ const workPage = (work) => {
               : `<button class="button button--blue" type="button" data-collect="${work.slug}" data-method="crypto">${verb}</button>
           <button class="text-button" type="button" data-collect="${work.slug}" data-method="card">Use card</button>`}
           ${resellableToken && !work.resaleId ? `<button class="text-button" type="button" data-start-resale="${work.slug}">Sell this NFT</button>` : ""}
+          ${work.resaleId && work.resaleSellerManaged ? `<button class="text-button" type="button" data-cancel-resale="${work.slug}">Cancel my listing</button>
+          <button class="text-button" type="button" data-revoke-resale-approval="${work.slug}">Revoke Seaport approval</button>` : ""}
           ${safeDocumentUrl(work.openSeaUrl) ? `<a class="text-button" href="${escapeHtml(safeDocumentUrl(work.openSeaUrl))}" target="_blank" rel="noopener">View on OpenSea ↗</a>` : ""}
           ${work.chainId === 11155111 && work.contractStatus === "minted" ? `<p class="pending-note">Sepolia rehearsal · OpenSea retired all testnet support.</p>` : ""}
           <details class="work-details">
@@ -867,6 +870,63 @@ const prepareResalePurchase = async (button) => {
   }
 };
 
+const runResaleSellerAction = async (button, kind) => {
+  const work = getWork(button.dataset[kind === "cancel" ? "cancelResale" : "revokeResaleApproval"]);
+  if (!work?.resaleId || !work.resaleSellerManaged) return;
+  const routeName = kind === "cancel" ? "cancellation-context" : "approval-revocation-context";
+  const pendingLabel = kind === "cancel" ? "Checking cancellation…" : "Checking approval…";
+  const originalLabel = button.textContent;
+  button.disabled = true;
+  button.textContent = pendingLabel;
+  try {
+    const contextResponse = await fetch(`/api/resales/${encodeURIComponent(work.resaleId)}/${routeName}`, {
+      method: "POST",
+      headers: { Accept: "application/json" }
+    });
+    const context = await contextResponse.json();
+    if (!contextResponse.ok) throw new Error(context.error?.message || "The seller action is unavailable.");
+    const action = context.actions?.[0];
+    if (!action?.sponsor_request) {
+      showToast(kind === "cancel" ? "The listing is already inactive onchain" : "The exact-token approval is already clear");
+      await hydrateLiveCatalog();
+      return;
+    }
+    const preparedResponse = await fetch("/api/wallet/sponsor", {
+      method: "POST",
+      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      body: JSON.stringify(action.sponsor_request)
+    });
+    const prepared = await preparedResponse.json();
+    if (!preparedResponse.ok) throw new Error(prepared.error?.message || "Gas sponsorship is unavailable.");
+    const preparedCall = prepared.policy?.expected_call;
+    if (prepared.stage !== "prepared" || prepared.action !== action.action
+      || prepared.request_key !== action.request_key || preparedCall?.to?.toLowerCase() !== action.expected_call.to.toLowerCase()
+      || preparedCall?.data?.toLowerCase() !== action.expected_call.data.toLowerCase()
+      || String(preparedCall?.value) !== String(action.expected_call.value)) {
+      throw new Error("The sponsored action did not match the seller request.");
+    }
+    const { signSponsoredSecondaryUserOperation } = await import("./lib/browser/sponsored-userop.js");
+    const signed = await signSponsoredSecondaryUserOperation({ context: prepared });
+    const submittedResponse = await fetch("/api/wallet/sponsor", {
+      method: "POST",
+      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      body: JSON.stringify(signed.body)
+    });
+    const submitted = await submittedResponse.json();
+    if (!submittedResponse.ok) throw new Error(submitted.error?.message || "The sponsored action was not submitted.");
+    if (submitted.stage !== "submitted" || submitted.state !== "submitted"
+      || !/^0x[0-9a-f]{64}$/i.test(submitted.userop_hash || "")) {
+      throw new Error("The sponsor did not return submission evidence.");
+    }
+    showToast(kind === "cancel" ? "Cancellation submitted; awaiting finality" : "Approval revocation submitted; awaiting finality");
+    await hydrateLiveCatalog();
+  } catch (error) {
+    button.disabled = false;
+    button.textContent = originalLabel;
+    showToast(error.message || "The seller action is unavailable");
+  }
+};
+
 const handleCheckoutReturn = async () => {
   if (checkoutReturnHandled) return;
   checkoutReturnHandled = true;
@@ -1100,6 +1160,12 @@ document.addEventListener("click", (event) => {
 
   const resale = event.target.closest("[data-start-resale]");
   if (resale) { void startResaleListing(resale.dataset.startResale); return; }
+
+  const cancelResale = event.target.closest("[data-cancel-resale]");
+  if (cancelResale) { void runResaleSellerAction(cancelResale, "cancel"); return; }
+
+  const revokeResaleApproval = event.target.closest("[data-revoke-resale-approval]");
+  if (revokeResaleApproval) { void runResaleSellerAction(revokeResaleApproval, "revoke"); return; }
 
   const cardCheckout = event.target.closest("[data-start-card-checkout]");
   if (cardCheckout) { void startCardCheckout(cardCheckout); return; }
