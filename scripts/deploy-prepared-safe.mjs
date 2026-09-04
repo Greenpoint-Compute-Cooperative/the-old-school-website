@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
-import { existsSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   createPublicClient,
   encodeAbiParameters,
@@ -190,13 +192,22 @@ const main = async () => {
   const keystorePassword = env("GROVE_PROVISIONING_KEYSTORE_PASSWORD");
   assert.ok(keystorePath && existsSync(keystorePath), "An existing encrypted keystore path is required.");
   assert.ok(keystorePassword, "The keystore password must be supplied only in the operator environment.");
-  const result = spawnSync("cast", [
-    "send", factory, "--data", factoryData, "--keystore", keystorePath, "--json"
-  ], {
-    encoding: "utf8",
-    env: { ...process.env, ETH_PASSWORD: keystorePassword, ETH_RPC_URL: rpcUrl.href },
-    stdio: ["ignore", "pipe", "pipe"]
-  });
+  const passwordDirectory = mkdtempSync(join(tmpdir(), "grove-keystore-password-"));
+  const passwordPath = join(passwordDirectory, "password");
+  writeFileSync(passwordPath, keystorePassword, { encoding: "utf8", mode: 0o600, flag: "wx" });
+  let result;
+  try {
+    result = spawnSync("cast", [
+      "send", factory, "--data", factoryData, "--keystore", keystorePath,
+      "--password-file", passwordPath, "--json"
+    ], {
+      encoding: "utf8",
+      env: { ...process.env, ETH_RPC_URL: rpcUrl.href },
+      stdio: ["ignore", "pipe", "pipe"]
+    });
+  } finally {
+    rmSync(passwordDirectory, { recursive: true, force: true });
+  }
   if (result.status !== 0) throw new Error("SAFE_FACTORY_SEND_FAILED");
   let sent;
   try { sent = JSON.parse(result.stdout); } catch { throw new Error("SAFE_FACTORY_RECEIPT_INVALID"); }

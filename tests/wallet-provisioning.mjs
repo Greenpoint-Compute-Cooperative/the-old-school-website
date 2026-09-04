@@ -455,6 +455,8 @@ assert.match(operatorScript, /keccak256\(factoryData\) === factoryDataHash/, "th
 assert.match(operatorScript, /decodeFunctionData/, "the operator deployer decodes the exact factory call");
 assert.match(operatorScript, /client\.call/, "the exact Safe factory call is simulated before spending gas");
 assert.match(operatorScript, /--keystore/, "the operator deployer accepts an encrypted local keystore");
+assert.match(operatorScript, /--password-file/, "the keystore secret is passed through a mode-0600 temporary file");
+assert.match(operatorScript, /rmSync\(passwordDirectory/, "the temporary password file is removed after the signer exits");
 assert.match(operatorScript, /calls\.length, 2/, "operator requires exactly the reviewed Safe setup calls");
 assert.match(operatorScript, /GROVE_PREPARED_PASSKEY_COMMITMENT/, "operator binds calldata to the prepared passkey");
 assert.doesNotMatch(operatorScript, /"--rpc-url"/, "RPC credentials stay out of the child process argument list");
