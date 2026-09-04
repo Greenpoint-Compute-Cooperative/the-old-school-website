@@ -16,6 +16,7 @@ declare
   recovery_commitment constant text := '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
   recovery_challenge constant text := '0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc';
   recovery_origin constant text := '0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd';
+  large_salt constant numeric := 31295349875325192094896671340851653026853718638760146165549435881949828419807;
 begin
   insert into auth.users (id, email) values
     (passkey_member, 'passkey-only@example.invalid'),
@@ -34,14 +35,15 @@ begin
     null, null,
     '0xe1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1',
     '0xf1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1',
-    91, 9100000,
+    large_salt, 9100000,
     '0x0101010101010101010101010101010101010101010101010101010101010101',
     null, null, null
   );
   passkey_account_uuid := prepared.id;
   if prepared.state <> 'counterfactual' or prepared.recovery_ready
      or prepared.signer_count <> 1 or prepared.threshold <> 1
-     or prepared.recovery_proof_hash is not null then
+     or prepared.recovery_proof_hash is not null
+     or prepared.salt_nonce_text <> large_salt::text then
     raise exception 'passkey-only Safe did not remain fail-closed';
   end if;
   select count(*) into credential_count from public.wallet_credentials
@@ -58,7 +60,7 @@ begin
     null, null,
     '0xe1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1',
     '0xf1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1',
-    91, 9100000,
+    large_salt, 9100000,
     '0x0101010101010101010101010101010101010101010101010101010101010101',
     null, null, null
   );
@@ -75,7 +77,7 @@ begin
       null, null,
       '0xe1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1',
       '0xf1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1',
-      91, 9100000,
+      large_salt, 9100000,
       '0x0101010101010101010101010101010101010101010101010101010101010101',
       null, null, null
     );

@@ -21,7 +21,7 @@ const accountColumns = [
   "entry_point_address", "factory_address", "code_hash", "signer_count", "threshold",
   "recovery_ready", "state", "deployment_userop_hash", "deployment_tx_hash", "deployment_block",
   "deployment_block_hash", "finalized_at", "provisioning_commitment", "factory_data_hash",
-  "salt_nonce", "prepared_finalized_block", "prepared_finalized_block_hash", "provisioned_at"
+  "salt_nonce_text", "prepared_finalized_block", "prepared_finalized_block_hash", "provisioned_at"
 ].join(",");
 
 const authenticatedContext = async (request) => {

@@ -148,6 +148,27 @@ assert.equal(passkeyOnlyPlan.recoveryAddress, null);
 assert.equal(passkeyOnlyPlan.recoveryCommitment, null);
 assert.notEqual(passkeyOnlyPlan.provisioningCommitment, plan.provisioningCommitment,
   "optional recovery is committed into a different deterministic Safe plan");
+let historicalFactoryCodeCheck;
+await buildSafeProvisioningPlan({
+  config,
+  passkeyPublicKey: publicKeyHex,
+  recoveryAddress: null,
+  blockNumber: 99n,
+  client,
+  safeAccountFactory: async (parameters) => {
+    historicalFactoryCodeCheck = await parameters.client.getCode({ address: accountAddress });
+    return {
+      async getAddress() { return accountAddress; },
+      async getFactoryArgs() {
+        return historicalFactoryCodeCheck
+          ? { factory: undefined, factoryData: undefined }
+          : { factory: getAddress(config.wallet.safeFactoryAddress), factoryData: "0x87654321" };
+      }
+    };
+  }
+});
+assert.equal(historicalFactoryCodeCheck, undefined,
+  "counterfactual reconstruction does not require archive-node state for a previously absent account");
 
 const factoryTransactionHash = `0x${"ab".repeat(32)}`;
 const scannedRanges = [];
@@ -237,6 +258,20 @@ const accountDeployedLog = () => ({
     [getAddress(config.wallet.safeFactoryAddress), zeroAddress]
   )
 });
+const proxyCreationLog = () => ({
+  address: getAddress(config.wallet.safeFactoryAddress),
+  topics: encodeEventTopics({
+    abi: [{
+      type: "event", name: "ProxyCreation", inputs: [
+        { name: "proxy", type: "address", indexed: true },
+        { name: "singleton", type: "address", indexed: false }
+      ]
+    }],
+    eventName: "ProxyCreation",
+    args: { proxy: accountAddress }
+  }),
+  data: encodeAbiParameters([{ type: "address" }], [getAddress(config.wallet.safeSingletonAddress)])
+});
 const deploymentClient = {
   ...client,
   async getBytecode(input) {
@@ -262,7 +297,7 @@ const account = {
   state: "counterfactual",
   provisioning_commitment: plan.provisioningCommitment,
   factory_data_hash: plan.factoryDataHash,
-  salt_nonce: plan.saltNonce
+  salt_nonce_text: plan.saltNonce
 };
 const credentials = [
   {
@@ -284,15 +319,95 @@ const evidence = await verifyFinalizedSafeDeployment({
   deploymentTransactionHash: `0x${"cc".repeat(32)}`,
   client: deploymentClient,
   attest: async ({ blockNumber }) => {
-    assert.equal(blockNumber, 100n);
+    assert.equal(blockNumber, 120n, "activation attests the current finalized Safe state without requiring an archive node");
     return { passkeyPublicKey: publicKeyHex };
   },
-  buildPlan: async () => plan
+  buildPlan: async ({ blockNumber }) => {
+    assert.equal(blockNumber, 120n, "factory data is rebuilt against current finalized infrastructure");
+    return plan;
+  }
 });
 assert.equal(evidence.blockNumber, 100n);
 assert.equal(evidence.blockHash, deploymentHash);
 assert.equal(evidence.provisioningCommitment, plan.provisioningCommitment);
 const directEvidence = await verifyFinalizedSafeDeployment({
+  config,
+  account,
+  credentials,
+  deploymentUserOpHash: null,
+  deploymentTransactionHash: `0x${"dd".repeat(32)}`,
+  client: {
+    ...deploymentClient,
+    async getTransaction() {
+      return { to: getAddress(config.wallet.safeFactoryAddress), input: plan.factoryData };
+    },
+    async getTransactionReceipt() {
+      return {
+        status: "success", blockNumber: 100n, blockHash: deploymentHash,
+        to: getAddress(config.wallet.safeFactoryAddress), logs: [proxyCreationLog()]
+      };
+    }
+  },
+  attest: async () => ({ passkeyPublicKey: publicKeyHex }),
+  buildPlan: async ({ blockNumber }) => {
+    assert.equal(blockNumber, 120n, "direct deployments use current finalized infrastructure for reconstruction");
+    return plan;
+  }
+});
+assert.equal(directEvidence.userOperationHash, null, "a direct factory deployment has no invented UserOperation hash");
+const passkeyOnlyEvidence = await verifyFinalizedSafeDeployment({
+  config,
+  account: {
+    ...account,
+    signer_count: 1,
+    provisioning_commitment: passkeyOnlyPlan.provisioningCommitment,
+    factory_data_hash: passkeyOnlyPlan.factoryDataHash,
+    salt_nonce_text: passkeyOnlyPlan.saltNonce
+  },
+  credentials: [credentials[0]],
+  deploymentUserOpHash: null,
+  deploymentTransactionHash: `0x${"de".repeat(32)}`,
+  client: {
+    ...deploymentClient,
+    async getTransaction() {
+      return { to: getAddress(config.wallet.safeFactoryAddress), input: passkeyOnlyPlan.factoryData };
+    },
+    async getTransactionReceipt() {
+      return {
+        status: "success", blockNumber: 100n, blockHash: deploymentHash,
+        to: getAddress(config.wallet.safeFactoryAddress), logs: [proxyCreationLog()]
+      };
+    }
+  },
+  attest: async () => ({ passkeyPublicKey: publicKeyHex }),
+  buildPlan: async ({ blockNumber }) => {
+    assert.equal(blockNumber, 120n);
+    return passkeyOnlyPlan;
+  }
+});
+assert.equal(passkeyOnlyEvidence.provisioningCommitment, passkeyOnlyPlan.provisioningCommitment);
+await assert.rejects(() => verifyFinalizedSafeDeployment({
+  config,
+  account,
+  credentials,
+  deploymentUserOpHash: null,
+  deploymentTransactionHash: `0x${"dd".repeat(32)}`,
+  client: {
+    ...deploymentClient,
+    async getTransaction() {
+      return { to: getAddress(config.wallet.safeFactoryAddress), input: "0xdeadbeef" };
+    },
+    async getTransactionReceipt() {
+      return {
+        status: "success", blockNumber: 100n, blockHash: deploymentHash,
+        to: getAddress(config.wallet.safeFactoryAddress), logs: [proxyCreationLog()]
+      };
+    }
+  },
+  attest: async () => ({ passkeyPublicKey: publicKeyHex }),
+  buildPlan: async () => plan
+}), /SAFE_FACTORY_DEPLOYMENT_INVALID/, "a direct operator transaction must use the prepared calldata byte-for-byte");
+await assert.rejects(() => verifyFinalizedSafeDeployment({
   config,
   account,
   credentials,
@@ -312,57 +427,7 @@ const directEvidence = await verifyFinalizedSafeDeployment({
   },
   attest: async () => ({ passkeyPublicKey: publicKeyHex }),
   buildPlan: async () => plan
-});
-assert.equal(directEvidence.userOperationHash, null, "a direct factory deployment has no invented UserOperation hash");
-const passkeyOnlyEvidence = await verifyFinalizedSafeDeployment({
-  config,
-  account: {
-    ...account,
-    signer_count: 1,
-    provisioning_commitment: passkeyOnlyPlan.provisioningCommitment,
-    factory_data_hash: passkeyOnlyPlan.factoryDataHash,
-    salt_nonce: passkeyOnlyPlan.saltNonce
-  },
-  credentials: [credentials[0]],
-  deploymentUserOpHash: null,
-  deploymentTransactionHash: `0x${"de".repeat(32)}`,
-  client: {
-    ...deploymentClient,
-    async getTransaction() {
-      return { to: getAddress(config.wallet.safeFactoryAddress), input: passkeyOnlyPlan.factoryData };
-    },
-    async getTransactionReceipt() {
-      return {
-        status: "success", blockNumber: 100n, blockHash: deploymentHash,
-        to: getAddress(config.wallet.safeFactoryAddress), logs: []
-      };
-    }
-  },
-  attest: async () => ({ passkeyPublicKey: publicKeyHex }),
-  buildPlan: async () => passkeyOnlyPlan
-});
-assert.equal(passkeyOnlyEvidence.provisioningCommitment, passkeyOnlyPlan.provisioningCommitment);
-await assert.rejects(() => verifyFinalizedSafeDeployment({
-  config,
-  account,
-  credentials,
-  deploymentUserOpHash: null,
-  deploymentTransactionHash: `0x${"dd".repeat(32)}`,
-  client: {
-    ...deploymentClient,
-    async getTransaction() {
-      return { to: getAddress(config.wallet.safeFactoryAddress), input: "0xdeadbeef" };
-    },
-    async getTransactionReceipt() {
-      return {
-        status: "success", blockNumber: 100n, blockHash: deploymentHash,
-        to: getAddress(config.wallet.safeFactoryAddress), logs: []
-      };
-    }
-  },
-  attest: async () => ({ passkeyPublicKey: publicKeyHex }),
-  buildPlan: async () => plan
-}), /SAFE_FACTORY_DEPLOYMENT_INVALID/, "a direct operator transaction must use the prepared calldata byte-for-byte");
+}), /SAFE_FACTORY_DEPLOYMENT_INVALID/, "a direct transaction requires the canonical factory ProxyCreation event");
 await assert.rejects(() => verifyFinalizedSafeDeployment({
   config,
   account,
@@ -399,17 +464,6 @@ await assert.rejects(() => verifyFinalizedSafeDeployment({
   attest: async () => ({ passkeyPublicKey: publicKeyHex }),
   buildPlan: async () => plan
 }), /SAFE_DEPLOYMENT_EVENT_INVALID/, "UserOperation success without AccountDeployed is not deployment evidence");
-await assert.rejects(() => verifyFinalizedSafeDeployment({
-  config,
-  account,
-  credentials,
-  deploymentUserOpHash: userOpHash,
-  deploymentTransactionHash: `0x${"cc".repeat(32)}`,
-  client: { ...deploymentClient, async getBytecode() { return code; } },
-  attest: async () => ({ passkeyPublicKey: publicKeyHex }),
-  buildPlan: async () => plan
-}), /SAFE_DEPLOYMENT_EVENT_INVALID/, "a UserOperation cannot claim deployment when account code existed in the prior block");
-
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const migration = await readFile(join(root, "supabase/migrations/20260912010000_passkey_safe_provisioning.sql"), "utf8");
 assert.match(migration, /pg_advisory_xact_lock/, "parallel preparation is serialized per member");
