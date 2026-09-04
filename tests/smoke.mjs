@@ -56,6 +56,10 @@ for (const route of ["home", "discoverPage", "marketPage", "exhibitionPage", "wo
 
 assert.match(app, /No fetch in preview/, "link intake does not imply scraping");
 assert.match(app, /Apple Pay appears on eligible Apple devices/, "hosted checkout explains Apple Pay availability");
+assert.match(app, /Sell this NFT/, "owned eligible NFTs expose the secondary-listing action when configured");
+assert.match(app, /Apple Pay and Stripe are not used for secondary NFT sales/, "secondary checkout does not misrepresent the fiat rail");
+assert.match(app, /OpenSea retired all testnet support/, "Sepolia UI explains the OpenSea testnet boundary");
+assert.doesNotMatch(app, /opensea\.io\/assets\/sepolia/, "the UI never generates a dead OpenSea Sepolia link");
 assert.match(app, /Preview only · nothing is submitted/, "draft forms do not fake delivery");
 assert.match(app, /data-auth-provider="instagram"/, "Instagram is a join path");
 assert.match(app, /data-auth-provider="x"/, "X is a join path");

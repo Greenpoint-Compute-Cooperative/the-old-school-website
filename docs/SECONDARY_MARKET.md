@@ -37,7 +37,7 @@ USDC, grants an arbitrary approval, or makes a failed order successful.
 
 The production asset tuple is immutable per order: chain ID, collection, token ID, seller, payment-token address,
 price in base units, fee/royalty recipients, start/end time, Seaport counter, order type, zone, conduit, and salt.
-Every server request also has an application idempotency key. A listing becomes visible only after signature
+The immutable Seaport order hash is the listing's idempotency identity. A listing becomes visible only after signature
 verification, current ownership/approval/balance checks, simulation, and durable order-hash storage.
 
 ## Fixed-price ERC-721 flow

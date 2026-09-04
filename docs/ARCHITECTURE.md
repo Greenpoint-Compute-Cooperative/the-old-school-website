@@ -17,6 +17,8 @@ flowchart LR
   C[Reconciliation workers] --> D
   C --> S
   C --> E
+  U -->|fixed-price ERC-721 / USDC| SP[Seaport 1.6]
+  O[OpenSea publication outbox] -->|Production mainnet only| OS[OpenSea API]
 ```
 
 ## Runtime
@@ -26,6 +28,7 @@ flowchart LR
 - Supabase Auth holds social-provider identities and PKCE sessions. Postgres owns auction order, payment state, NFT custody projections, and append-only events.
 - Ethereum mainnet owns NFT identity, inventory, member Safe state, transfers, and canonical receipts. Indexers are read models only.
 - A managed ERC-4337 bundler/paymaster is replaceable behind a Grove adapter. It never becomes auction or ownership authority.
+- Secondary orders are immutable Seaport ERC-721/USDC messages signed by the seller Safe. The NFT remains with the seller until fulfillment; Postgres and OpenSea are order books/read models, never ownership authority. OpenSea is absent from Sepolia because it retired all testnet support.
 
 ## Data boundaries
 
@@ -40,6 +43,8 @@ flowchart LR
 | Public bid feed | public pseudonymous projection | Postgres |
 | NFT ownership/finality | public | Ethereum mainnet |
 | Gas sponsorship | private audit log | policy decision + UserOperation receipt |
+| Secondary order/signature | public | Seaport order + current ERC-1271/chain verification |
+| OpenSea publication status | operator/public projection | retry outbox; never payment or ownership authority |
 
 OAuth subjects, handles, email, credential IDs, authenticator metadata, payment method IDs, signatures, and wallet links never enter NFT metadata or public tables.
 

@@ -28,6 +28,7 @@ contract Deploy is Script {
         address pauseGuardian = vm.envAddress("GROVE_PAUSE_GUARDIAN");
         address inventorySafe = vm.envAddress("GROVE_INVENTORY_SAFE");
         uint256 expectedChainId = vm.envUint("GROVE_EXPECTED_CHAIN_ID");
+        string memory collectionMetadataUri = vm.envString("GROVE_COLLECTION_METADATA_URI");
 
         require(expectedChainId == 1 || expectedChainId == 11155111, "unsupported Ethereum network");
         require(block.chainid == expectedChainId, "unexpected chain");
@@ -44,9 +45,17 @@ contract Deploy is Script {
         );
 
         vm.startBroadcast(deployerKey);
-        oneOfOnes =
-            new Grove721(adminSafe, registrar, minter, pauseGuardian, inventorySafe, "Grove One of Ones", "GROVE");
-        editions = new Grove1155(adminSafe, registrar, minter, pauseGuardian, inventorySafe);
+        oneOfOnes = new Grove721(
+            adminSafe,
+            registrar,
+            minter,
+            pauseGuardian,
+            inventorySafe,
+            "Grove One of Ones",
+            "GROVE",
+            collectionMetadataUri
+        );
+        editions = new Grove1155(adminSafe, registrar, minter, pauseGuardian, inventorySafe, collectionMetadataUri);
         vm.stopBroadcast();
 
         require(oneOfOnes.hasRole(oneOfOnes.REGISTRAR_ROLE(), registrar), "721 registrar mismatch");

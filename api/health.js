@@ -22,6 +22,8 @@ export const GET = async (request) => {
       acquisition: configuration.acquisition,
       wallet: configuration.wallet,
       auctions: configuration.auctions,
+      secondary: configuration.secondary,
+      openSea: configuration.openSea,
       metrics: configuration.metrics
     }, { headers: { ...Object.fromEntries(headers), "Cache-Control": "no-store" } });
   } catch (error) {

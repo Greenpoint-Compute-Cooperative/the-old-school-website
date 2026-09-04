@@ -48,8 +48,12 @@ assert.equal(configuration.providers?.x?.configured, false);
 assert.equal(configuration.acquisition?.configured, false);
 assert.equal(configuration.wallet?.configured ?? false, false);
 assert.equal(configuration.auctions?.configured ?? false, false);
+assert.equal(configuration.secondary?.configured ?? false, false);
+assert.equal(configuration.openSea?.configured ?? false, false);
 
 await fetchChecked("/api/catalog");
+const resales = await (await fetchChecked("/api/resales")).json();
+assert.deepEqual(resales.orders, [], "Production cannot expose secondary listings before mainnet activation.");
 await fetchChecked("/manifest.webmanifest");
 await fetchChecked("/robots.txt", { headers: { Accept: "text/plain" } });
 await fetchChecked("/api/metrics", {}, 401);

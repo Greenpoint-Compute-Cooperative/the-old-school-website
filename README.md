@@ -23,6 +23,7 @@ A curator-led marketplace for physical art in the School and born-digital work. 
 - Supabase provides Auth and Postgres. Migrations add social-linked Safe accounts, NFT custody, auctions, signed bids, payment mandates, settlements, and chain delivery behind row-level security.
 - The gated production path pre-mints approved works as ERC-721/1155 inventory on Ethereum mainnet. Members will use passkey Safe accounts; Grove sponsorship is limited to allowlisted marketplace actions.
 - Card lots use Stripe-hosted Apple Pay/card setup and signed offchain bids. Crypto lots are a separate, gated rail; a v1 auction never mixes reversible card and irreversible crypto settlement.
+- Secondary sales use fixed-price ERC-721 Seaport 1.6 orders paid in USDC. Sepolia is reconciled directly because OpenSea no longer supports testnets; OpenSea publication is a separately gated Production-mainnet outbox. Stripe and Apple Pay are never secondary-sale rails.
 - First-party product events are session-scoped, server-validated, private by default, aggregated behind an operator token, and deleted after 180 days.
 - The bundled catalog remains available when the backend is absent. OAuth and checkout never claim success without real configuration.
 
@@ -106,6 +107,11 @@ npm run live:check
 - `/api/cron/auction-close` — close-time ERC-1271 revalidation and idempotent winner selection
 - `/api/cron/auction-settle` — frozen tax/shipping total and one bound off-session winner charge attempt
 - `POST /api/auctions/:id/payment-cure` — authenticated winner-only hosted recovery for a retired failed/action-required intent
+- `GET/POST /api/resales` — public Seaport order book and authenticated, chain-verified listing publication
+- `POST /api/resales/context` — canonical fixed-price ERC-721/USDC order and exact-token approval context
+- `GET /api/resales/:id/fulfillment-context` — current buyer Safe, USDC, and exact Seaport fulfillment checks
+- `/api/cron/resale-index` — finalized ERC-721 ownership projection (externally scheduled for staging)
+- `/api/cron/opensea-publish` — Production-only durable OpenSea publication outbox
 
 ## Product notes
 
@@ -119,6 +125,7 @@ npm run live:check
 - [`docs/LIVE_MARKETPLACE_MASTER_PLAN.md`](docs/LIVE_MARKETPLACE_MASTER_PLAN.md) — researched contracts, payments,
   Apple Pay, API, compliance, and staged launch plan
 - [`docs/COMMERCE_RUNBOOK.md`](docs/COMMERCE_RUNBOOK.md) — fail-closed Apple Pay/card auction operations and incident actions
+- [`docs/SECONDARY_MARKET.md`](docs/SECONDARY_MARKET.md) — Seaport resale, OpenSea, royalty, and release boundaries
 - [`contracts/README.md`](contracts/README.md) — inventory-mint ERC-721/ERC-1155 candidates and Ethereum gates
 - [`docs/GENERATED_ASSETS.md`](docs/GENERATED_ASSETS.md) — source and generated-asset disclosure
 
@@ -128,4 +135,4 @@ Start with [`CONTRIBUTING.md`](CONTRIBUTING.md). Pull requests run deterministic
 
 The code is available under the [MIT License](LICENSE). Tagged releases rebuild the app, rerun CI, and publish a checksummed static artifact.
 
-The supplied floating-school image is the marketplace’s primary mark. Catalog records are fictional prototype content and cannot be sold. A fully configured Vercel Preview may expose one chain-verified synthetic Sepolia auction rehearsal for a pre-provisioned member Safe; production wallet, auction, Apple Pay/card, and mainnet contract paths remain disabled until the master-plan gates pass. No live wallet, checkout credential, paymaster submission path, or production NFT is claimed.
+The supplied floating-school image is the marketplace’s primary mark. Catalog records are fictional prototype content and cannot be sold. A fully configured Vercel staging target may expose chain-verified synthetic Sepolia auction and Seaport resale rehearsals for pre-provisioned member Safes; Production wallet, auction, Apple Pay/card, secondary, OpenSea, and mainnet contract paths remain disabled until the master-plan gates pass. No live wallet, checkout credential, paymaster submission path, or production NFT is claimed.

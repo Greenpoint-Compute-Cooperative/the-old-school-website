@@ -21,6 +21,14 @@
     {
       "path": "/api/cron/nft-delivery",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/opensea-publish",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/resale-index",
+      "schedule": "*/5 * * * *"
     }
   ],
   "headers": [

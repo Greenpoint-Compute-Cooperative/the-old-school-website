@@ -19,7 +19,7 @@
     "repo:check": "node scripts/check-repo.mjs",
     "seed:preview": "node scripts/seed-preview.mjs",
     "seed:sepolia-auction": "node scripts/seed-sepolia-auction.mjs",
-    "test": "node tests/smoke.mjs && node tests/backend.mjs && node tests/delivery.mjs",
+    "test": "node tests/smoke.mjs && node tests/backend.mjs && node tests/delivery.mjs && node tests/resale.mjs",
     "contracts:build": "forge build --root contracts",
     "contracts:test": "forge test --root contracts"
   },
@@ -27,6 +27,8 @@
     "node": ">=24 <25"
   },
   "dependencies": {
+    "@opensea/sdk": "12.1.0",
+    "@opensea/seaport-js": "4.3.0",
     "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.112.3",
     "cookie": "^2.0.1",

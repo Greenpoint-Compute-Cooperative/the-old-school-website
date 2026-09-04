@@ -98,7 +98,32 @@ const auctionMoney = (auction) => {
   return `${amount} ${auction.bid_currency} base units`;
 };
 
-const apiWork = (work, index, auction) => ({
+const usdcMoney = (amount) => {
+  try {
+    const units = BigInt(String(amount));
+    const whole = units / 1_000_000n;
+    const fraction = (units % 1_000_000n).toString().padStart(6, "0").replace(/0+$/, "");
+    return `${whole.toLocaleString("en-US")}${fraction ? `.${fraction}` : ""} USDC`;
+  } catch {
+    return "USDC price unavailable";
+  }
+};
+
+const tokenLinks = (chainId, contractAddress, tokenId, minted, openSeaEnabled = false) => {
+  if (!minted || !/^0x[0-9a-fA-F]{40}$/.test(contractAddress || "")
+    || !/^(0|[1-9][0-9]{0,77})$/.test(String(tokenId ?? ""))) return {};
+  const chain = Number(chainId);
+  return {
+    explorerUrl: chain === 1
+      ? `https://etherscan.io/nft/${contractAddress}/${tokenId}`
+      : chain === 11155111 ? `https://sepolia.etherscan.io/nft/${contractAddress}/${tokenId}` : "",
+    openSeaUrl: chain === 1 && openSeaEnabled
+      ? `https://opensea.io/assets/ethereum/${contractAddress}/${tokenId}`
+      : ""
+  };
+};
+
+const apiWork = (work, index, auction, resale) => ({
   slug: work.slug,
   title: work.title,
   artist: work.artist_name,
@@ -108,17 +133,22 @@ const apiWork = (work, index, auction) => ({
   medium: work.format === "digital" ? "Born-digital artwork" : work.format === "paired" ? "Physical work with digital edition" : "Physical artwork",
   dimensions: "See work details",
   location: work.location || "Fulfillment details at checkout",
-  price: auction
+  id: work.id,
+  price: resale ? usdcMoney(resale.gross_amount) : auction
     ? auctionMoney(auction)
     : money(work.price_minor, work.currency),
   cryptoPrice: work.crypto_amount && work.crypto_asset ? `${work.crypto_amount} ${work.crypto_asset}` : "",
-  availability: auction ? ({ open: "Bidding open", scheduled: "Scheduled", "winner-selected": "Ended", settled: "Settled", "no-sale": "No sale" }[auction.state] || "Auction closed")
+  availability: resale ? "Secondary listing open" : auction ? ({ open: "Bidding open", scheduled: "Scheduled", "winner-selected": "Ended", settled: "Settled", "no-sale": "No sale" }[auction.state] || "Auction closed")
     : work.status === "sold" ? "Sold" : work.status === "reserved" ? "Reserved" : work.inventory_available > 0 ? "Available" : "Unavailable",
   status: work.status,
   edition: work.format === "physical" ? "Physical work" : "Edition details in work record",
-  chain: auction?.chain_id === 1 ? "Ethereum mainnet" : work.chain,
+  chain: Number(resale?.chain_id || auction?.chain_id) === 1 ? "Ethereum mainnet"
+    : Number(resale?.chain_id || auction?.chain_id) === 11155111 ? "Ethereum Sepolia" : work.chain,
+  chainId: Number(resale?.chain_id || auction?.chain_id || (work.chain === "ethereum-sepolia" ? 11155111 : work.chain === "ethereum" ? 1 : 0)),
   tokenStandard: auction?.nft_standard || null,
   contractStatus: work.contract_status,
+  contractAddress: resale?.collection_address || work.contract_address,
+  tokenId: resale?.token_id || work.token_id,
   curatorId: work.curator_id || "grove-marketplace",
   collection: "Live catalog",
   sheet: work.format === "physical" ? "physical" : "digital",
@@ -141,15 +171,36 @@ const apiWork = (work, index, auction) => ({
   auctionCurrency: auction?.bid_currency || null,
   auctionClosesAt: auction?.closes_at || null,
   auctionMinimumIncrement: auction ? Number(auction.minimum_increment) : null,
-  auctionEnabled: auction?.state === "open"
+  auctionEnabled: auction?.state === "open",
+  resaleId: resale?.id || null,
+  resaleEnabled: resale?.state === "open",
+  resaleProtocol: resale ? "Seaport 1.6" : null,
+  resaleCurrency: resale?.currency || null,
+  ...tokenLinks(
+    Number(resale?.chain_id || auction?.chain_id || (work.chain === "ethereum-sepolia" ? 11155111 : work.chain === "ethereum" ? 1 : 0)),
+    resale?.collection_address || work.contract_address,
+    resale?.token_id || work.token_id,
+    work.contract_status === "minted",
+    authConfiguration?.openSea?.configured === true
+  )
 });
 
 const hydrateLiveCatalog = async () => {
   try {
-    const response = await fetch("/api/catalog", { headers: { Accept: "application/json" } });
+    const [response, resalesResponse, configurationResponse] = await Promise.all([
+      fetch("/api/catalog", { headers: { Accept: "application/json" } }),
+      fetch("/api/resales", { headers: { Accept: "application/json" } }),
+      fetch("/api/config", { headers: { Accept: "application/json" } })
+    ]);
     if (!response.ok || !response.headers.get("content-type")?.includes("application/json")) return;
     const catalog = await response.json();
     if (!Array.isArray(catalog.works)) return;
+    const resales = resalesResponse.ok && resalesResponse.headers.get("content-type")?.includes("application/json")
+      ? await resalesResponse.json() : { orders: [] };
+    if (configurationResponse.ok && configurationResponse.headers.get("content-type")?.includes("application/json")) {
+      authConfiguration = await configurationResponse.json();
+      authConfigurationRequest = Promise.resolve(authConfiguration);
+    }
 
     const liveCurators = (Array.isArray(catalog.curators) ? catalog.curators : []).map((curator) => {
       const initials = curator.display_name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
@@ -159,7 +210,9 @@ const hydrateLiveCatalog = async () => {
     curators.splice(0, curators.length, ...liveCurators);
 
     const auctionsByWork = new Map((Array.isArray(catalog.auctions) ? catalog.auctions : []).map((auction) => [auction.work_id, auction]));
-    const liveWorks = catalog.works.map((work, index) => apiWork(work, index, auctionsByWork.get(work.id)));
+    const resalesByWork = new Map((Array.isArray(resales.orders) ? resales.orders : []).filter((order) => order.state === "open")
+      .map((order) => [order.work_id, order]));
+    const liveWorks = catalog.works.map((work, index) => apiWork(work, index, auctionsByWork.get(work.id), resalesByWork.get(work.id)));
     const liveSlugs = new Set(liveWorks.map((work) => work.slug));
     works.splice(0, works.length, ...liveWorks);
     discoveries.splice(0, discoveries.length, ...discoveries.filter((item) => liveSlugs.has(item.workSlug)));
@@ -355,9 +408,11 @@ const exhibitionPage = (exhibition) => {
 const workPage = (work) => {
   const curator = getCurator(work.curatorId);
   const related = works.filter((item) => item.slug !== work.slug && (item.curatorId === work.curatorId || item.type === work.type)).slice(0, 3);
-  const verb = work.auctionId ? "Place bid" : work.type === "digital" ? "Collect" : work.type === "paired" ? "Acquire pair" : "Buy work";
-  const unavailable = work.auctionId ? work.auctionState !== "open" : ["reserved", "sold"].includes(work.status);
+  const verb = work.resaleId ? "Buy with USDC" : work.auctionId ? "Place bid" : work.type === "digital" ? "Collect" : work.type === "paired" ? "Acquire pair" : "Buy work";
+  const unavailable = work.resaleId ? !work.resaleEnabled : work.auctionId ? work.auctionState !== "open" : ["reserved", "sold"].includes(work.status);
   const closes = work.auctionClosesAt ? new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" }).format(new Date(work.auctionClosesAt)) : "";
+  const secondaryConfigured = authConfiguration?.secondary?.configured === true;
+  const resellableToken = secondaryConfigured && work.id && work.type === "digital" && work.contractStatus === "minted" && work.contractAddress && work.tokenId !== undefined;
   return `
     <div class="work-page">
       <a class="back-link work-page__back" href="#market">← Marketplace</a>
@@ -368,13 +423,18 @@ const workPage = (work) => {
           <h1>${escapeHtml(work.title)}</h1>
           <span class="artist-name">${escapeHtml(work.artist)}, ${work.year}</span>
           ${curatorPill(curator)}
-          <div class="work-price"><strong>${escapeHtml(work.price)}</strong><span>${escapeHtml(work.auctionId ? `${work.auctionRail === "card" ? "Apple Pay / card" : work.auctionRail} auction${closes ? ` · closes ${closes}` : ""}` : work.cryptoPrice ? `${work.price} card` : "Card / Apple Pay")}</span></div>
+          <div class="work-price"><strong>${escapeHtml(work.price)}</strong><span>${escapeHtml(work.resaleId ? "USDC · gas-sponsored Safe · Seaport 1.6" : work.auctionId ? `${work.auctionRail === "card" ? "Apple Pay / card" : work.auctionRail} auction${closes ? ` · closes ${closes}` : ""}` : work.cryptoPrice ? `${work.price} card` : "Card / Apple Pay")}</span></div>
           ${unavailable
             ? `<p class="pending-note" role="status">${escapeHtml(work.availability)} · checkout is unavailable</p>`
-            : work.auctionId
+            : work.resaleId
+              ? `<button class="button button--blue" type="button" data-collect="${work.slug}" data-method="resale">${verb}</button>`
+              : work.auctionId
               ? `<button class="button button--blue" type="button" data-collect="${work.slug}" data-method="${work.auctionRail}">${verb}</button>`
               : `<button class="button button--blue" type="button" data-collect="${work.slug}" data-method="crypto">${verb}</button>
           <button class="text-button" type="button" data-collect="${work.slug}" data-method="card">Use card</button>`}
+          ${resellableToken && !work.resaleId ? `<button class="text-button" type="button" data-start-resale="${work.slug}">Sell this NFT</button>` : ""}
+          ${safeDocumentUrl(work.openSeaUrl) ? `<a class="text-button" href="${escapeHtml(safeDocumentUrl(work.openSeaUrl))}" target="_blank" rel="noopener">View on OpenSea ↗</a>` : ""}
+          ${work.chainId === 11155111 && work.contractStatus === "minted" ? `<p class="pending-note">Sepolia rehearsal · OpenSea retired all testnet support.</p>` : ""}
           <details class="work-details">
             <summary>Details</summary>
             <dl>
@@ -382,6 +442,7 @@ const workPage = (work) => {
               <div><dt>Edition</dt><dd>${escapeHtml(work.edition)}</dd></div>
               <div><dt>Location</dt><dd>${escapeHtml(work.location)}</dd></div>
               ${work.chain ? `<div><dt>Network</dt><dd>${escapeHtml(work.chain)}</dd></div>` : ""}
+              ${safeDocumentUrl(work.explorerUrl) ? `<div><dt>NFT</dt><dd><a href="${escapeHtml(safeDocumentUrl(work.explorerUrl))}" target="_blank" rel="noopener">${escapeHtml(`${work.contractAddress.slice(0, 8)}… · #${work.tokenId}`)}</a></dd></div>` : ""}
               ${safeDocumentUrl(work.termsUrl) ? `<div><dt>Buyer terms</dt><dd><a href="${escapeHtml(safeDocumentUrl(work.termsUrl))}" target="_blank" rel="noopener">Review terms</a></dd></div>` : ""}
               ${safeDocumentUrl(work.licenseUrl) ? `<div><dt>License</dt><dd><a href="${escapeHtml(safeDocumentUrl(work.licenseUrl))}" target="_blank" rel="noopener">Review license</a></dd></div>` : ""}
             </dl>
@@ -498,7 +559,12 @@ const bazaarPage = () => {
 
 const notFound = () => `<div class="page"><header class="page-title"><h1>Not found.</h1><a class="button button--dark" href="#home">Go home</a></header></div>`;
 
-const collectTemplate = (work, method) => work.auctionId ? `
+const collectTemplate = (work, method) => work.resaleId ? `
+  <div class="collect-work"><div>${art(work)}</div><span><small>Secondary listing</small><h2 id="collect-title">${escapeHtml(work.title)}</h2><i>${escapeHtml(work.artist)}</i></span></div>
+  <div class="collect-price"><strong>${escapeHtml(work.price)}</strong><span>Fixed price · Seaport 1.6</span></div>
+  <div class="method-panel"><span>USDC from your passkey Safe; Grove sponsors supported gas only.</span><button class="button button--dark" type="button" data-prepare-resale-purchase disabled>Checking resale…</button></div>
+  <small class="pending-note" data-checkout-note>Apple Pay and Stripe are not used for secondary NFT sales.</small>
+` : work.auctionId ? `
   <div class="collect-work"><div>${art(work)}</div><span><small>Ethereum auction</small><h2 id="collect-title">${escapeHtml(work.title)}</h2><i>${escapeHtml(work.artist)}</i></span></div>
   <div class="collect-price"><strong>${escapeHtml(work.price)}</strong><span>${escapeHtml(work.auctionRail === "card" ? "Apple Pay / card lot" : "Crypto lot")}</span></div>
   ${work.auctionRail === "card" ? `<label>Bid and payment authorization (USD)<input type="number" min="1" step="1" inputmode="numeric" data-auction-bid required></label>
@@ -530,10 +596,12 @@ const openCollect = (slug, method) => {
     const button = collectDialog.querySelector("[data-start-card-checkout]");
     const auctionButton = collectDialog.querySelector("[data-start-auction-setup]");
     const bidButton = collectDialog.querySelector("[data-place-auction-bid]");
+    const resaleButton = collectDialog.querySelector("[data-prepare-resale-purchase]");
     const note = collectDialog.querySelector("[data-checkout-note]");
     const configured = Boolean(configuration.acquisition?.card?.configured) && work.saleEnabled === true;
     const auctionConfigured = Boolean(configuration.auctions?.configured)
       && configuration.auctions?.rails?.includes(work.auctionRail) && work.auctionEnabled === true;
+    const resaleConfigured = Boolean(configuration.secondary?.configured) && work.resaleEnabled === true;
     if (button) {
       button.disabled = !configured;
       button.textContent = configured ? "Apple Pay or card" : "Checkout not available";
@@ -545,6 +613,10 @@ const openCollect = (slug, method) => {
     if (bidButton) {
       bidButton.disabled = !auctionConfigured;
       bidButton.textContent = auctionConfigured ? "Sign and place bid" : "Bidding not available";
+    }
+    if (resaleButton) {
+      resaleButton.disabled = !resaleConfigured;
+      resaleButton.textContent = resaleConfigured ? "Prepare gasless Safe purchase" : "Secondary checkout not available";
     }
     if (note && !work.auctionId && !configured) note.textContent = work.saleEnabled
       ? "Checkout remains disabled until provider and tax review pass."
@@ -726,6 +798,72 @@ const startCardCheckout = async (button) => {
     button.disabled = false;
     button.textContent = "Apple Pay or card";
     showToast(error.message || "Checkout is unavailable");
+  }
+};
+
+const usdcBaseUnits = (input) => {
+  const normalized = String(input || "").trim();
+  if (!/^[1-9][0-9]*(?:\.[0-9]{1,6})?$/.test(normalized)) throw new Error("Enter a positive USDC price with at most six decimals.");
+  const [whole, fraction = ""] = normalized.split(".");
+  return (BigInt(whole) * 1_000_000n + BigInt(fraction.padEnd(6, "0") || "0")).toString();
+};
+
+const startResaleListing = async (slug) => {
+  const work = getWork(slug);
+  if (!work?.id) return;
+  const entered = globalThis.prompt("Fixed resale price in USDC");
+  if (entered === null) return;
+  let grossAmount;
+  try {
+    grossAmount = usdcBaseUnits(entered);
+  } catch (error) {
+    showToast(error.message);
+    return;
+  }
+  try {
+    const contextResponse = await fetch("/api/resales/context", {
+      method: "POST",
+      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      body: JSON.stringify({ work_id: work.id, gross_amount: grossAmount, duration_seconds: 604800 })
+    });
+    const context = await contextResponse.json();
+    if (!contextResponse.ok) throw new Error(context.error?.message || "The resale listing is unavailable.");
+    if (context.listing?.approval?.required) {
+      throw new Error("The sponsored exact-token approval must finalize before the listing can be signed.");
+    }
+    const { signResaleOrderWithPasskey } = await import("./wallet-intents.js");
+    const signed = await signResaleOrderWithPasskey({ context });
+    const response = await fetch("/api/resales", {
+      method: "POST",
+      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      body: JSON.stringify(signed.body)
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error?.message || "The resale listing was not accepted.");
+    showToast("Signed Seaport listing published on the marketplace");
+    await hydrateLiveCatalog();
+  } catch (error) {
+    showToast(error.message || "The resale listing was not accepted");
+  }
+};
+
+const prepareResalePurchase = async (button) => {
+  const work = getWork(collectDialog.dataset.workSlug);
+  if (!work?.resaleId) return;
+  button.disabled = true;
+  button.textContent = "Checking Safe and USDC…";
+  try {
+    const response = await fetch(`/api/resales/${encodeURIComponent(work.resaleId)}/fulfillment-context`, {
+      headers: { Accept: "application/json" }
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error?.message || "The gasless purchase is unavailable.");
+    button.textContent = "Safe purchase prepared";
+    showToast("Safe purchase prepared for sponsored execution");
+  } catch (error) {
+    button.disabled = false;
+    button.textContent = "Prepare gasless Safe purchase";
+    showToast(error.message || "The gasless purchase is unavailable");
   }
 };
 
@@ -960,8 +1098,14 @@ document.addEventListener("click", (event) => {
     return;
   }
 
+  const resale = event.target.closest("[data-start-resale]");
+  if (resale) { void startResaleListing(resale.dataset.startResale); return; }
+
   const cardCheckout = event.target.closest("[data-start-card-checkout]");
   if (cardCheckout) { void startCardCheckout(cardCheckout); return; }
+
+  const resalePurchase = event.target.closest("[data-prepare-resale-purchase]");
+  if (resalePurchase) { void prepareResalePurchase(resalePurchase); return; }
 
   const auctionSetup = event.target.closest("[data-start-auction-setup]");
   if (auctionSetup) { void startAuctionPaymentSetup(auctionSetup); return; }

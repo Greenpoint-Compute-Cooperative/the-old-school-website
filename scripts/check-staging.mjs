@@ -42,6 +42,14 @@ assert.equal(health.metrics?.configured, false, "Staging must not write producti
 
 const configuration = await (await fetchChecked("/api/config")).json();
 assert.equal(configuration.backend?.configured, true);
+assert.equal(configuration.openSea?.availability, "unsupported-on-testnets", "Sepolia must not claim OpenSea availability.");
+assert.equal(configuration.openSea?.configured, false, "OpenSea publication is mainnet-only.");
+assert.equal(configuration.secondary?.applePay?.configured, false, "Apple Pay is not a secondary NFT rail.");
+
+const resales = await (await fetchChecked("/api/resales")).json();
+assert.ok(Array.isArray(resales.orders), "The staging resale read model must respond safely.");
+assert.notEqual(resales.open_sea, "mainnet", "Sepolia resale must not claim OpenSea publication.");
+assert.doesNotMatch(JSON.stringify(resales), /opensea\.io\/assets\/sepolia/i, "No retired OpenSea testnet URL may be published.");
 
 const catalog = await (await fetchChecked("/api/catalog")).json();
 assert.ok(Array.isArray(catalog.works) && catalog.works.length > 0, "Staging needs synthetic catalog records.");

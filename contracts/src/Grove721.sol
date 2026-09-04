@@ -11,6 +11,7 @@ import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 /// @notice Immutable work records and inventory-safe issuance for curated one-of-one works.
 /// @dev Every approved work is minted to custody before its auction opens. Pausing stops issuance only.
 contract Grove721 is ERC721, ERC2981, AccessControlDefaultAdminRules, Pausable {
+    bytes4 private constant ERC173_INTERFACE_ID = 0x7f5828d0;
     bytes32 public constant REGISTRAR_ROLE = keccak256("REGISTRAR_ROLE");
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
@@ -23,6 +24,7 @@ contract Grove721 is ERC721, ERC2981, AccessControlDefaultAdminRules, Pausable {
     }
 
     address public immutable inventorySafe;
+    string private collectionMetadataUri;
     mapping(uint256 tokenId => Work work) private works;
     mapping(bytes32 workId => uint256 tokenId) public tokenIdByWork;
     mapping(bytes32 workId => bool registered) public registeredWork;
@@ -38,6 +40,7 @@ contract Grove721 is ERC721, ERC2981, AccessControlDefaultAdminRules, Pausable {
     event ApprovedWorkMinted(
         bytes32 indexed issuanceId, bytes32 indexed workId, uint256 indexed tokenId, address inventorySafe
     );
+    event ContractURIUpdated();
 
     error InvalidAddress();
     error InvalidIssuance();
@@ -55,7 +58,8 @@ contract Grove721 is ERC721, ERC2981, AccessControlDefaultAdminRules, Pausable {
         address pauseGuardian,
         address inventorySafe_,
         string memory name_,
-        string memory symbol_
+        string memory symbol_,
+        string memory contractUri_
     ) ERC721(name_, symbol_) AccessControlDefaultAdminRules(2 days, admin) {
         if (
             admin == address(0) || registrar == address(0) || minter == address(0) || pauseGuardian == address(0)
@@ -63,7 +67,9 @@ contract Grove721 is ERC721, ERC2981, AccessControlDefaultAdminRules, Pausable {
         ) {
             revert InvalidAddress();
         }
+        if (!_isIpfsUri(contractUri_)) revert InvalidTokenURI();
         inventorySafe = inventorySafe_;
+        collectionMetadataUri = contractUri_;
         _grantRole(REGISTRAR_ROLE, registrar);
         _grantRole(MINTER_ROLE, minter);
         _grantRole(PAUSER_ROLE, pauseGuardian);
@@ -125,8 +131,13 @@ contract Grove721 is ERC721, ERC2981, AccessControlDefaultAdminRules, Pausable {
         return works[tokenId].workId;
     }
 
-    function _isIpfsUri(string calldata value) private pure returns (bool) {
-        bytes calldata uriBytes = bytes(value);
+    /// @notice ERC-7572 collection metadata used by marketplaces such as OpenSea.
+    function contractURI() external view returns (string memory) {
+        return collectionMetadataUri;
+    }
+
+    function _isIpfsUri(string memory value) private pure returns (bool) {
+        bytes memory uriBytes = bytes(value);
         return uriBytes.length > 7 && uriBytes[0] == "i" && uriBytes[1] == "p" && uriBytes[2] == "f"
             && uriBytes[3] == "s" && uriBytes[4] == ":" && uriBytes[5] == "/" && uriBytes[6] == "/";
     }
@@ -137,6 +148,6 @@ contract Grove721 is ERC721, ERC2981, AccessControlDefaultAdminRules, Pausable {
         override(ERC721, ERC2981, AccessControlDefaultAdminRules)
         returns (bool)
     {
-        return super.supportsInterface(interfaceId);
+        return interfaceId == ERC173_INTERFACE_ID || super.supportsInterface(interfaceId);
     }
 }

@@ -39,6 +39,11 @@ import { GET as settleAuctions, settleAuctionCardPayment } from "../api/cron/auc
 import { POST as cureAuctionPayment } from "../api/auctions/[id]/payment-cure.js";
 import { p256PublicKeyHex, requireWalletConfig } from "../lib/server/wallet.js";
 import { bidIntentFromContext } from "../lib/browser/wallet-intents.js";
+import { GET as getResales, POST as publishResale } from "../api/resales.js";
+import { POST as getResaleContext } from "../api/resales/context.js";
+import { GET as getResaleFulfillment } from "../api/resales/[id]/fulfillment-context.js";
+import { GET as publishOpenSeaOrders } from "../api/cron/opensea-publish.js";
+import { GET as indexResaleOwnership } from "../api/cron/resale-index.js";
 
 const envNames = [
   "VERCEL_ENV",
@@ -92,6 +97,25 @@ const envNames = [
   ,"GROVE_MAX_FIAT_HAMMER_MINOR"
   ,"GROVE_AUCTION_RISK_HOLD_HOURS"
   ,"GROVE_AUCTION_SETTLEMENT_HOURS"
+  ,"GROVE_SECONDARY_ENABLED"
+  ,"GROVE_SEAPORT_ADDRESS"
+  ,"GROVE_SEAPORT_CODE_HASH"
+  ,"GROVE_SEAPORT_VERSION"
+  ,"GROVE_SEAPORT_CONDUIT_KEY"
+  ,"GROVE_USDC_ADDRESS"
+  ,"GROVE_USDC_CODE_HASH"
+  ,"GROVE_SECONDARY_FEE_RECIPIENT"
+  ,"GROVE_SECONDARY_FEE_BPS"
+  ,"GROVE_SECONDARY_MIN_PRICE"
+  ,"GROVE_SECONDARY_MAX_PRICE"
+  ,"GROVE_SECONDARY_MAX_DURATION_SECONDS"
+  ,"GROVE_CHAIN_INDEXER_START_BLOCK"
+  ,"GROVE_SECONDARY_TERMS_VERSION"
+  ,"GROVE_SECONDARY_TERMS_HASH"
+  ,"GROVE_SPONSOR_EXECUTION_ENABLED"
+  ,"GROVE_OPENSEA_ENABLED"
+  ,"OPENSEA_API_KEY"
+  ,"GROVE_OPENSEA_COLLECTION_SLUG"
 ];
 const previous = Object.fromEntries(envNames.map((name) => [name, process.env[name]]));
 for (const name of envNames) delete process.env[name];
@@ -106,6 +130,19 @@ assert.equal(config.metrics.configured, false);
 assert.equal(config.acquisition.applePay.configured, false);
 assert.equal(config.wallet.configured, false);
 assert.equal(config.auctions.configured, false);
+assert.equal(config.secondary.configured, false);
+assert.equal(config.secondary.applePay.configured, false, "Apple Pay is never presented as a secondary NFT rail");
+assert.equal(config.openSea.configured, false);
+assert.equal(JSON.stringify(config).includes("OPENSEA_API_KEY"), false, "server-only OpenSea credentials are not public");
+
+const unavailableResales = await getResales(new Request("https://marketplace.example/api/resales"));
+assert.equal(unavailableResales.status, 200, "the public resale feed fails empty without claiming readiness");
+assert.deepEqual((await unavailableResales.json()).orders, []);
+assert.equal((await getResaleContext(new Request("https://marketplace.example/api/resales/context", { method: "POST", body: "{}" }))).status, 503);
+assert.equal((await publishResale(new Request("https://marketplace.example/api/resales", { method: "POST", body: "{}" }))).status, 503);
+assert.equal((await getResaleFulfillment(new Request("https://marketplace.example/api/resales/60000000-0000-4000-8000-000000000001/fulfillment-context"))).status, 503);
+assert.equal((await publishOpenSeaOrders(new Request("https://marketplace.example/api/cron/opensea-publish"))).status, 401);
+assert.equal((await indexResaleOwnership(new Request("https://marketplace.example/api/cron/resale-index"))).status, 401);
 
 const unavailableBid = await placeAuctionBid(new Request("https://marketplace.example/api/auctions/60000000-0000-4000-8000-000000000001/bids", {
   method: "POST", body: "{}"

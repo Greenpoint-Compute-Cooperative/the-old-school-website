@@ -29,6 +29,8 @@ npm run staging:check
 
 The deployment guard requires a clean `codex/live-marketplace` working tree. The deploy script checks the immutable candidate with authenticated `vercel curl` before moving the stable staging alias; the separate staging check then verifies that alias. Also verify function logs, synthetic Supabase data, and Sepolia receipts. Vercel does not schedule custom-environment cron jobs; use only a separately authenticated staging scheduler. The staging-health GitHub schedule becomes active only after its workflow is present on the repository default branch.
 
+For secondary-sale staging, set the repository secret `GROVE_STAGING_CRON_SECRET` to the same independently generated value as staging's `CRON_SECRET`. The `staging-resale-index` workflow calls only `/api/cron/resale-index`; it never receives a Supabase key, RPC URL, wallet key, or OpenSea credential.
+
 ### Production candidate
 
 ```sh
@@ -91,6 +93,13 @@ Confirm RLS, grants, indexes, retention, and least-privilege access before deplo
 - Reconcile provider, chain, database, and physical inventory records before resuming.
 
 Use the dedicated [auction commerce runbook](COMMERCE_RUNBOOK.md) for close, Apple Pay/card, paymaster, Safe, reorg, and post-mint dispute response.
+
+## Secondary-sale incident
+
+- Set `GROVE_SECONDARY_ENABLED=false` to stop new listing and fulfillment contexts; keep ownership, fill, cancellation, and reorg reconciliation running against already signed orders.
+- A disabled UI does not cancel a Seaport order. Sponsor only the exact order cancellation or counter increment after verifying the seller Safe and current counter.
+- Pause OpenSea publication independently with `GROVE_OPENSEA_ENABLED=false`. Never treat a successful OpenSea response as a fill or NFT ownership event.
+- Reconcile the canonical Seaport status, ERC-721 owner, exact approval, USDC transfers, receipt, block hash, and finality before resolving an incident.
 
 ## Data or rights request
 

@@ -18,12 +18,14 @@ contract GroveCollectionsTest is Test {
     address internal minter = makeAddr("minter");
     address internal pauseGuardian = makeAddr("pause-guardian");
     address internal inventorySafe;
+    string internal constant COLLECTION_URI = "ipfs://grove/collection.json";
 
     function setUp() public {
         inventorySafe = makeAddr("inventory-safe");
-        oneOfOnes =
-            new Grove721(address(this), registrar, minter, pauseGuardian, inventorySafe, "Grove One of Ones", "GROVE");
-        editions = new Grove1155(address(this), registrar, minter, pauseGuardian, inventorySafe);
+        oneOfOnes = new Grove721(
+            address(this), registrar, minter, pauseGuardian, inventorySafe, "Grove One of Ones", "GROVE", COLLECTION_URI
+        );
+        editions = new Grove1155(address(this), registrar, minter, pauseGuardian, inventorySafe, COLLECTION_URI);
     }
 
     function workId(uint256 tokenId) internal pure returns (bytes32) {
@@ -141,6 +143,12 @@ contract GroveCollectionsTest is Test {
     function testStandardsAreAdvertised() public view {
         assertTrue(oneOfOnes.supportsInterface(type(IERC2981).interfaceId));
         assertTrue(editions.supportsInterface(type(IERC2981).interfaceId));
+        assertTrue(oneOfOnes.supportsInterface(0x7f5828d0));
+        assertTrue(editions.supportsInterface(0x7f5828d0));
+        assertEq(oneOfOnes.contractURI(), COLLECTION_URI);
+        assertEq(editions.contractURI(), COLLECTION_URI);
+        assertEq(oneOfOnes.owner(), address(this));
+        assertEq(editions.owner(), address(this));
     }
 
     function testFuzzEditionSupplyEqualsConfiguredCap(uint32 rawCap) public {
