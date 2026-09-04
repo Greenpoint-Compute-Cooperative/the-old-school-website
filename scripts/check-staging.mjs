@@ -51,12 +51,14 @@ for (const work of catalog.works) {
     `Staging work ${work.slug} is not visibly synthetic.`);
 }
 
-await fetchChecked("/api/metrics", {}, 401);
-await fetchChecked("/api/events", {
+const metricsResponse = await fetchChecked("/api/metrics", {}, 503);
+assert.equal((await metricsResponse.json()).error?.code, "metrics_not_configured");
+const eventsResponse = await fetchChecked("/api/events", {
   method: "POST",
   headers: { Origin: "https://example.invalid", "Content-Type": "application/json" },
   body: JSON.stringify({ event_name: "page_view" })
-}, 403);
+}, 503);
+assert.equal((await eventsResponse.json()).error?.code, "metrics_not_configured");
 
 console.table(checks);
 console.log(`Staging checks passed for ${siteUrl}.`);
