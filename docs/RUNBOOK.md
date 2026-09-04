@@ -29,7 +29,7 @@ npm run staging:check
 
 The deployment guard requires a clean `codex/live-marketplace` working tree. The deploy script checks the immutable candidate with authenticated `vercel curl` before moving the stable staging alias; the separate staging check then verifies that alias. Also verify function logs, synthetic Supabase data, and Sepolia receipts. Vercel does not schedule custom-environment cron jobs; use only a separately authenticated staging scheduler. The staging-health GitHub schedule becomes active only after its workflow is present on the repository default branch.
 
-For secondary-sale staging, set the repository secret `GROVE_STAGING_CRON_SECRET` to the same independently generated value as staging's `CRON_SECRET`. The `staging-resale-index` workflow calls only `/api/cron/resale-index`; it never receives a Supabase key, RPC URL, wallet key, or OpenSea credential.
+For secondary-sale staging, set the repository secret `GROVE_STAGING_CRON_SECRET` to the same independently generated value as staging's `CRON_SECRET`. The `staging-resale-index` workflow always calls `/api/cron/resale-index`; it never receives a Supabase key, RPC URL, wallet key, or OpenSea credential. Keep the repository variable `GROVE_STAGING_SPONSOR_RECONCILE_ENABLED` absent or `false` while `sponsorExecutionReady` is false. Only after the reviewed Sepolia UserOperation E2E and code attestation may an operator set that variable to `true`, which adds the authenticated `/api/cron/sponsorship-reconcile` call on the same five-minute schedule. A `submission-pending` result is durable outbox evidence, not chain finality; use the receipt endpoint or reconciler result and canonical finalized EntryPoint event before reporting completion.
 
 ### Production candidate
 

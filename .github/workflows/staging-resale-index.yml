@@ -28,3 +28,13 @@ jobs:
           curl --fail-with-body --silent --show-error --retry 2 \
             --header "Authorization: Bearer $GROVE_STAGING_CRON_SECRET" \
             https://the-school-sepolia.vercel.app/api/cron/resale-index
+      - name: Reconcile sponsored Sepolia UserOperations
+        if: ${{ vars.GROVE_STAGING_SPONSOR_RECONCILE_ENABLED == 'true' }}
+        run: |
+          if [ -z "$GROVE_STAGING_CRON_SECRET" ]; then
+            echo "GROVE_STAGING_CRON_SECRET is not configured; sponsorship reconciliation is intentionally skipped."
+            exit 0
+          fi
+          curl --fail-with-body --silent --show-error --retry 2 \
+            --header "Authorization: Bearer $GROVE_STAGING_CRON_SECRET" \
+            https://the-school-sepolia.vercel.app/api/cron/sponsorship-reconcile

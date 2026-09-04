@@ -29,6 +29,10 @@
     {
       "path": "/api/cron/resale-index",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/sponsorship-reconcile",
+      "schedule": "*/5 * * * *"
     }
   ],
   "headers": [

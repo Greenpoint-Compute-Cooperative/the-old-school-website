@@ -44,6 +44,8 @@ import { POST as getResaleContext } from "../api/resales/context.js";
 import { GET as getResaleFulfillment } from "../api/resales/[id]/fulfillment-context.js";
 import { GET as publishOpenSeaOrders } from "../api/cron/opensea-publish.js";
 import { GET as indexResaleOwnership } from "../api/cron/resale-index.js";
+import { POST as sponsorSecondaryAction } from "../api/wallet/sponsor.js";
+import { GET as reconcileSponsorships } from "../api/cron/sponsorship-reconcile.js";
 
 const envNames = [
   "VERCEL_ENV",
@@ -113,6 +115,9 @@ const envNames = [
   ,"GROVE_SECONDARY_TERMS_VERSION"
   ,"GROVE_SECONDARY_TERMS_HASH"
   ,"GROVE_SPONSOR_EXECUTION_ENABLED"
+  ,"GROVE_SPONSOR_PER_OPERATION_MAX_WEI"
+  ,"GROVE_SPONSOR_PER_USER_DAILY_MAX_WEI"
+  ,"GROVE_SPONSOR_GLOBAL_DAILY_MAX_WEI"
   ,"GROVE_OPENSEA_ENABLED"
   ,"OPENSEA_API_KEY"
   ,"GROVE_OPENSEA_COLLECTION_SLUG"
@@ -143,6 +148,10 @@ assert.equal((await publishResale(new Request("https://marketplace.example/api/r
 assert.equal((await getResaleFulfillment(new Request("https://marketplace.example/api/resales/60000000-0000-4000-8000-000000000001/fulfillment-context"))).status, 503);
 assert.equal((await publishOpenSeaOrders(new Request("https://marketplace.example/api/cron/opensea-publish"))).status, 401);
 assert.equal((await indexResaleOwnership(new Request("https://marketplace.example/api/cron/resale-index"))).status, 401);
+assert.equal((await sponsorSecondaryAction(new Request("https://marketplace.example/api/wallet/sponsor", { method: "POST", body: "{}" }))).status, 503,
+  "sponsored secondary actions fail closed without the complete provider, policy, and budget boundary");
+assert.equal((await reconcileSponsorships(new Request("https://marketplace.example/api/cron/sponsorship-reconcile"))).status, 401,
+  "sponsorship reconciliation authenticates cron before configuration checks");
 
 const unavailableBid = await placeAuctionBid(new Request("https://marketplace.example/api/auctions/60000000-0000-4000-8000-000000000001/bids", {
   method: "POST", body: "{}"
