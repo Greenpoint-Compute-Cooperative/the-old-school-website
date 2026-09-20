@@ -1,0 +1,13 @@
+# Cloudflare deployment for the founding-member site (theoldschool.nyc):
+# a Worker that serves this directory as static files, no script. The live
+# domain is still served by GitHub Pages; this origin is the copy the domain
+# moves to. Deploys run against a pinned commit.
+name = "the-old-school"
+compatibility_date = "2026-09-01"
+workers_dev = true
+preview_urls = true
+
+[assets]
+directory = "."
+html_handling = "auto-trailing-slash"
+not_found_handling = "none"
