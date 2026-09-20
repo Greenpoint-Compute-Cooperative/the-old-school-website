@@ -1,0 +1,9 @@
+# Repository plumbing that must not be served.
+.git
+.github
+.gitignore
+.gstack
+.assetsignore
+.wrangler
+wrangler.toml
+CNAME
