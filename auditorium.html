@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>The Auditorium | The Old School</title>
+  <meta name="description" content="Scroll to walk into the auditorium at The Old School — 2,928 sq ft of 1911 schoolhouse assembly hall in Greenpoint, Brooklyn.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    /* The Old School — black & white, minimal centered facts */
+    :root, .sw-root {
+      --sw-bg: #000;
+      --sw-ink: #fff;
+      --sw-ink-soft: rgba(255,255,255,0.55);
+      --sw-accent: #fff;
+      --sw-font-display: 'Inter', -apple-system, sans-serif;
+      --sw-font-body: 'Inter', -apple-system, sans-serif;
+    }
+    html { scroll-behavior: auto; }
+    body { margin: 0; background: #000; }
+    /* film is black & white BAKED INTO THE CLIPS (build/encode.sh GRAY=1) — a CSS filter on <video> made scrubbing choppy; never re-add it */
+    /* no side gradient — copy floats in the middle of the frame */
+    .sw-copylayer::before { display: none !important; }
+    .sw-copy {
+      left: 50% !important; right: auto !important; top: 50% !important; bottom: auto !important;
+      transform: translate(-50%, -50%) !important;
+      width: min(92vw, 720px) !important; max-width: none !important;
+      text-align: center !important;
+    }
+    .sw-copy__num { display: none !important; }
+    .sw-copy__eyebrow {
+      margin-top: 0 !important;
+      font-family: 'JetBrains Mono', ui-monospace, monospace !important;
+      font-weight: 500 !important; font-size: 0.72rem !important; letter-spacing: 0.28em !important;
+      color: rgba(255,255,255,0.7) !important;
+    }
+    .sw-copy__title {
+      font-weight: 600 !important; letter-spacing: -0.02em !important;
+      font-size: clamp(1.9rem, 4.2vw, 3.4rem) !important; margin-top: 14px !important;
+      text-shadow: 0 2px 28px rgba(0,0,0,0.85), 0 0 2px rgba(0,0,0,0.6) !important;
+    }
+    .sw-copy__body, .sw-copy__tags { display: none !important; }
+    .sw-copy__cta { justify-content: center !important; margin-top: 26px !important; }
+    .sw-btn--primary { background: #fff !important; color: #000 !important; box-shadow: none !important; }
+    .sw-btn--secondary, .sw-topcta { background: transparent !important; color: #fff !important; border: 1px solid rgba(255,255,255,0.35) !important; }
+    .sw-brand__name, .sw-route__label, .sw-hint {
+      font-family: 'JetBrains Mono', ui-monospace, monospace !important;
+    }
+    .sw-brand__name { font-weight: 700 !important; letter-spacing: 0.18em !important; font-size: 0.92rem !important; }
+    .sw-brand__mark { display: none !important; }
+    .sw-nav__item.is-active { color: #000 !important; background: #fff !important; }
+    .sw-nav { background: rgba(0,0,0,0.6) !important; border-color: rgba(255,255,255,0.12) !important; }
+    .sw-route__label { background: rgba(0,0,0,0.8) !important; color: #fff !important; }
+    .sw-particles, .sw-sky__glow { display: none !important; }
+    .sw-topbar {
+      background: #000 !important;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      padding-top: clamp(12px, 1.6vw, 18px) !important;
+      padding-bottom: clamp(12px, 1.6vw, 18px) !important;
+    }
+
+    /* ============================================================
+       Mobile: 4:3 film pinned to the top, gradient fading up from a
+       black info panel, copy living in the black — not over the film.
+       (Engine injects its CSS at mount, after this block → !important.)
+       ============================================================ */
+    @media (max-width: 860px) {
+      :root, .sw-root { --hdr: 58px; }
+      /* film sits below the solid header */
+      .sw-scene__video, .sw-scene__still {
+        top: var(--hdr) !important;
+        height: calc(100vw * 0.75) !important;
+        bottom: auto !important;
+        object-position: center center !important;
+      }
+      /* gradient bridge: sits over the bottom of the film, fading up */
+      .sw-copylayer::before {
+        top: calc(var(--hdr) + 100vw * 0.75 - 24vw) !important;
+        bottom: auto !important;
+        height: 24.5vw !important;
+        width: 100% !important;
+        background: linear-gradient(0deg,
+          #000 0%,
+          color-mix(in srgb, var(--sw-bg) 62%, transparent) 52%,
+          transparent 100%) !important;
+      }
+      /* copy fades up inside the black panel below the film */
+      .sw-copy {
+        top: calc(var(--hdr) + 100vw * 0.75 + ((100dvh - var(--hdr) - 100vw * 0.75) / 2)) !important;
+        bottom: auto !important;
+        left: 50% !important; right: auto !important;
+        transform: translate(-50%, -50%) !important;
+        width: 88vw !important;
+      }
+      .sw-copy__title { font-size: clamp(1.7rem, 7vw, 2.4rem) !important; }
+      .sw-hint { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div id="world"></div>
+  <script src="auditorium/scrub-engine.js"></script>
+  <script>
+    mountScrollWorld(document.getElementById('world'), {
+      brand: { name: 'THE OLD SCHOOL', href: 'index.html' },
+      cta: { label: 'Inquire', href: 'index.html#interest' },
+      hint: 'scroll to walk in',
+      atmosphere: false,
+      diveScroll: 1.35,
+      crossfade: 0.16,
+      sections: [
+        {
+          id: 'doors', label: 'The Doors',
+          still: 'auditorium/still/leg0.jpg', stillMobile: 'auditorium/still/leg0-m.jpg',
+          clip: 'auditorium/vid/leg0.mp4', clipMobile: 'auditorium/vid/leg0-m.mp4',
+          accent: '#ffffff',
+          scroll: 1.5, linger: 0.3,
+          eyebrow: 'The Auditorium',
+          title: '2,928 sq ft',
+          body: '',
+          tags: []
+        },
+        {
+          id: 'stage', label: 'The Stage',
+          still: 'auditorium/still/leg1.jpg', stillMobile: 'auditorium/still/leg1-m.jpg',
+          clip: 'auditorium/vid/leg1.mp4', clipMobile: 'auditorium/vid/leg1-m.mp4',
+          accent: '#ffffff',
+          scroll: 1.2,
+          eyebrow: 'Stage',
+          title: '13\u2032 \u00d7 25\u2032',
+          body: '',
+          tags: []
+        },
+        {
+          id: 'light', label: 'The Light',
+          still: 'auditorium/still/leg2.jpg', stillMobile: 'auditorium/still/leg2-m.jpg',
+          clip: 'auditorium/vid/leg2.mp4', clipMobile: 'auditorium/vid/leg2-m.mp4',
+          accent: '#ffffff',
+          scroll: 1.2,
+          eyebrow: 'Daylight',
+          title: 'Windows both sides',
+          body: '',
+          tags: []
+        },
+        {
+          id: 'capacity', label: 'Capacity',
+          still: 'auditorium/still/leg3.jpg', stillMobile: 'auditorium/still/leg3-m.jpg',
+          clip: 'auditorium/vid/leg3.mp4', clipMobile: 'auditorium/vid/leg3-m.mp4',
+          accent: '#ffffff',
+          scroll: 1.2,
+          eyebrow: 'Capacity',
+          title: '400 standing \u00b7 190 seated',
+          body: '',
+          tags: []
+        },
+        {
+          id: 'included', label: 'Included',
+          still: 'auditorium/still/leg4.jpg', stillMobile: 'auditorium/still/leg4-m.jpg',
+          clip: 'auditorium/vid/leg4.mp4', clipMobile: 'auditorium/vid/leg4-m.mp4',
+          accent: '#ffffff',
+          scroll: 1.2,
+          eyebrow: 'Included',
+          title: 'Projector \u00b7 PA \u00b7 Stage',
+          body: '',
+          tags: []
+        },
+        {
+          id: 'span', label: 'Full Circle',
+          still: 'auditorium/still/leg5.jpg', stillMobile: 'auditorium/still/leg5-m.jpg',
+          clip: 'auditorium/vid/leg5.mp4', clipMobile: 'auditorium/vid/leg5-m.mp4',
+          accent: '#ffffff',
+          scroll: 2.4,
+          eyebrow: 'Clear span',
+          title: '48\u2032 \u00d7 60\u2032 \u00b7 No columns',
+          body: '',
+          tags: []
+        },
+        {
+          id: 'book', label: 'Book It',
+          still: 'auditorium/still/leg6.jpg', stillMobile: 'auditorium/still/leg6-m.jpg',
+          clip: 'auditorium/vid/leg6.mp4', clipMobile: 'auditorium/vid/leg6-m.mp4',
+          accent: '#ffffff',
+          scroll: 1.5, linger: 0.35,
+          eyebrow: 'First floor \u00b7 Greenpoint',
+          title: 'Book the room',
+          body: '',
+          tags: [],
+          cta: {
+            primary: { label: 'Inquire', href: 'index.html#interest' },
+            secondary: { label: 'Floor Plan', href: 'floorplan.html' }
+          }
+        }
+      ],
+      connectors: []
+    });
+
+    // Seamless infinite loop: the film's last frame is its first frame (back at
+    // the doors), so after a short runway past the final scene we jump back to
+    // the top — the picture doesn't change, only the loop begins again.
+    (function () {
+      var wrapping = false;
+      window.addEventListener('scroll', function () {
+        if (wrapping) return;
+        var max = document.documentElement.scrollHeight - window.innerHeight;
+        if (window.scrollY >= max - 2) {
+          wrapping = true;
+          window.scrollTo({ top: 0, behavior: 'instant' });
+          requestAnimationFrame(function () { wrapping = false; });
+        }
+      }, { passive: true });
+    })();
+  </script>
+</body>
+</html>
