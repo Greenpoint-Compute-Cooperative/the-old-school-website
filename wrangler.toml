@@ -1,11 +1,14 @@
-# Cloudflare deployment for the founding-member site (theoldschool.nyc):
-# a Worker that serves this directory as static files, no script. The live
-# domain is still served by GitHub Pages; this origin is the copy the domain
-# moves to. Deploys run against a pinned commit.
+# Cloudflare deployment for the founding-member site: a Worker that serves this
+# directory as static files, no script. Live on theschool.nyc + www (custom
+# domains, coop account, 2026-10-02); theoldschool.nyc is still GitHub Pages.
 name = "the-old-school"
 compatibility_date = "2026-09-01"
 workers_dev = true
 preview_urls = true
+routes = [
+  { pattern = "theschool.nyc", custom_domain = true },
+  { pattern = "www.theschool.nyc", custom_domain = true },
+]
 
 [assets]
 directory = "."
