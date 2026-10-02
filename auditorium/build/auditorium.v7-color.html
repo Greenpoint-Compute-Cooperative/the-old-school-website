@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>The Auditorium | The Old School</title>
+  <meta name="description" content="Scroll to walk into the auditorium at The Old School — 2,928 sq ft of 1911 schoolhouse assembly hall in Greenpoint, Brooklyn.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    /* The Old School theme over the scroll-world engine */
+    :root, .sw-root {
+      --sw-bg: oklch(0.16 0.012 152);
+      --sw-ink: oklch(0.96 0.006 95);
+      --sw-ink-soft: oklch(0.72 0.008 152);
+      --sw-accent: oklch(0.86 0.24 150);
+      --sw-font-display: 'Inter', -apple-system, sans-serif;
+      --sw-font-body: 'Inter', -apple-system, sans-serif;
+    }
+    html { scroll-behavior: auto; }
+    body { margin: 0; background: oklch(0.16 0.012 152); }
+    .sw-copy__title { font-weight: 700 !important; letter-spacing: -0.03em !important; }
+    .sw-copy__eyebrow, .sw-copy__tags li, .sw-brand__name, .sw-route__label, .sw-hint {
+      font-family: 'JetBrains Mono', ui-monospace, monospace !important;
+    }
+    .sw-copy__eyebrow { font-weight: 500 !important; letter-spacing: 0.22em !important; color: oklch(0.86 0.24 150) !important; }
+    .sw-brand__name { font-weight: 700 !important; letter-spacing: 0.18em !important; font-size: 0.92rem !important; }
+    .sw-brand__mark { display: none !important; }
+    .sw-copy__tags li { background: oklch(1 0 0 / 0.05) !important; border-color: oklch(1 0 0 / 0.14) !important; color: var(--sw-ink-soft) !important; font-weight: 400 !important; }
+    .sw-btn--primary { background: oklch(0.86 0.24 150) !important; color: oklch(0.16 0.012 152) !important; }
+    .sw-nav { background: oklch(0.16 0.012 152 / 0.6) !important; border-color: oklch(1 0 0 / 0.08) !important; }
+    .sw-route__label { background: oklch(0.16 0.012 152 / 0.8) !important; color: var(--sw-ink) !important; }
+    .sw-topcta { background: oklch(1 0 0 / 0.08) !important; color: var(--sw-ink) !important; border: 1px solid oklch(1 0 0 / 0.14); }
+    .sw-particles, .sw-sky__glow { display: none !important; }
+    /* solid header */
+    .sw-topbar {
+      background: oklch(0.16 0.012 152) !important;
+      border-bottom: 1px solid oklch(1 0 0 / 0.08);
+      padding-top: clamp(12px, 1.6vw, 18px) !important;
+      padding-bottom: clamp(12px, 1.6vw, 18px) !important;
+    }
+
+    /* ============================================================
+       Mobile: 4:3 film pinned to the top, gradient fading up from a
+       black info panel, copy living in the black — not over the film.
+       (Engine injects its CSS at mount, after this block → !important.)
+       ============================================================ */
+    @media (max-width: 860px) {
+      :root, .sw-root { --hdr: 58px; }
+      /* film sits below the solid header */
+      .sw-scene__video, .sw-scene__still {
+        top: var(--hdr) !important;
+        height: calc(100vw * 0.75) !important;
+        bottom: auto !important;
+        object-position: center center !important;
+      }
+      /* gradient bridge: sits over the bottom of the film, fading up */
+      .sw-copylayer::before {
+        top: calc(var(--hdr) + 100vw * 0.75 - 24vw) !important;
+        bottom: auto !important;
+        height: 24.5vw !important;
+        width: 100% !important;
+        background: linear-gradient(0deg,
+          var(--sw-bg) 0%,
+          color-mix(in srgb, var(--sw-bg) 62%, transparent) 52%,
+          transparent 100%) !important;
+      }
+      /* copy fades up inside the black panel below the film */
+      .sw-copy {
+        top: calc(var(--hdr) + 100vw * 0.75 + 3vw) !important;
+        bottom: auto !important;
+        transform: none !important;
+        left: clamp(18px, 6vw, 40px) !important;
+        right: clamp(18px, 6vw, 40px) !important;
+      }
+      .sw-copy__title { font-size: clamp(1.7rem, 7vw, 2.4rem) !important; }
+      .sw-hint { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div id="world"></div>
+  <script src="auditorium/scrub-engine.js"></script>
+  <script>
+    mountScrollWorld(document.getElementById('world'), {
+      brand: { name: 'THE OLD SCHOOL', href: 'index.html' },
+      cta: { label: 'Inquire', href: 'index.html#interest' },
+      hint: 'scroll to walk in',
+      atmosphere: false,
+      diveScroll: 1.35,
+      crossfade: 0.16,
+      sections: [
+        {
+          id: 'doors', label: 'The Doors',
+          still: 'auditorium/still/leg0.jpg', stillMobile: 'auditorium/still/leg0-m.jpg',
+          clip: 'auditorium/vid/leg0.mp4', clipMobile: 'auditorium/vid/leg0-m.mp4',
+          accent: 'oklch(0.86 0.24 150)',
+          scroll: 1.5, linger: 0.3,
+          eyebrow: 'Enter',
+          title: 'The Auditorium.',
+          body: 'Two white doors off the landing open into 2,928 square feet of 1911 schoolhouse assembly hall \u2014 original stage, coffered plaster ceiling, old-growth pine floor.',
+          tags: ['2,928 sq ft', 'First floor', 'Greenpoint, Brooklyn']
+        },
+        {
+          id: 'stage', label: 'The Stage',
+          still: 'auditorium/still/leg1.jpg', stillMobile: 'auditorium/still/leg1-m.jpg',
+          clip: 'auditorium/vid/leg1.mp4', clipMobile: 'auditorium/vid/leg1-m.mp4',
+          accent: 'oklch(0.86 0.24 150)',
+          scroll: 1.2,
+          eyebrow: 'The Stage',
+          title: 'A built-in stage.',
+          body: 'Turn from the center of the room and the 13\u2032 \u00d7 25\u2032 proscenium stage comes around \u2014 gothic tracery on the pilasters, house PA on deck, working rigging overhead.',
+          tags: ['13\u2032 \u00d7 25\u2032 stage', 'House PA', 'Rigging']
+        },
+        {
+          id: 'light', label: 'The Light',
+          still: 'auditorium/still/leg2.jpg', stillMobile: 'auditorium/still/leg2-m.jpg',
+          clip: 'auditorium/vid/leg2.mp4', clipMobile: 'auditorium/vid/leg2-m.mp4',
+          accent: 'oklch(0.86 0.24 150)',
+          scroll: 1.2,
+          eyebrow: 'The Light',
+          title: 'Daylight on both sides.',
+          body: 'Keep turning and the windows never stop \u2014 tall double-hungs down both long walls, trees on one side, rooftops on the other.',
+          tags: ['Tall windows', 'All-day light']
+        },
+        {
+          id: 'events', label: 'The Events',
+          still: 'auditorium/still/leg3.jpg', stillMobile: 'auditorium/still/leg3-m.jpg',
+          clip: 'auditorium/vid/leg3.mp4', clipMobile: 'auditorium/vid/leg3-m.mp4',
+          accent: 'oklch(0.86 0.24 150)',
+          scroll: 1.2,
+          eyebrow: 'The Events',
+          title: 'Built for a crowd.',
+          body: 'Performances and screenings, talks and assemblies, dinners, markets, rehearsals, ceremonies \u2014 the room takes them all.',
+          tags: ['Performances', 'Screenings', 'Dinners', 'Markets']
+        },
+        {
+          id: 'projection', label: 'Projection',
+          still: 'auditorium/still/leg4.jpg', stillMobile: 'auditorium/still/leg4-m.jpg',
+          clip: 'auditorium/vid/leg4.mp4', clipMobile: 'auditorium/vid/leg4-m.mp4',
+          accent: 'oklch(0.86 0.24 150)',
+          scroll: 1.2,
+          eyebrow: 'Projection',
+          title: 'Wired for shows.',
+          body: 'Ceiling-mounted projector, stage PA, and clean white walls that take an image beautifully \u2014 screenings and visuals need no extra rig.',
+          tags: ['Projector', 'Stage PA', 'White walls']
+        },
+        {
+          id: 'circle', label: 'Full Circle',
+          still: 'auditorium/still/leg5.jpg', stillMobile: 'auditorium/still/leg5-m.jpg',
+          clip: 'auditorium/vid/leg5.mp4', clipMobile: 'auditorium/vid/leg5-m.mp4',
+          accent: 'oklch(0.86 0.24 150)',
+          scroll: 2.4,
+          eyebrow: 'Full Circle',
+          title: '48 by 60 feet. No columns.',
+          body: 'The turn closes on a 48\u20321\u2033 \u00d7 60\u203210\u2033 clear span under ornamented beams \u2014 open floor for seated rows, standing crowds, dance floors, or a full production build.',
+          tags: ['48\u20321\u2033 \u00d7 60\u203210\u2033', 'Clear span', 'No columns']
+        },
+        {
+          id: 'floor', label: 'Book It',
+          still: 'auditorium/still/leg6.jpg', stillMobile: 'auditorium/still/leg6-m.jpg',
+          clip: 'auditorium/vid/leg6.mp4', clipMobile: 'auditorium/vid/leg6-m.mp4',
+          accent: 'oklch(0.86 0.24 150)',
+          scroll: 1.5, linger: 0.35,
+          eyebrow: 'Book It',
+          title: 'Yours to fill.',
+          body: 'Drift back across a century of old-growth pine to the doors, and the loop begins again. Tell us what you\u2019re planning \u2014 the auditorium is ready.',
+          tags: ['Events', 'Productions', 'Rentals'],
+          cta: {
+            primary: { label: 'Inquire About the Space', href: 'index.html#interest' },
+            secondary: { label: 'See the Floor Plan', href: 'floorplan.html' }
+          }
+        }
+      ],
+      connectors: []
+    });
+
+    // Seamless infinite loop: the film's last frame is its first frame (back at
+    // the doors), so after a short runway past the final scene we jump back to
+    // the top — the picture doesn't change, only the loop begins again.
+    (function () {
+      var wrapping = false;
+      window.addEventListener('scroll', function () {
+        if (wrapping) return;
+        var max = document.documentElement.scrollHeight - window.innerHeight;
+        if (window.scrollY >= max - 2) {
+          wrapping = true;
+          window.scrollTo({ top: 0, behavior: 'instant' });
+          requestAnimationFrame(function () { wrapping = false; });
+        }
+      }, { passive: true });
+    })();
+  </script>
+</body>
+</html>
