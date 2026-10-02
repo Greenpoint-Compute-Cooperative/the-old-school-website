@@ -1,0 +1,4 @@
+# Repository plumbing that must not be served.
+wrangler.toml
+.assetsignore
+.wrangler
