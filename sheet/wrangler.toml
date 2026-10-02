@@ -1,0 +1,13 @@
+# The School: auditorium one-sheet (sheet.theschool.nyc). Static Worker serving this
+# folder; the main site Worker also serves it at theschool.nyc/sheet/.
+name = "the-school-sheet"
+# Cooperative Cloudflare account (not a secret).
+account_id = "c2ce5c0b362e73c6248f4e0d46c6c314"
+compatibility_date = "2026-09-01"
+workers_dev = true
+routes = [{ pattern = "sheet.theschool.nyc", custom_domain = true }]
+
+[assets]
+directory = "."
+html_handling = "auto-trailing-slash"
+not_found_handling = "none"
