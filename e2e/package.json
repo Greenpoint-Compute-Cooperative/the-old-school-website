@@ -1,0 +1,13 @@
+{
+  "name": "the-school-e2e",
+  "private": true,
+  "type": "module",
+  "description": "End-to-end checks for theschool.nyc, sheet.theschool.nyc, /auditorium/ and the School forms.",
+  "scripts": {
+    "test": "node run.mjs",
+    "test:local": "SITE=http://localhost:8787 node run.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.57.0"
+  }
+}
