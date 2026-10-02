@@ -7,8 +7,11 @@
   <meta name="description" content="A 20,000-square-foot residency, workspace, and events institution in Greenpoint, at the intersection of art and frontier technology. We are assembling 50 founding members to cowork and create together.">
 
   <script>
-    window.SCHOOL_SURVEY_ENDPOINT = "https://www.sayinterviews.com/api/school-survey";
+    // GPCC Forms (Greenpoint-Compute-Cooperative/gpcc-forms, form "founding-member"):
+    // submissions land in the cooperative's own database and Slack.
+    window.SCHOOL_SURVEY_ENDPOINT = "https://form.theschool.nyc/api/f/founding-member";
   </script>
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -519,6 +522,8 @@
             <textarea name="referral" rows="3" required></textarea>
           </fieldset>
 
+          <div class="cf-turnstile" data-sitekey="0x4AAAAAAFLsrU-_juvQUw02" data-action="founding-member" data-theme="light" style="margin:0 0 18px;min-height:65px"></div>
+
           <div class="submit-row">
             <button type="submit" id="submit-btn">Submit interest →</button>
             <p class="submit-msg" id="submit-msg"></p>
@@ -533,7 +538,7 @@
       </section>
 
       <div style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden" aria-hidden="true">
-        <label>Website<input type="text" name="website" tabindex="-1" autocomplete="off"></label>
+        <label>Website<input type="text" name="field_hp" tabindex="-1" autocomplete="off"></label>
       </div>
     </form>
 
@@ -586,7 +591,8 @@
           });
           if (!res.ok) {
             const data = await res.json().catch(() => ({}));
-            throw new Error(data.error || ('HTTP ' + res.status));
+            const fields = data.fieldErrors ? Object.values(data.fieldErrors) : [];
+            throw new Error(fields.length ? fields.join(' ') : (data.error || ('HTTP ' + res.status)));
           }
           formFields.style.display = 'none';
           successCard.classList.add('show');
@@ -594,6 +600,7 @@
         } catch (err) {
           console.error('[school-survey] submit failed', err);
           submitMsg.textContent = 'Something broke. ' + (err.message || 'try again in a moment.');
+          if (window.turnstile) window.turnstile.reset();
           submitMsg.style.color = 'oklch(0.55 0.20 25)';
           submitBtn.disabled = false;
           submitBtn.textContent = originalLabel;
