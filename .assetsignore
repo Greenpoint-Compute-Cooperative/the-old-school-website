@@ -7,3 +7,5 @@
 .wrangler
 wrangler.toml
 CNAME
+e2e
+node_modules
