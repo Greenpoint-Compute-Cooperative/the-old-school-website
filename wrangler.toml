@@ -1,13 +1,15 @@
 # Cloudflare deployment for the founding-member site: a Worker that serves this
-# directory as static files, no script. Live on theschool.nyc + www (custom
-# domains, coop account, 2026-10-02); theoldschool.nyc is still GitHub Pages.
+# directory as static files, no script. Live on theschool.nyc + www (Worker
+# routes, coop account, 2026-10-02); theoldschool.nyc is still GitHub Pages.
 name = "the-old-school"
 compatibility_date = "2026-09-01"
 workers_dev = true
 preview_urls = true
+# Worker routes on the zone's existing proxied DNS records (custom domains would need
+# those records deleted first, which needs a DNS-scoped token).
 routes = [
-  { pattern = "theschool.nyc", custom_domain = true },
-  { pattern = "www.theschool.nyc", custom_domain = true },
+  { pattern = "theschool.nyc/*", zone_name = "theschool.nyc" },
+  { pattern = "www.theschool.nyc/*", zone_name = "theschool.nyc" },
 ]
 
 [assets]
